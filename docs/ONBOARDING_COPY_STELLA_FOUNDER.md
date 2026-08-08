@@ -1,0 +1,80 @@
+# Onboarding Copy Spec — `stella-founder`
+
+Founder ideas from `possibleonboardingcopy.md` reinterpreted through the
+**Stella** UX framework (full-screen streamed serif conversation, free-text
+dominant, thin top progress bar, "thinking" beats, early contextual
+notification permission, name echo, emotional pivot, "preparing" moment,
+skippable auth sheet, hard paywall with no close button).
+
+**The conceit — the founder's Screen 1, made literal:** in this variant the
+entire conversation is *with your future self*. Stella talks as "Stella"; here
+the voice is *you, further down the road*. The founder quote lands in first
+person ("The reason you want it so badly is because **I already have it**"),
+which is the single strongest line in the funnel. Multiple-choice founder
+ideas are converted to free-text or hybrid interactions where that strengthens
+the conversational flow (per the founder's own instruction that the file is an
+idea bank, not a script).
+
+Presentation identical to `stella-claude`: streamed serif voice on warm-sand
+gradient, inputs fade in after streaming, ~1s beats, back arrow from screen 4,
+progress bar hidden from screen 15.
+
+| # | Voice / copy | Input | → model |
+|---|--------------|-------|---------|
+| 1 | *(Splash → slow sunrise; tagline streams:)* **"Everything I become starts with what you do today."** | — | — |
+| 2 | Wordmark **"Future Self"**. / CTA **"Continue"** / link "Already have an account? **Sign in**" / footer terms line | button | — |
+| 3 | **"I'll want to reach you during the day — a few words when they matter most."** / "Turn on notifications so I can." / CTA **"Turn them on"** → OS dialog / link "Maybe later" | custom | permission status |
+| 4 | **"Hey. It's me — your future self."** *(beat)* **"I know how that sounds. Stay with me."** *(beat)* **"I exist because of what you do today. So I have questions."** | Continue | — |
+| 5 | **"Start simple. What's our name?"** | text, placeholder "Our name" | display_name |
+| 6 | **"{name}. Still a good name."** *(auto-advance 1.5 s)* | — | — |
+| 7 | **"Which best describes us?"** | chips: Female · Male · Non-binary · Prefer not to say | gender |
+| 8 | *(founder S5)* **"I need to know something first."** *(beat)* **"Are you ready to change the direction of our life?"** | chips: "Yes. I've been waiting" · "I think so" · "I want to be" · "Honestly — not sure" | raw_answers.readiness |
+| 9 | *(founder S7, conversational)* **"How badly do you want this right now?"** | chips: "I'm ready to give it everything" · "I'm motivated — I just can't stay consistent" · "I want change, but I feel stuck" · "I'm still figuring out what I want" · "I'm mostly exploring" | motivation_level |
+| 10 | *(founder S8 → hybrid)* **"Where do you need me first?"** | chips (max 3): "Our body" · "Career or business" · "Money & security" · "Focus & consistency" · "Confidence & peace" · "The people we love" + "Something else…" (opens free text) | primary_goals + quote_interests |
+| 11 | **"Now say it properly. What's the life you're trying to build for us?"** | text, placeholder "Don't be modest. I already know how it ends…" | life_goal |
+| 12 | *(founder S9 → hybrid)* **"And what keeps stopping us?"** | chips: "We put things off" · "We get distracted" · "We lose motivation" · "We get overwhelmed" · "We doubt ourselves" · "We don't know where to start" · "We're moving — I want to keep it that way" + "Something else…" | obstacles |
+| 13 | *(founder S2, first person — the pivot)* **"Can I tell you something?"** *(beat)* **"The reason you want it so badly is because I already have it."** *(beat)* **"All of it. It's waiting on the other side of your ordinary days."** | Continue | — |
+| 14 | *(founder S11)* **"Describe me. Three words — the ones you're building toward."** | chips (exactly 3): Disciplined · Confident · Calm · Healthy · Wealthy · Focused · Resilient · Free | future_traits |
+| 15 | *(progress bar gone)* **"What do you want to hear from me when it gets hard?"** | chips: "Remind me why I started" · "Be hard on me — kindly" · "Calm me down" · "Celebrate the small wins" | affirmation_interests (mapped) |
+| 16 | *(founder S13, honest)* **"That's all I needed, {name}."** *(beat, dynamic mirror — high motivation:)* **"That hunger you just admitted? It's exactly what this was built for."** *(stuck/unsure:)* **"You answered honestly. That's rarer than motivation — and it's enough."** *(beat)* **"I'm building our daily plan now: the quotes, the affirmations, the check-ins. Everything aimed at the {trait₁}, {trait₂}, {trait₃} version of us."** | Continue | uses model |
+| 17 | **"Building our plan…"** — soft shimmering sun-disc, ~6 s of real work (personalization weights, first daily sets, notification plan). | — | — |
+| 18 | *(Main feed visible, blurred, behind sheet)* **"Don't lose us, {name}."** / "Sign in so our goal, our streak and our words survive a lost phone." / **" Sign in with Apple"** (iOS) · **"Continue with Google"** · **"Use email instead"** / link **"Not now"** | auth sheet (skippable) | identity link |
+| 19 | **Hard paywall** — cream card over the blurred feed, no close control. Serif header **"A note from your future self"**. Body: "You just told me who you want to become. I'm not letting that be another tab you close. Future Self has no ads and sells nothing about you — the app works for you, which is why it's paid. Take {trial_length} free. If it doesn't move you, cancel in two taps and pay nothing. But you didn't come this far to only come this far. — you, later" / CTA **"Start my free {trial_length} →"** / real localized price below: "then {price}/{period}" / footer "Privacy · Terms · Restore". *(No trial configured → CTA "Unlock Future Self", real price shown.)* No dismissal — hard gate; Restore always available. | paywall | — |
+| 20 | *(post-purchase, only if auth skipped)* **"One tap so we're never lost."** / same providers / "Not now" | auth sheet | identity link |
+
+Then → main app feed. `life_goal` (screen 11) is the suggested pinned line for
+the persistent widget; the founder quote is the fallback sample.
+
+## Founder ideas: kept / adapted / omitted
+
+- **Kept:** future-self voice (S1) as the variant's entire frame; readiness
+  (S5); motivation with all five founder options (S7); areas (S8) and
+  obstacles (S9) with the founder's option sets converted to "we/us" voice and
+  hybrid chips+free-text; the founder quote (S2) as the emotional pivot, in
+  first person; pick-3 traits (S11); the plan/result moment (S13) made honest
+  and conditional on real answers.
+- **Adapted:** "Let's see if you are the type of person who could benefit"
+  (S3) folds into the readiness framing (screen 8) rather than a separate
+  qualification screen — one gate reads stronger in the slow Stella rhythm.
+  "Science has shown that…" (S10) is omitted here entirely; the mechanism is
+  carried by the future-self conceit itself (no source was provided, and we
+  don't invent one).
+  "Analysis complete… perfect candidate" → "That's all I needed" mirror that
+  only praises ambition when the user reported it.
+- **Added:** name capture + echo, notification ask in the future-self voice,
+  free-text life goal, hard-moment preference (screen 15) mapping to
+  affirmation interests, auth sheet, preparing moment — all required by the
+  Stella framework.
+- **Gender options extended** beyond Male/Female, matching both references.
+
+## Authentication placement (matches Stella)
+
+Optional sheet after the conversation and before the paywall; re-offered once
+post-purchase if skipped. Apple + Google + email on iOS, Google + email on
+Android; unconfigured providers hide. Anonymous Supabase session from first
+launch; identity linking preserves everything.
+
+## Analytics events
+
+Same schema, `variant:"stella-founder"`. Free-text answers never leave
+Supabase.

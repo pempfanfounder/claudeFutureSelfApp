@@ -41,3 +41,11 @@ example
 # generated native folders
 /ios
 /android
+
+# Reference materials (not part of the app)
+copy_*.MOV
+possibleonboardingcopy.md
+themes copy.ts
+tokens copy.ts
+logo.png
+.DS_Store

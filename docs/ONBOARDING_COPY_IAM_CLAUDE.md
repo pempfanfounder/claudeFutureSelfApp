@@ -1,0 +1,70 @@
+# Onboarding Copy Spec — `iam-claude`
+
+Claude-original conversion strategy on the **I Am** UX framework (serif-on-cream
+quiz rhythm, auto-advance single-selects, no progress bar, interstitial
+breathers, name reuse, notification education before the OS dialog, streak
+commitment moment, trial seeding, timeline paywall with delayed X, no visible
+authentication). Written before `possibleonboardingcopy.md` was opened; not
+based on it.
+
+**Emotional strategy — "the gap":** every screen frames a measurable distance
+between today-you and future-you, and positions three small daily readings as
+the honest mechanism that closes it. No fabricated statistics, testimonials, or
+science claims anywhere; urgency comes from the user's own answers, mirrored
+back.
+
+Interaction key: `single` = auto-advance pills · `multi` = checkmarks +
+Continue · `chips` = tag grid + Continue · `text` = free text · `info` =
+interstitial + Continue. Skip is top-right on everything except the welcome and
+paywall. `→ model` = write into the normalized personalization model.
+
+| # | Screen | Copy (headline / sub / options) | Type | → model |
+|---|--------|--------------------------------|------|---------|
+| 1 | Welcome | **"Become the person you keep promising yourself."** / "Future Self turns quotes and affirmations into small daily pushes toward the life you actually want." / CTA **"Begin"** / footer: "By continuing you agree to our Terms and Privacy Policy" | info | — |
+| 2 | Source | **"How did you find Future Self?"** / "Helps us know where to keep showing up" / Web search · App Store · Friend or family · TikTok · Instagram · Other | single | acquisition (analytics only) |
+| 3 | Name | **"What should we call you?"** / "Your future self is going to address you by name" / field "Your name" / CTA "Continue" | text | display_name |
+| 4 | Age | **"How old are you, {name}?"** / "We tune the voice to where you are in life" / Under 18 · 18–24 · 25–34 · 35–44 · 45–54 · 55+ | single | age_band |
+| 5 | Motivation | **"Where's your motivation right now?"** / "Honest answer — it sets your starting pace" / 🔥 "Ready to change everything" · 📈 "Motivated, but inconsistent" · 🌫️ "Running on empty" · 🤍 "Honestly, I'm not sure" | single | motivation_level |
+| 6 | Interstitial | **"The person you'll be in five years is being built in the ordinary hours of today."** | info | — |
+| 7 | Goals | **"What matters most to you right now?"** / "Choose up to three — they shape your daily mix" / 💪 Discipline & consistency · 🧠 Confidence & self-belief · 🩺 Health & energy · 💼 Career & money · ❤️ Relationships · 🕊️ Peace of mind · 🧭 Purpose & direction | multi (max 3) | primary_goals |
+| 8 | Obstacles | **"And what keeps getting in the way?"** / "Naming it is the first push" / ⏳ "I put things off" · 📱 "My phone eats my day" · 🔁 "I start strong, then stop" · 🌀 "I get overwhelmed" · 🪞 "I doubt myself" · 🗺️ "I don't have a clear plan" | multi | obstacles |
+| 9 | Interstitial | **"Consistency isn't a personality trait. It's a system — and you're about to build one."** | info | — |
+| 10 | Future traits | **"Meet your future self. What are they like?"** / "Pick the traits you're building toward" / Disciplined · Confident · Calm · Strong · Focused · Free · Generous · Fulfilled | chips (max 4) | future_traits |
+| 11 | Life goal | **"Finish the sentence: a year from now, I want to be…"** / "Your words. They'll follow you through the app — and onto your Home Screen if you want." / textarea, placeholder "…someone who shows up every single day", counter 0/280, CTA "Save it" | text | life_goal |
+| 12 | Notifications | **"This is how you won't drift."** / "Future Self interrupts your day with the right words at the right time. You control how often." / Stepper **"Quotes — 3x a day"** (0–3) · stepper **"Affirmations — 3x a day"** (0–3) · rows "Start at 9:00 AM" / "End at 9:00 PM" with wheel pickers / mock notification: *"Future Self — Discipline is remembering what you want."* / CTA **"Allow and Save"** → OS permission dialog | custom | notification prefs |
+| 13 | Streak | **"Three small readings a day. That's the whole ask."** / "Read any 3 quotes or affirmations and the day counts. Miss a day, the chain breaks." / animated day "1" + weekday tracker / goal select: "3 days to start" · "7 days in a row" · "21 days — a real habit" / CTA "Commit" | single | streak_goal |
+| 14 | Quote topics | **"Which voices push you hardest?"** / "We'll weight your daily quotes toward these" / chips: Discipline · Ambition · Courage · Stoic calm · Gratitude · Resilience · Focus · Kindness | chips | quote_interests |
+| 15 | Affirmation topics | **"And what do you need to hear more often?"** / "Your affirmations will lean this way" / chips: Self-belief · Calm under pressure · Health & body · Abundance · Letting go · Morning energy · Boundaries · Self-respect | chips | affirmation_interests |
+| 16 | Theme | **"Choose how your words should look."** / "You can change this anytime — or build your own" / grid of live theme previews (the 10 Future Self themes, each showing "I will not waste today.") / caption *"Try everything free"* (from here on) | single | theme |
+| 17 | Your mix (honest result) | **"Your daily mix is ready, {name}."** / Dynamically composed from real answers, e.g.: "Quotes weighted toward **discipline** and **stoic calm**. Affirmations centered on **self-belief**. Three of each, spread across your day, aimed at: *{life_goal}*." / preview card renders an actual quote from the top-weighted category / CTA "Sounds right" | info | uses model |
+| 18 | Trial pre-frame | **"Everything unlocked, free for {trial_length}."** / "No surprises: we'll remind you before the trial ends, and cancelling takes two taps." / CTA **"Show me how it works"** *(screen only shown when the RevenueCat package carries an intro trial; otherwise skipped)* | info | — |
+| 19 | Paywall — timeline | **"How your free trial works"** / timeline: ✓ "Today — everything unlocks" ("Your full daily mix, streaks, widgets and every theme") → 🔔 "{trial_end−1} — heads-up" ("One reminder, so nothing surprises you") → 💎 "{trial_end} — membership begins" ("Unless you've cancelled — no hard feelings") / toggle "Remind me before the trial ends" / CTA **"Try for $0.00"** / fine print: real localized price from RevenueCat ("{price}/year" or as configured) / footer "Restore · Terms · Privacy" / X fades in top-left after 2 s; dismissing X re-shows paywall on next app open (hard gate) | paywall | — |
+| 20 | Widget promo (post-purchase) | **"Put your future on your Lock Screen."** / "See your words without unlocking your phone" / mock lock screen with widget "…{life_goal excerpt or sample quote}" / CTA "Got it" | info | — |
+| 21 | Widget promo 2 | **"One more: your Home Screen."** / "Touch and hold your Home Screen, tap Edit, and add Future Self" / mock widget "I will not waste today." / CTA **"Set up widget"** + "Later" | info | — |
+
+Then → main app feed (save-3 coaching loop starts the streak).
+
+## Personalization honesty contract
+
+Screen 17 claims only what the app does: `primary_goals`, `quote_interests`,
+`affirmation_interests`, and `future_traits` weight the daily-set selector;
+`life_goal` seeds the persistent widget and result copy; notification steppers
+write real preferences enforced server-side. If an answer is skipped, screen 17
+copy degrades gracefully ("A balanced mix of discipline and calm to start —
+it'll sharpen as you save favorites").
+
+## Authentication
+
+None visible in the funnel (matches I Am exactly). The session is an anonymous
+Supabase user from first launch; purchases attach to it. "Save your account"
+(Apple / Google / email) lives in Settings → Account, offered contextually
+after day-2 streak. Documented assumption: I Am ships no auth in onboarding, so
+this variant defers identity to the main app.
+
+## Analytics events (no free text, ever)
+
+`onboarding_started{variant}`, `onboarding_screen_viewed{step,screen}`,
+`onboarding_answered{step,screen}` (option slugs only; free-text screens send
+`answered:true` only), `notification_permission{granted}`,
+`paywall_viewed{placement:"onboarding"}`, `trial_started`, `purchase_completed`,
+`purchase_cancelled`, `onboarding_completed`.
