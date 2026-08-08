@@ -1,0 +1,176 @@
+import { router } from "expo-router";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+
+import { AppText, Screen } from "@/design-system/components";
+import { useColors } from "@/design-system/ThemeProvider";
+import { radii, shadows, spacing } from "@/design-system/tokens";
+import { useAppState } from "@/lib/appState";
+
+import { useAuth } from "@/features/auth/AuthProvider";
+import { useFeedStore } from "@/features/content/feedStore";
+
+const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+/** Profile hub: streak card + customize/account sections (I Am style). */
+export default function SettingsScreen() {
+  const colors = useColors();
+  const { displayName } = useAppState();
+  const { currentStreak, longestStreak, completedToday } = useFeedStore();
+  const { isAnonymous } = useAuth();
+  const todayIndex = (new Date().getDay() + 6) % 7;
+
+  const row = (label: string, onPress: () => void, detail?: string, testID?: string) => (
+    <Pressable
+      onPress={onPress}
+      style={[styles.row, { backgroundColor: colors.card }]}
+      testID={testID}
+    >
+      <AppText variant="lead" style={styles.rowLabel}>
+        {label}
+      </AppText>
+      {detail ? (
+        <AppText variant="body" tone="ink3">
+          {detail}
+        </AppText>
+      ) : null}
+      <AppText variant="lead" tone="ink3">
+        ›
+      </AppText>
+    </Pressable>
+  );
+
+  return (
+    <Screen>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <AppText variant="h3" tone="ink3">
+            ✕
+          </AppText>
+        </Pressable>
+        <AppText variant="h3">{displayName ? `${displayName}` : "Profile"}</AppText>
+        <View style={styles.spacer} />
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <View style={[styles.streakCard, { backgroundColor: colors.card }, shadows.sm]}>
+          <AppText variant="eyebrow" tone="ink3">
+            Your streak
+          </AppText>
+          <View style={styles.streakRow}>
+            <View style={[styles.streakCircle, { borderColor: colors.accent }]}>
+              <AppText variant="h1">{currentStreak}</AppText>
+            </View>
+            <View style={styles.streakMeta}>
+              <AppText variant="body" tone="ink2">
+                {completedToday
+                  ? "Today counts. See you tomorrow."
+                  : "Read 3 items today to keep it alive."}
+              </AppText>
+              <AppText variant="label" tone="ink3">
+                Longest: {longestStreak} {longestStreak === 1 ? "day" : "days"}
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.week}>
+            {WEEKDAYS.map((d, i) => (
+              <View key={d} style={styles.day}>
+                <View
+                  style={[
+                    styles.dot,
+                    { borderColor: colors.borderStrong },
+                    i === todayIndex &&
+                      completedToday && {
+                        backgroundColor: colors.accent,
+                        borderColor: colors.accent,
+                      },
+                  ]}
+                />
+                <AppText variant="label" tone="ink3">
+                  {d}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+          Customize
+        </AppText>
+        {row("Notifications", () => router.push("/(main)/settings/notifications"), undefined, "settings-notifications")}
+        {row("Widgets", () => router.push("/(main)/settings/widgets"), undefined, "settings-widgets")}
+        {row("Themes", () => router.push("/(main)/themes"))}
+
+        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+          Account
+        </AppText>
+        {row(
+          "Account & subscription",
+          () => router.push("/(main)/settings/account"),
+          isAnonymous ? "Not saved yet" : "Signed in",
+          "settings-account",
+        )}
+        {row("Manage subscription", () =>
+          Linking.openURL(
+            Platform.OS === "ios"
+              ? "https://apps.apple.com/account/subscriptions"
+              : "https://play.google.com/store/account/subscriptions",
+          ),
+        )}
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+  },
+  spacer: { width: 24 },
+  scroll: { paddingBottom: spacing.xxxl },
+  streakCard: {
+    borderRadius: radii.xl,
+    padding: spacing.xl,
+    marginTop: spacing.md,
+  },
+  streakRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+    marginTop: spacing.md,
+  },
+  streakCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  streakMeta: { flex: 1, gap: spacing.xs },
+  week: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: spacing.lg,
+  },
+  day: { alignItems: "center", gap: spacing.xs },
+  dot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+  },
+  sectionTitle: { marginTop: spacing.xxl, marginBottom: spacing.md },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  rowLabel: { flex: 1 },
+});

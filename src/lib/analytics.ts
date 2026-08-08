@@ -29,6 +29,7 @@ export function getPosthog(): PostHog | null {
 }
 
 type Properties = Record<string, string | number | boolean | null | undefined>;
+type CleanProperties = Record<string, string | number | boolean | null>;
 
 export const analytics = {
   /** Identify the user by their Supabase UUID only. Never email/name. */
@@ -56,10 +57,11 @@ const FORBIDDEN_KEY_PATTERN = /(email|token|password|goal|affirmation|answer|nam
  * content. The primary control is that call sites never pass free text,
  * but a misnamed property should fail closed, not leak.
  */
-function sanitize(properties?: Properties): Properties | undefined {
+function sanitize(properties?: Properties): CleanProperties | undefined {
   if (!properties) return undefined;
-  const out: Properties = {};
+  const out: CleanProperties = {};
   for (const [key, value] of Object.entries(properties)) {
+    if (value === undefined) continue;
     if (FORBIDDEN_KEY_PATTERN.test(key)) continue;
     if (typeof value === "string" && value.length > 120) continue;
     out[key] = value;

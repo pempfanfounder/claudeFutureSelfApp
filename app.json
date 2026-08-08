@@ -49,7 +49,73 @@
         }
       ],
       "@sentry/react-native",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.4"
+          },
+          "android": {
+            "minSdkVersion": 31
+          }
+        }
+      ],
+      [
+        "@use-voltra/ios-client",
+        {
+          "groupIdentifier": "group.com.futureself.app",
+          "enablePushNotifications": false,
+          "targetName": "FutureSelfWidgets",
+          "widgets": [
+            {
+              "id": "daily",
+              "displayName": "Daily inspiration",
+              "description": "Today's quotes and affirmations, rotating through your day.",
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium",
+                "systemLarge",
+                "accessoryRectangular",
+                "accessoryInline"
+              ],
+              "initialStatePath": "./widgets/ios/daily-initial.tsx"
+            },
+            {
+              "id": "future_self",
+              "displayName": "Future Self",
+              "description": "Your life goal or pinned affirmation — until you change it.",
+              "supportedFamilies": ["systemSmall", "systemMedium", "accessoryRectangular"],
+              "initialStatePath": "./widgets/ios/future-self-initial.tsx"
+            }
+          ]
+        }
+      ],
+      [
+        "@use-voltra/android-client",
+        {
+          "widgets": [
+            {
+              "id": "daily",
+              "displayName": "Daily inspiration",
+              "description": "Today's quotes and affirmations.",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "initialStatePath": "./widgets/android/daily-initial.tsx"
+            },
+            {
+              "id": "future_self",
+              "displayName": "Future Self",
+              "description": "Your life goal or pinned affirmation.",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "initialStatePath": "./widgets/android/future-self-initial.tsx"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

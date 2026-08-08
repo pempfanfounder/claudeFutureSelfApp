@@ -10,12 +10,15 @@
     "@react-native-google-signin/google-signin": "^16.1.4",
     "@sentry/react-native": "~7.11.0",
     "@supabase/supabase-js": "^2.112.2",
+    "@use-voltra/android": "^2.2.0",
     "@use-voltra/android-client": "^2.2.0",
+    "@use-voltra/ios": "^2.2.0",
     "@use-voltra/ios-client": "^2.2.0",
     "expo": "~57.0.11",
     "expo-apple-authentication": "~57.0.1",
     "expo-application": "~57.0.2",
     "expo-blur": "~57.0.2",
+    "expo-build-properties": "~57.0.9",
     "expo-constants": "~57.0.9",
     "expo-crypto": "~57.0.1",
     "expo-dev-client": "~57.0.10",
@@ -25,6 +28,7 @@
     "expo-glass-effect": "~57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-image": "~57.0.2",
+    "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.5",
     "expo-localization": "~57.0.1",
     "expo-notifications": "~57.0.9",
@@ -71,5 +75,20 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "test": "jest"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@use-voltra/.*|posthog-react-native|zustand|react-native-purchases))"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "testMatch": [
+      "**/__tests__/**/*.test.ts?(x)"
+    ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ]
+  }
 }

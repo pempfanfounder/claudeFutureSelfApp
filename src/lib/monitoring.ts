@@ -48,8 +48,10 @@ export const monitoring = {
 };
 
 /** Wraps the root component with Sentry instrumentation when enabled. */
-export function withMonitoring<P extends object>(component: React.ComponentType<P>) {
+export function withMonitoring<C extends React.ComponentType<Record<string, unknown>>>(
+  component: C,
+): C {
   if (!config.hasSentry) return component;
   initMonitoring();
-  return Sentry.wrap(component);
+  return Sentry.wrap(component) as C;
 }
