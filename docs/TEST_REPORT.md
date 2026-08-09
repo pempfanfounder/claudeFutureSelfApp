@@ -75,16 +75,13 @@ Run via SQL in a rolled-back transaction, simulating authenticated users:
 
 ## Known caveats / honest notes
 
-1. **Shared Supabase project conflict.** Another build session reported it is
-   executing the same brief against the same `claudefutureself` project. Its
-   earlier six-migration schema (created 2026-08-08, verified to contain zero
-   rows and zero auth users) was reset by this session before applying the
-   current schema. That session has stopped writing to the project; this
-   session made no further destructive changes after learning of the overlap.
-   **The owner must decide which build owns the live project** (or split via a
-   Supabase branch). Everything this app needs is reproducible from
-   `supabase/migrations/` + `supabase/functions/` if the decision goes the
-   other way.
+1. **Shared Supabase project — resolved.** Two parallel build sessions were
+   pointed at the same `claudefutureself` project; the other session's earlier
+   schema (verified: zero rows, zero users) was reset by this one before the
+   overlap was known. **The owner has since decided this build owns the live
+   project.** The live schema, seed content, cron jobs, and edge functions all
+   match this repo exactly; the other session keeps its backend as files in
+   its own branch and no longer writes here.
 2. **Anonymous sign-ins + manual linking** must be enabled in the Supabase
    dashboard before first run (SETUP_REQUIRED §1); the MCP tooling cannot
    toggle auth settings.
