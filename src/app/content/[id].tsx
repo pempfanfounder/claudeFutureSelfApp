@@ -27,7 +27,10 @@ export default function ContentDeepLink() {
 
   useEffect(() => {
     if (!id) return;
-    analytics.capture("deep_link_opened", { content_id: id, kind: kind ?? "unknown" });
+    analytics.capture("deep_link_opened", {
+      content_id: id,
+      kind: kind ?? "unknown",
+    });
     getContentById(id).then((found) => {
       if (found) {
         setItem(found);
@@ -47,7 +50,12 @@ export default function ContentDeepLink() {
   return (
     <Screen padded={false}>
       <View style={styles.close}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} hitSlop={12}>
+        <Pressable
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/")
+          }
+          hitSlop={12}
+        >
           <AppText variant="h3" tone="ink3">
             ✕
           </AppText>
@@ -65,7 +73,9 @@ export default function ContentDeepLink() {
             That one has moved on.
           </AppText>
           <AppText variant="body" tone="ink2" center style={styles.missingSub}>
-            The line you tapped is no longer in the library. Today's words are waiting instead.
+            {
+              "The line you tapped is no longer in the library. Today's words are waiting instead."
+            }
           </AppText>
         </View>
       ) : null}
@@ -80,6 +90,10 @@ const styles = StyleSheet.create({
     left: spacing.xl,
     zIndex: 10,
   },
-  missing: { flex: 1, justifyContent: "center", paddingHorizontal: spacing.xxl },
+  missing: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xxl,
+  },
   missingSub: { marginTop: spacing.md },
 });

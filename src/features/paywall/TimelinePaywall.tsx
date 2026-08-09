@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 import { AppText, Button } from "@/design-system/components";
@@ -68,7 +75,9 @@ export function TimelinePaywall({
   };
 
   const hasTrial = data.trialLength !== null && data.trialDays !== null;
-  const reminderDay = hasTrial ? shortDateInDays(Math.max(0, data.trialDays! - 1)) : null;
+  const reminderDay = hasTrial
+    ? shortDateInDays(Math.max(0, data.trialDays! - 1))
+    : null;
   const startDay = hasTrial ? shortDateInDays(data.trialDays!) : null;
 
   const steps = [
@@ -121,7 +130,10 @@ export function TimelinePaywall({
         </Animated.View>
       ) : null}
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <AppText variant="h2" center>
           {hasTrial ? "How your free trial works" : "Unlock Future Self"}
         </AppText>
@@ -134,7 +146,10 @@ export function TimelinePaywall({
                   style={[
                     styles.iconCircle,
                     { borderColor: colors.borderStrong },
-                    s.done && { backgroundColor: colors.success, borderColor: colors.success },
+                    s.done && {
+                      backgroundColor: colors.success,
+                      borderColor: colors.success,
+                    },
                   ]}
                 >
                   <AppText variant="body" tone={s.done ? "ctaInk" : "ink"}>
@@ -142,13 +157,20 @@ export function TimelinePaywall({
                   </AppText>
                 </View>
                 {i < steps.length - 1 ? (
-                  <View style={[styles.connector, { backgroundColor: colors.borderStrong }]} />
+                  <View
+                    style={[
+                      styles.connector,
+                      { backgroundColor: colors.borderStrong },
+                    ]}
+                  />
                 ) : null}
               </View>
               <View style={styles.stepText}>
                 <AppText
                   variant="lead"
-                  style={s.done ? { textDecorationLine: "line-through" } : undefined}
+                  style={
+                    s.done ? { textDecorationLine: "line-through" } : undefined
+                  }
                 >
                   {s.title}
                 </AppText>
@@ -161,7 +183,13 @@ export function TimelinePaywall({
         </View>
 
         {hasTrial ? (
-          <View style={[styles.reminderRow, { backgroundColor: colors.card }, shadows.sm]}>
+          <View
+            style={[
+              styles.reminderRow,
+              { backgroundColor: colors.card },
+              shadows.sm,
+            ]}
+          >
             <AppText variant="body" style={styles.reminderLabel}>
               {trialReminder && reminderDay
                 ? `We'll remind you on ${reminderDay} ✓`
@@ -178,13 +206,20 @@ export function TimelinePaywall({
 
         {data.unavailable ? (
           <AppText variant="body" tone="ink2" center style={styles.unavailable}>
-            The store can't be reached right now. Your access stays locked until a purchase
-            completes — try again shortly, or Restore if you've subscribed before.
+            {
+              "The store can't be reached right now. Your access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+            }
           </AppText>
         ) : null}
         {data.devMock ? (
-          <AppText variant="label" tone="ink3" center style={styles.unavailable}>
-            Development mode: purchases are mocked (EXPO_PUBLIC_DEV_MOCK_PURCHASES)
+          <AppText
+            variant="label"
+            tone="ink3"
+            center
+            style={styles.unavailable}
+          >
+            Development mode: purchases are mocked
+            (EXPO_PUBLIC_DEV_MOCK_PURCHASES)
           </AppText>
         ) : null}
       </ScrollView>
@@ -211,7 +246,11 @@ export function TimelinePaywall({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   close: { position: "absolute", top: 64, left: spacing.xl, zIndex: 10 },
-  content: { paddingTop: 108, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  content: {
+    paddingTop: 108,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
   timeline: { marginTop: spacing.xxl },
   step: { flexDirection: "row", gap: spacing.lg },
   iconCol: { alignItems: "center" },

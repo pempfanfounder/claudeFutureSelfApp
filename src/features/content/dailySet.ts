@@ -41,7 +41,10 @@ export function scoreItem(
 ): number {
   if (excludeIds.has(item.id)) return 0.05;
   let score = 1;
-  const interests = item.type === "quote" ? weights.quoteInterests : weights.affirmationInterests;
+  const interests =
+    item.type === "quote"
+      ? weights.quoteInterests
+      : weights.affirmationInterests;
   for (const category of item.categories) {
     if (interests.includes(category)) score += 2;
   }

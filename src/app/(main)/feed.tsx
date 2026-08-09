@@ -49,7 +49,10 @@ export default function FeedScreen() {
 
   const items = tab === "quote" ? feed.quotes : feed.affirmations;
   const rows = useMemo<FeedRow[]>(
-    () => [...items.map((item) => ({ kind: "item" as const, item })), { kind: "end" as const }],
+    () => [
+      ...items.map((item) => ({ kind: "item" as const, item })),
+      { kind: "end" as const },
+    ],
     [items],
   );
 
@@ -67,7 +70,10 @@ export default function FeedScreen() {
     [userId],
   );
 
-  const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 70 }), []);
+  const viewabilityConfig = useMemo(
+    () => ({ itemVisiblePercentThreshold: 70 }),
+    [],
+  );
 
   const switchTab = (next: ContentType) => {
     if (next === tab) return;
@@ -88,17 +94,27 @@ export default function FeedScreen() {
             <ContentCard
               item={row.item}
               isFavorite={feed.favoriteIds.includes(row.item.id)}
-              onToggleFavorite={() => userId && feed.toggleFavorite(userId, row.item)}
+              onToggleFavorite={() =>
+                userId && feed.toggleFavorite(userId, row.item)
+              }
             />
           ) : (
-            <EndCard height={height} tab={tab} completed={feed.completedToday} />
+            <EndCard
+              height={height}
+              tab={tab}
+              completed={feed.completedToday}
+            />
           )
         }
         pagingEnabled
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+        getItemLayout={(_, index) => ({
+          length: height,
+          offset: height * index,
+          index,
+        })}
       />
 
       {/* Top chrome */}
@@ -111,12 +127,17 @@ export default function FeedScreen() {
           <AppText variant="label">fs</AppText>
         </Pressable>
 
-        <View style={[styles.segment, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.segment, { backgroundColor: colors.card }, shadows.sm]}
+        >
           {(["quote", "affirmation"] as const).map((t) => (
             <Pressable
               key={t}
               onPress={() => switchTab(t)}
-              style={[styles.segmentBtn, tab === t && { backgroundColor: colors.ctaBg }]}
+              style={[
+                styles.segmentBtn,
+                tab === t && { backgroundColor: colors.ctaBg },
+              ]}
               testID={`tab-${t}`}
             >
               <AppText variant="label" tone={tab === t ? "ctaInk" : "ink2"}>
@@ -126,8 +147,17 @@ export default function FeedScreen() {
           ))}
         </View>
 
-        <View style={[styles.streakChip, { backgroundColor: colors.card }, shadows.sm]}>
-          <AppText variant="label" tone={feed.completedToday ? "accent" : "ink2"}>
+        <View
+          style={[
+            styles.streakChip,
+            { backgroundColor: colors.card },
+            shadows.sm,
+          ]}
+        >
+          <AppText
+            variant="label"
+            tone={feed.completedToday ? "accent" : "ink2"}
+          >
             {feed.completedToday
               ? `✦ ${feed.currentStreak}`
               : `${Math.min(viewedCount, STREAK_TARGET)}/${STREAK_TARGET}`}
@@ -154,7 +184,10 @@ export default function FeedScreen() {
       </View>
 
       {feed.celebrating ? (
-        <StreakBanner streak={feed.currentStreak} onDismiss={feed.dismissCelebration} />
+        <StreakBanner
+          streak={feed.currentStreak}
+          onDismiss={feed.dismissCelebration}
+        />
       ) : null}
     </View>
   );
@@ -172,7 +205,7 @@ function EndCard({
   return (
     <View style={[styles.endCard, { height }]}>
       <AppText variant="h2" center>
-        That's your ten for today.
+        {"That's your ten for today."}
       </AppText>
       <AppText variant="lead" tone="ink2" center style={styles.endSub}>
         {completed

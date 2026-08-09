@@ -52,7 +52,8 @@ async function getPushToken(): Promise<string | null> {
       });
     }
     const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
     if (!projectId) {
       // EAS not configured yet (docs/SETUP_REQUIRED.md) — register the
       // device without a token so preferences still sync.
@@ -119,7 +120,10 @@ export async function deactivateDevice(): Promise<void> {
 export function getNotificationDeepLink(
   response: Notifications.NotificationResponse,
 ): string | null {
-  const data = response.notification.request.content.data as Record<string, unknown> | null;
+  const data = response.notification.request.content.data as Record<
+    string,
+    unknown
+  > | null;
   const url = data?.["url"];
   return typeof url === "string" ? url : null;
 }

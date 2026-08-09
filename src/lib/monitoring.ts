@@ -34,7 +34,10 @@ export const monitoring = {
     if (!initialized) return;
     Sentry.setUser(userId ? { id: userId } : null);
   },
-  captureError(error: unknown, context?: Record<string, string | number | boolean>) {
+  captureError(
+    error: unknown,
+    context?: Record<string, string | number | boolean>,
+  ) {
     if (!initialized) {
       if (__DEV__) console.error("[monitoring]", error, context);
       return;
@@ -48,9 +51,9 @@ export const monitoring = {
 };
 
 /** Wraps the root component with Sentry instrumentation when enabled. */
-export function withMonitoring<C extends React.ComponentType<Record<string, unknown>>>(
-  component: C,
-): C {
+export function withMonitoring<
+  C extends React.ComponentType<Record<string, unknown>>,
+>(component: C): C {
   if (!config.hasSentry) return component;
   initMonitoring();
   return Sentry.wrap(component) as C;

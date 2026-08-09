@@ -18,18 +18,33 @@ interface StreakCommitStepProps {
 }
 
 /** I Am-style streak commitment: day "1", weekday tracker, goal pick. */
-export function StreakCommitStep({ step, ctx, onAnswer }: StreakCommitStepProps) {
+export function StreakCommitStep({
+  step,
+  ctx,
+  onAnswer,
+}: StreakCommitStepProps) {
   const colors = useColors();
   const [goal, setGoal] = useState<string | null>(null);
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <Animated.View entering={ZoomIn.duration(500).delay(150)} style={styles.dayWrap}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        <Animated.View
+          entering={ZoomIn.duration(500).delay(150)}
+          style={styles.dayWrap}
+        >
           <AppText variant="display" center>
             1
           </AppText>
-          <View style={[styles.groundLine, { backgroundColor: colors.borderStrong }]} />
+          <View
+            style={[
+              styles.groundLine,
+              { backgroundColor: colors.borderStrong },
+            ]}
+          />
         </Animated.View>
 
         <AppText variant="h2" center>
@@ -47,7 +62,10 @@ export function StreakCommitStep({ step, ctx, onAnswer }: StreakCommitStepProps)
                   style={[
                     styles.weekDot,
                     { borderColor: colors.borderStrong },
-                    i === 0 && { backgroundColor: colors.accent, borderColor: colors.accent },
+                    i === 0 && {
+                      backgroundColor: colors.accent,
+                      borderColor: colors.accent,
+                    },
                   ]}
                 >
                   {i === 0 ? <AppText variant="label">✓</AppText> : null}
@@ -58,7 +76,12 @@ export function StreakCommitStep({ step, ctx, onAnswer }: StreakCommitStepProps)
               </View>
             ))}
           </View>
-          <AppText variant="label" tone="ink3" center style={styles.weekCaption}>
+          <AppText
+            variant="label"
+            tone="ink3"
+            center
+            style={styles.weekCaption}
+          >
             Build a streak, one day at a time
           </AppText>
         </View>

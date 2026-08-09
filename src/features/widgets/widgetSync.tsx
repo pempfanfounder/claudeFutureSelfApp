@@ -22,7 +22,8 @@ import { getPinnedText } from "./pinned";
  */
 export async function syncWidgets(): Promise<void> {
   try {
-    const { quotes, affirmations, lifeGoal, pinnedAffirmation } = useFeedStore.getState();
+    const { quotes, affirmations, lifeGoal, pinnedAffirmation } =
+      useFeedStore.getState();
     const items = interleave(quotes, affirmations);
     const pinned = await getPinnedText(pinnedAffirmation ?? lifeGoal);
 
@@ -54,7 +55,8 @@ function slotDates(count: number): Date[] {
   start.setHours(7, 0, 0, 0);
   const end = new Date();
   end.setHours(22, 0, 0, 0);
-  const stepMs = count > 1 ? (end.getTime() - start.getTime()) / (count - 1) : 0;
+  const stepMs =
+    count > 1 ? (end.getTime() - start.getTime()) / (count - 1) : 0;
   for (let i = 0; i < count; i++) {
     dates.push(new Date(start.getTime() + stepMs * i));
   }
@@ -67,7 +69,8 @@ const palette = () => ({ bg: "#F3E9DC", ink: "#3B2E25", ink2: "#8A7770" });
 
 async function syncIos(items: ContentItem[], pinned: string) {
   const { Voltra } = await import("@use-voltra/ios");
-  const { scheduleWidget, updateWidget } = await import("@use-voltra/ios-client");
+  const { scheduleWidget, updateWidget } =
+    await import("@use-voltra/ios-client");
   const colors = palette();
 
   const card = (text: string, author: string | null, fontSize: number) => (
@@ -79,7 +82,9 @@ async function syncIos(items: ContentItem[], pinned: string) {
         justifyContent: "center",
       }}
     >
-      <Voltra.Text style={{ color: colors.ink, fontSize, fontWeight: "500" }}>{text}</Voltra.Text>
+      <Voltra.Text style={{ color: colors.ink, fontSize, fontWeight: "500" }}>
+        {text}
+      </Voltra.Text>
       {author ? (
         <Voltra.Text style={{ color: colors.ink2, fontSize: 11, marginTop: 6 }}>
           — {author}
@@ -102,11 +107,11 @@ async function syncIos(items: ContentItem[], pinned: string) {
           systemMedium: card(truncate(item.body, 140), item.author, 14),
           systemLarge: card(item.body, item.author, 18),
           accessoryRectangular: (
-            <Voltra.Text style={{ fontSize: 12 }}>{truncate(item.body, 70)}</Voltra.Text>
+            <Voltra.Text style={{ fontSize: 12 }}>
+              {truncate(item.body, 70)}
+            </Voltra.Text>
           ),
-          accessoryInline: (
-            <Voltra.Text>{truncate(item.body, 40)}</Voltra.Text>
-          ),
+          accessoryInline: <Voltra.Text>{truncate(item.body, 40)}</Voltra.Text>,
         },
       })),
     );
@@ -118,7 +123,9 @@ async function syncIos(items: ContentItem[], pinned: string) {
       systemSmall: card(truncate(pinned, 100), null, 14),
       systemMedium: card(truncate(pinned, 160), null, 16),
       accessoryRectangular: (
-        <Voltra.Text style={{ fontSize: 12 }}>{truncate(pinned, 70)}</Voltra.Text>
+        <Voltra.Text style={{ fontSize: 12 }}>
+          {truncate(pinned, 70)}
+        </Voltra.Text>
       ),
     },
     { deepLinkUrl: "futureself://widget-setup" },
@@ -140,7 +147,9 @@ async function syncAndroid(items: ContentItem[], pinned: string) {
       }}
       verticalAlignment="center-vertically"
     >
-      <VoltraAndroid.Text style={{ color: colors.ink, fontSize }}>{text}</VoltraAndroid.Text>
+      <VoltraAndroid.Text style={{ color: colors.ink, fontSize }}>
+        {text}
+      </VoltraAndroid.Text>
       {author ? (
         <VoltraAndroid.Text style={{ color: colors.ink2, fontSize: 11 }}>
           — {author}
@@ -154,19 +163,29 @@ async function syncAndroid(items: ContentItem[], pinned: string) {
     await updateAndroidWidget(
       "daily",
       [
-        { size: { width: 110, height: 110 }, content: card(truncate(current.body, 90), null, 13) },
+        {
+          size: { width: 110, height: 110 },
+          content: card(truncate(current.body, 90), null, 13),
+        },
         {
           size: { width: 250, height: 110 },
           content: card(truncate(current.body, 160), current.author, 15),
         },
       ],
-      { deepLinkUrl: `futureself://content/${current.id}?kind=${current.type}` },
+      {
+        deepLinkUrl: `futureself://content/${current.id}?kind=${current.type}`,
+      },
     );
   }
 
   await updateAndroidWidget(
     "future_self",
-    [{ size: { width: 110, height: 110 }, content: card(truncate(pinned, 120), null, 14) }],
+    [
+      {
+        size: { width: 110, height: 110 },
+        content: card(truncate(pinned, 120), null, 14),
+      },
+    ],
     { deepLinkUrl: "futureself://widget-setup" },
   );
 }

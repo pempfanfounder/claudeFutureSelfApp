@@ -24,7 +24,13 @@ interface NotePaywallProps {
  * close control at all. Honest copy — no fabricated demand claims, no
  * fake countdowns. Exits: purchase or restore only.
  */
-export function NotePaywall({ data, voice, userName, onPurchased, placement }: NotePaywallProps) {
+export function NotePaywall({
+  data,
+  voice,
+  userName,
+  onPurchased,
+  placement,
+}: NotePaywallProps) {
   const colors = useColors();
   const [purchasing, setPurchasing] = useState(false);
 
@@ -52,19 +58,22 @@ export function NotePaywall({ data, voice, userName, onPurchased, placement }: N
   };
 
   const trial = data.trialLength;
-  const header = voice === "team" ? "A note before you begin" : "A note from your future self";
+  const header =
+    voice === "team"
+      ? "A note before you begin"
+      : "A note from your future self";
   const body =
     voice === "team"
       ? [
           "Future Self is a small team. There are no ads here, and nothing about your attention is for sale — the app works for you, not on you.",
-          `That's only possible because it's paid.${trial ? ` Start with ${trial} free, on us. If it doesn't move you, cancel in two taps and pay nothing.` : ""}`,
+          `That's only possible because it's paid.${trial ? ` Start with ${trial} free, on us. If it doesn't move you, cancel anytime and pay nothing.` : ""}`,
         ]
       : [
           `You just told me who you want to become${userName ? `, ${userName}` : ""}. I'm not letting that be another tab you close.`,
           "Future Self has no ads and sells nothing about you — the app works for you, which is why it's paid.",
           trial
-            ? `Take ${trial} free. If it doesn't move you, cancel in two taps and pay nothing. But you didn't come this far to only come this far.`
-            : "If it doesn't move you, cancel in two taps. But you didn't come this far to only come this far.",
+            ? `Take ${trial} free. If it doesn't move you, cancel anytime and pay nothing. But you didn't come this far to only come this far.`
+            : "If it doesn't move you, cancel anytime. But you didn't come this far to only come this far.",
         ];
 
   const cta = trial ? `Start my free ${trial} →` : "Unlock Future Self";
@@ -77,7 +86,12 @@ export function NotePaywall({ data, voice, userName, onPurchased, placement }: N
             {header}
           </AppText>
           {body.map((paragraph, i) => (
-            <AppText key={i} variant="lead" tone="ink2" style={styles.paragraph}>
+            <AppText
+              key={i}
+              variant="lead"
+              tone="ink2"
+              style={styles.paragraph}
+            >
               {paragraph}
             </AppText>
           ))}
@@ -89,8 +103,9 @@ export function NotePaywall({ data, voice, userName, onPurchased, placement }: N
 
           {data.unavailable ? (
             <AppText variant="body" tone="ink2" center style={styles.paragraph}>
-              The store can't be reached right now. Access stays locked until a purchase
-              completes — try again shortly, or Restore if you've subscribed before.
+              {
+                "The store can't be reached right now. Access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+              }
             </AppText>
           ) : null}
           {data.devMock ? (
@@ -133,7 +148,11 @@ const styles = StyleSheet.create({
   },
   header: { marginBottom: spacing.lg, fontStyle: "italic" },
   paragraph: { marginBottom: spacing.lg },
-  signature: { marginBottom: spacing.lg, fontStyle: "italic", textAlign: "right" },
+  signature: {
+    marginBottom: spacing.lg,
+    fontStyle: "italic",
+    textAlign: "right",
+  },
   cta: { marginTop: spacing.sm },
   price: { marginTop: spacing.md },
 });

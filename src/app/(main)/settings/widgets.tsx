@@ -1,6 +1,13 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 
 import { AppText, Button, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
@@ -8,7 +15,11 @@ import { radii, shadows, spacing, type } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 
 import { useFeedStore } from "@/features/content/feedStore";
-import { DEFAULT_PINNED, getPinnedText, setPinnedText } from "@/features/widgets/pinned";
+import {
+  DEFAULT_PINNED,
+  getPinnedText,
+  setPinnedText,
+} from "@/features/widgets/pinned";
 import { syncWidgets } from "@/features/widgets/widgetSync";
 
 /**
@@ -36,7 +47,8 @@ export default function WidgetSettingsScreen() {
 
   const requestAndroidPin = async () => {
     try {
-      const { requestPinAndroidWidget } = await import("@use-voltra/android-client");
+      const { requestPinAndroidWidget } =
+        await import("@use-voltra/android-client");
       await requestPinAndroidWidget("future_self", {});
       setPinRequested(true);
     } catch {
@@ -56,16 +68,25 @@ export default function WidgetSettingsScreen() {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
           Your Future Self widget
         </AppText>
         <AppText variant="body" tone="ink2">
-          One line that stays on your Home Screen until you change it — your goal, or the words
-          your future self would say.
+          One line that stays on your Home Screen until you change it — your
+          goal, or the words your future self would say.
         </AppText>
 
-        <View style={[styles.preview, { backgroundColor: colors.bgAlt, borderColor: colors.border }, shadows.sm]}>
+        <View
+          style={[
+            styles.preview,
+            { backgroundColor: colors.bgAlt, borderColor: colors.border },
+            shadows.sm,
+          ]}
+        >
           <AppText variant="h3">{pinned || DEFAULT_PINNED}</AppText>
           <AppText variant="label" tone="ink3" style={styles.previewLabel}>
             Widget preview
@@ -81,14 +102,19 @@ export default function WidgetSettingsScreen() {
           maxLength={160}
           style={[
             styles.input,
-            { backgroundColor: colors.card, borderColor: colors.border, color: colors.ink },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              color: colors.ink,
+            },
           ]}
           testID="pinned-input"
         />
         {lifeGoal && pinned !== lifeGoal ? (
           <Pressable onPress={() => setPinned(lifeGoal)} hitSlop={8}>
             <AppText variant="label" tone="accent" style={styles.useGoal}>
-              Use my goal: “{lifeGoal.length > 60 ? `${lifeGoal.slice(0, 60)}…` : lifeGoal}”
+              Use my goal: “
+              {lifeGoal.length > 60 ? `${lifeGoal.slice(0, 60)}…` : lifeGoal}”
             </AppText>
           </Pressable>
         ) : null}
@@ -105,9 +131,9 @@ export default function WidgetSettingsScreen() {
           Daily inspiration widget
         </AppText>
         <AppText variant="body" tone="ink2">
-          Rotates through today's quotes and affirmations on your Home Screen
-          {Platform.OS === "ios" ? " and Lock Screen" : ""}. Tapping a widget opens that exact
-          line in the app.
+          {`Rotates through today's quotes and affirmations on your Home Screen${
+            Platform.OS === "ios" ? " and Lock Screen" : ""
+          }. Tapping a widget opens that exact line in the app.`}
         </AppText>
 
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
@@ -115,14 +141,16 @@ export default function WidgetSettingsScreen() {
         </AppText>
         {Platform.OS === "ios" ? (
           <AppText variant="body" tone="ink2">
-            Home Screen: touch and hold an empty area → Edit → Add Widget → search “Future Self”.
-            {"\n\n"}Lock Screen: touch and hold the Lock Screen → Customize → tap the widget area →
-            add Future Self.
+            Home Screen: touch and hold an empty area → Edit → Add Widget →
+            search “Future Self”.
+            {"\n\n"}Lock Screen: touch and hold the Lock Screen → Customize →
+            tap the widget area → add Future Self.
           </AppText>
         ) : (
           <>
             <AppText variant="body" tone="ink2">
-              Touch and hold an empty Home Screen area → Widgets → Future Self — or tap below.
+              Touch and hold an empty Home Screen area → Widgets → Future Self —
+              or tap below.
             </AppText>
             <Button
               label={pinRequested ? "Requested ✓" : "Add widget to Home Screen"}

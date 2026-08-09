@@ -15,7 +15,9 @@ const MODEL_KEYS = new Set([
 
 describe("onboarding variant configs", () => {
   it("defines all four experiment variants", () => {
-    expect(Object.keys(VARIANT_CONFIGS).sort()).toEqual([...ONBOARDING_VARIANTS].sort());
+    expect(Object.keys(VARIANT_CONFIGS).sort()).toEqual(
+      [...ONBOARDING_VARIANTS].sort(),
+    );
   });
 
   for (const variant of ONBOARDING_VARIANTS) {
@@ -24,11 +26,15 @@ describe("onboarding variant configs", () => {
     describe(variant, () => {
       it("has a consistent identity and family", () => {
         expect(config.id).toBe(variant);
-        expect(config.family).toBe(variant.startsWith("iam") ? "iam" : "stella");
+        expect(config.family).toBe(
+          variant.startsWith("iam") ? "iam" : "stella",
+        );
       });
 
       it("contains exactly one paywall step", () => {
-        expect(config.steps.filter((s) => s.type === "paywall")).toHaveLength(1);
+        expect(config.steps.filter((s) => s.type === "paywall")).toHaveLength(
+          1,
+        );
       });
 
       it("matches its family's paywall placement rules", () => {
@@ -41,8 +47,12 @@ describe("onboarding variant configs", () => {
           // Stella: hard note paywall, skippable auth sheet before it.
           expect(config.paywallStyle).toBe("note");
           expect(config.paywallCloseDelayMs).toBeNull();
-          const authIndex = config.steps.findIndex((s) => s.type === "auth-sheet");
-          const paywallIndex = config.steps.findIndex((s) => s.type === "paywall");
+          const authIndex = config.steps.findIndex(
+            (s) => s.type === "auth-sheet",
+          );
+          const paywallIndex = config.steps.findIndex(
+            (s) => s.type === "paywall",
+          );
           expect(authIndex).toBeGreaterThan(-1);
           expect(authIndex).toBeLessThan(paywallIndex);
         }
@@ -75,7 +85,9 @@ describe("onboarding variant configs", () => {
       });
 
       it("collects the core personalization signals", () => {
-        const keys = new Set(config.steps.map((s) => s.modelKey).filter(Boolean));
+        const keys = new Set(
+          config.steps.map((s) => s.modelKey).filter(Boolean),
+        );
         expect(keys.has("motivation_level")).toBe(true);
         expect(keys.has("future_traits")).toBe(true);
         expect(keys.has("obstacles")).toBe(true);
@@ -88,7 +100,9 @@ describe("onboarding variant configs", () => {
       it("presents family-appropriate copy structure", () => {
         for (const step of config.steps) {
           if (config.family === "stella") {
-            if (["info", "text", "chips", "notifications"].includes(step.type)) {
+            if (
+              ["info", "text", "chips", "notifications"].includes(step.type)
+            ) {
               expect(step.lines?.length ?? 0).toBeGreaterThan(0);
             }
           }

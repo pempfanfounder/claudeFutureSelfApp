@@ -6,10 +6,10 @@ re-extracted at full resolution.
 
 ## Recording identities (verified from content)
 
-| File | App | Evidence |
-| --- | --- | --- |
-| `copy_262C0BDD-4CCE-4DE9-83F7-9DBBAEFE02B6.MOV` (9:33) | **I Am — Daily Affirmations** (Monkey Taps) | ATT dialog `Allow "I am" to track…`, StoreKit product "I am Premium (1 year)", "Welcome to I am" splash, Monkey Taps 6-app bundle cross-promo |
-| `copy_99D9D6D6-B394-47BD-9FF3-4A5AE965D887.MOV` (10:54) | **Stella — Manifest Anything** (AI manifestation app) | Stella wordmark on splash/home, StoreKit product "Stella - Unlimited", manifestation copy throughout |
+| File                                                    | App                                                   | Evidence                                                                                                                                      |
+| ------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `copy_262C0BDD-4CCE-4DE9-83F7-9DBBAEFE02B6.MOV` (9:33)  | **I Am — Daily Affirmations** (Monkey Taps)           | ATT dialog `Allow "I am" to track…`, StoreKit product "I am Premium (1 year)", "Welcome to I am" splash, Monkey Taps 6-app bundle cross-promo |
+| `copy_99D9D6D6-B394-47BD-9FF3-4A5AE965D887.MOV` (10:54) | **Stella — Manifest Anything** (AI manifestation app) | Stella wordmark on splash/home, StoreKit product "Stella - Unlimited", manifestation copy throughout                                          |
 
 ## I Am — onboarding funnel (0:00–3:30 to paywall)
 
@@ -19,7 +19,7 @@ education) → ~26 question screens → trial pre-frames → paywall.
 
 **Interaction grammar (the core of the I Am feel):**
 
-- Serif headline + one-line sans subheader explaining *why* the question is asked
+- Serif headline + one-line sans subheader explaining _why_ the question is asked
   ("Your age is used to personalize your content").
 - Single-select = full-width cream pill rows with radio circles, **auto-advance
   ~0.5s after tap, no Continue button**. Multi-select = checkmark circles +
@@ -81,8 +81,8 @@ in-app Widgets configurator — before the main feed is ever shown.
   followable topic packs ("Follow" pills, "Follow all" per section).
 - **Themes:** one theme system reused by feed, widgets, and practice ("mirror
   the app" default + per-surface override). Picker: filter chips (Surprise me,
-  + Create, All, Seasonal, Most popular…), "Theme mixes" carousels, grid of live
-  "I am" previews, current theme outlined + Edit.
+  - Create, All, Seasonal, Most popular…), "Theme mixes" carousels, grid of live
+    "I am" previews, current theme outlined + Edit.
 - **Practice:** auto-advancing 1-min slideshow (6 segments progress bar, mute,
   settings) ending in "Great job!" recap with heart/bookmark per item.
 - **Widgets:** in-app configurator with live device-mock preview; per-widget

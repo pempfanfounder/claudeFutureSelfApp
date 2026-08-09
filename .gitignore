@@ -31,6 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -49,3 +50,7 @@ themes copy.ts
 tokens copy.ts
 logo.png
 .DS_Store
+
+# Generated native projects (Continuous Native Generation via expo prebuild)
+/ios
+/android

@@ -37,7 +37,9 @@ export function StreakBanner({ streak, onDismiss }: StreakBannerProps) {
       ]}
     >
       <AppText variant="h3" center>
-        {streak === 1 ? "New daily streak started" : `Day ${streak} — streak alive`}
+        {streak === 1
+          ? "New daily streak started"
+          : `Day ${streak} — streak alive`}
       </AppText>
       <View style={styles.circleWrap}>
         <View style={[styles.circle, { borderColor: colors.accent }]}>
@@ -54,7 +56,10 @@ export function StreakBanner({ streak, onDismiss }: StreakBannerProps) {
               style={[
                 styles.dot,
                 { borderColor: colors.borderStrong },
-                i === todayIndex && { backgroundColor: colors.accent, borderColor: colors.accent },
+                i === todayIndex && {
+                  backgroundColor: colors.accent,
+                  borderColor: colors.accent,
+                },
               ]}
             >
               {i === todayIndex ? <AppText variant="label">✓</AppText> : null}

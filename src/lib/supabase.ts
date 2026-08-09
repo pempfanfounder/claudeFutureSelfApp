@@ -15,14 +15,18 @@ let client: SupabaseClient<Database> | null = null;
 export function getSupabase(): SupabaseClient<Database> | null {
   if (client) return client;
   if (!config.hasSupabase) return null;
-  client = createClient<Database>(config.supabaseUrl!, config.supabaseAnonKey!, {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
+  client = createClient<Database>(
+    config.supabaseUrl!,
+    config.supabaseAnonKey!,
+    {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
     },
-  });
+  );
   return client;
 }
 

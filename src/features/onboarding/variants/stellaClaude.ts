@@ -16,12 +16,13 @@ export const stellaClaude: VariantConfig = {
       type: "welcome",
       headline: "The rest of your life starts quietly.",
       cta: "Continue",
+      secondaryCta: "Already have an account? Sign in",
     },
     {
       id: "notifications",
       type: "notifications",
       lines: [
-        "Future Self works by finding you during your day — a few words, exactly when you'd otherwise drift.",
+        "Future Self works by finding you during your day — a few of the right words, spread through the hours you choose.",
         "Turn on notifications so today-you can hear from us.",
       ],
       cta: "Turn them on",
@@ -33,7 +34,7 @@ export const stellaClaude: VariantConfig = {
       lines: [
         "Hi. I'm Future Self.",
         "I have a few questions — the kind people rarely stop to answer.",
-        "Answer honestly. Nothing you write here leaves this space.",
+        "Answer honestly. What you write is for you — never for ads, never for analytics.",
       ],
       cta: "Continue",
     },
@@ -48,7 +49,10 @@ export const stellaClaude: VariantConfig = {
     {
       id: "name-ack",
       type: "info",
-      lines: [(ctx) => (ctx.name ? `Good to meet you, ${ctx.name}.` : "Good to meet you.")],
+      lines: [
+        (ctx) =>
+          ctx.name ? `Good to meet you, ${ctx.name}.` : "Good to meet you.",
+      ],
       autoAdvanceMs: 1600,
     },
     {
@@ -132,7 +136,8 @@ export const stellaClaude: VariantConfig = {
         { slug: "overwhelm", label: "I burn out" },
         { slug: "self-doubt", label: "I doubt myself" },
         { slug: "motivation", label: "Life keeps happening" },
-        { slug: "no-plan", label: "Something else…" },
+        { slug: "no-plan", label: "I don't have a plan" },
+        { slug: "other", label: "Something else" },
       ],
       modelKey: "obstacles",
     },
@@ -149,6 +154,7 @@ export const stellaClaude: VariantConfig = {
         { slug: "terrifying", label: "Honestly? Terrifying" },
         { slug: "sad", label: "Sad, but familiar" },
         { slug: "refuse", label: "I refuse to find out" },
+        { slug: "want-more", label: "I'd survive it — but I want more" },
       ],
       modelKey: "raw.projection",
     },
@@ -165,7 +171,12 @@ export const stellaClaude: VariantConfig = {
       id: "traits",
       hideProgress: true,
       type: "chips",
-      lines: [(ctx) => (ctx.name ? `Three words, ${ctx.name}. Who is that person?` : "Three words. Who is that person?")],
+      lines: [
+        (ctx) =>
+          ctx.name
+            ? `Three words, ${ctx.name}. Who is that person?`
+            : "Three words. Who is that person?",
+      ],
       minSelect: 3,
       maxSelect: 3,
       options: [
@@ -187,7 +198,8 @@ export const stellaClaude: VariantConfig = {
       lines: [
         "Last one. It's the important one.",
         (ctx) => {
-          const traits = (ctx.answers["future_traits"] as string[] | undefined) ?? [];
+          const traits =
+            (ctx.answers["future_traits"] as string[] | undefined) ?? [];
           const t1 = traits[0] ?? "stronger";
           const t2 = traits[1] ?? "calmer";
           return `You're having a hard morning. The ${t1}, ${t2} version of you leans in. What do they say?`;
@@ -216,13 +228,22 @@ export const stellaClaude: VariantConfig = {
     {
       id: "auth",
       type: "auth-sheet",
-      headline: (ctx) => (ctx.name ? `Keep it safe, ${ctx.name}.` : "Keep it safe."),
+      headline: (ctx) =>
+        ctx.name ? `Keep it safe, ${ctx.name}.` : "Keep it safe.",
       sub: "Sign in so your goal, your streak and your saved words survive a lost phone — and follow you to a new one.",
       secondaryCta: "Not now",
     },
     {
       id: "paywall",
       type: "paywall",
+    },
+    {
+      id: "post-auth",
+      type: "auth-sheet",
+      headline: "One tap so this is never lost.",
+      sub: "Your goal, your streak and your saved words — safe on any device.",
+      secondaryCta: "Not now",
+      condition: (ctx) => ctx.isAnonymous,
     },
   ],
 };

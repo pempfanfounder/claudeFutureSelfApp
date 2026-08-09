@@ -9,7 +9,9 @@ import { useColors } from "@/design-system/ThemeProvider";
 import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
+import { getSupabase } from "@/lib/supabase";
 
+import { useAuth } from "@/features/auth/AuthProvider";
 import { AuthSheet } from "@/features/auth/AuthSheet";
 import { NotePaywall } from "@/features/paywall/NotePaywall";
 import { TimelinePaywall } from "@/features/paywall/TimelinePaywall";
@@ -18,7 +20,7 @@ import { useOffering } from "@/features/paywall/useOffering";
 import { getVariantConfig } from "../variants";
 import { completeOnboarding } from "./completeOnboarding";
 import { resolveText } from "./resolve";
-import { useOnboardingStore } from "./store";
+import { markOnboardingComplete, useOnboardingStore } from "./store";
 import { IamStep } from "./steps/IamStep";
 import { NotificationsStep } from "./steps/NotificationsStep";
 import { PreparingStep } from "./steps/PreparingStep";
@@ -35,13 +37,24 @@ import type { OnboardingContext, OnboardingStep } from "./types";
 export function OnboardingFlow() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { variant, stepIndex, setStepIndex, answers, name, setAnswer, setName } =
-    useOnboardingStore();
+  const {
+    variant,
+    stepIndex,
+    setStepIndex,
+    answers,
+    name,
+    setAnswer,
+    setName,
+  } = useOnboardingStore();
   const setPremium = useAppState((s) => s.setPremium);
+  const { isAnonymous } = useAuth();
 
   const config = variant ? getVariantConfig(variant) : null;
-  const offering = useOffering(config?.paywallStyle === "note" ? "weekly" : "annual");
+  const offering = useOffering(
+    config?.paywallStyle === "note" ? "weekly" : "annual",
+  );
   const [trialReminder, setTrialReminder] = useState(true);
+  const [switchAuthVisible, setSwitchAuthVisible] = useState(false);
 
   const ctx = useMemo<OnboardingContext>(
     () => ({
@@ -49,12 +62,16 @@ export function OnboardingFlow() {
       answers,
       trialLength: offering.trialLength,
       priceLine: offering.priceLine,
+      isAnonymous,
     }),
-    [name, answers, offering.trialLength, offering.priceLine],
+    [name, answers, offering.trialLength, offering.priceLine, isAnonymous],
   );
 
   const steps = useMemo(
-    () => (config ? config.steps.filter((s) => !s.condition || s.condition(ctx)) : []),
+    () =>
+      config
+        ? config.steps.filter((s) => !s.condition || s.condition(ctx))
+        : [],
     [config, ctx],
   );
 
@@ -107,14 +124,52 @@ export function OnboardingFlow() {
 
   const handleSkip = useCallback(() => {
     if (!step || !variant) return;
+    // The Stella welcome's secondary action is "Already have an
+    // account? Sign in" — an account switch, not a skip.
+    if (step.type === "welcome" && step.secondaryCta) {
+      setSwitchAuthVisible(true);
+      return;
+    }
     analytics.capture("onboarding_skipped", { variant, step: step.id });
     advance();
   }, [step, variant, advance]);
 
+  /**
+   * After signing in to an EXISTING account from the welcome screen:
+   * if that account already finished onboarding, skip the funnel — its
+   * server-side personalization is the source of truth. Purchases
+   * reattach via RevenueCat logIn (auth listener) + Restore.
+   */
+  const handleSwitchDone = useCallback(
+    async (authenticated: boolean) => {
+      setSwitchAuthVisible(false);
+      if (!authenticated || !variant) return;
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session.session?.user.id;
+      if (!userId) return;
+      const { data } = await supabase
+        .from("personalization")
+        .select("variant, onboarding_completed_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (data?.onboarding_completed_at) {
+        await markOnboardingComplete(
+          (data.variant as typeof variant | null) ?? variant,
+        );
+        useAppState.getState().setOnboardingComplete(true);
+        router.replace("/");
+      }
+    },
+    [variant],
+  );
+
   if (!config || !step || !variant) return null;
 
   const isStella = config.family === "stella";
-  const showBack = isStella && stepIndex > 0 && !["preparing", "paywall"].includes(step.type);
+  const showBack =
+    isStella && stepIndex > 0 && !["preparing", "paywall"].includes(step.type);
   const showProgress =
     isStella &&
     !step.hideProgress &&
@@ -125,10 +180,17 @@ export function OnboardingFlow() {
     switch (step.type) {
       case "notifications":
         return (
-          <NotificationsStep step={step} ctx={ctx} family={config.family} onDone={advance} />
+          <NotificationsStep
+            step={step}
+            ctx={ctx}
+            family={config.family}
+            onDone={advance}
+          />
         );
       case "streak-commit":
-        return <StreakCommitStep step={step} ctx={ctx} onAnswer={handleAnswer} />;
+        return (
+          <StreakCommitStep step={step} ctx={ctx} onAnswer={handleAnswer} />
+        );
       case "theme":
         return <ThemeStep step={step} ctx={ctx} onDone={advance} />;
       case "result":
@@ -184,16 +246,29 @@ export function OnboardingFlow() {
             onClose={() => {
               // Hard-gate product: closing skips the retention promos
               // but the gate route re-presents the paywall.
-              analytics.capture("paywall_dismissed", { variant, placement: "onboarding" });
+              analytics.capture("paywall_dismissed", {
+                variant,
+                placement: "onboarding",
+              });
               void finish();
             }}
           />
         );
       default:
         return isStella ? (
-          <StellaStep step={step} ctx={ctx} onAnswer={handleAnswer} onSkip={handleSkip} />
+          <StellaStep
+            step={step}
+            ctx={ctx}
+            onAnswer={handleAnswer}
+            onSkip={handleSkip}
+          />
         ) : (
-          <IamStep step={step} ctx={ctx} onAnswer={handleAnswer} onSkip={handleSkip} />
+          <IamStep
+            step={step}
+            ctx={ctx}
+            onAnswer={handleAnswer}
+            onSkip={handleSkip}
+          />
         );
     }
   };
@@ -228,14 +303,29 @@ export function OnboardingFlow() {
       ) : null}
 
       <View
+        // Key by step id so each step mounts fresh (streaming state,
+        // selections, entering animations).
+        key={step.id}
         style={[
           styles.body,
           !isFullBleed && { paddingHorizontal: spacing.xl },
-          { paddingTop: isFullBleed ? 0 : insets.top, paddingBottom: isFullBleed ? 0 : insets.bottom },
+          {
+            paddingTop: isFullBleed ? 0 : insets.top,
+            paddingBottom: isFullBleed ? 0 : insets.bottom,
+          },
         ]}
       >
         {renderStep()}
       </View>
+
+      <AuthSheet
+        visible={switchAuthVisible}
+        mode="switch"
+        headline="Welcome back."
+        sub="Sign in to the account that has your history."
+        dismissLabel="Cancel"
+        onDone={handleSwitchDone}
+      />
     </View>
   );
 }

@@ -28,6 +28,8 @@ export interface OnboardingContext {
   answers: Record<string, string | string[]>;
   trialLength: string | null;
   priceLine: string | null;
+  /** True until the user links an identity (drives post-paywall re-offer). */
+  isAnonymous: boolean;
 }
 
 export interface OnboardingStep {
@@ -40,7 +42,7 @@ export interface OnboardingStep {
    * Stella-family screens stream these lines one at a time before the
    * input appears. When present, `headline` is unused.
    */
-  lines?: Array<string | ((ctx: OnboardingContext) => string)>;
+  lines?: (string | ((ctx: OnboardingContext) => string))[];
   options?: StepOption[];
   placeholder?: string;
   cta?: string;
@@ -60,6 +62,8 @@ export interface OnboardingStep {
   modelKey?: string;
   /** Shows the small "Try it free" caption above the CTA (iam family). */
   trialCaption?: boolean;
+  /** Sample line shown inside the mock notification (notifications step). */
+  mockLine?: string;
   /** Skip the step when it doesn't apply (e.g. no trial configured). */
   condition?: (ctx: OnboardingContext) => boolean;
   /** Stella family: hide the thin top progress bar (finale screens). */

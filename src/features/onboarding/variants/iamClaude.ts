@@ -19,21 +19,6 @@ export const iamClaude: VariantConfig = {
       cta: "Begin",
     },
     {
-      id: "source",
-      type: "single",
-      headline: "How did you find Future Self?",
-      sub: "Helps us know where to keep showing up",
-      options: [
-        { slug: "web", label: "Web search" },
-        { slug: "app-store", label: "App Store" },
-        { slug: "friend", label: "Friend or family" },
-        { slug: "tiktok", label: "TikTok" },
-        { slug: "instagram", label: "Instagram" },
-        { slug: "other", label: "Other" },
-      ],
-      modelKey: "raw.source",
-    },
-    {
       id: "name",
       type: "text",
       headline: "What should we call you?",
@@ -47,7 +32,8 @@ export const iamClaude: VariantConfig = {
     {
       id: "age",
       type: "single",
-      headline: (ctx) => (ctx.name ? `How old are you, ${ctx.name}?` : "How old are you?"),
+      headline: (ctx) =>
+        ctx.name ? `How old are you, ${ctx.name}?` : "How old are you?",
       sub: "We tune the voice to where you are in life",
       options: [
         { slug: "u18", label: "Under 18" },
@@ -67,7 +53,11 @@ export const iamClaude: VariantConfig = {
       sub: "Honest answer — it sets your starting pace",
       options: [
         { slug: "all-in", label: "Ready to change everything", emoji: "🔥" },
-        { slug: "inconsistent", label: "Motivated, but inconsistent", emoji: "📈" },
+        {
+          slug: "inconsistent",
+          label: "Motivated, but inconsistent",
+          emoji: "📈",
+        },
         { slug: "empty", label: "Running on empty", emoji: "🌫️" },
         { slug: "unsure", label: "Honestly, I'm not sure", emoji: "🤍" },
       ],
@@ -76,7 +66,8 @@ export const iamClaude: VariantConfig = {
     {
       id: "gap-interstitial",
       type: "info",
-      headline: "The person you'll be in five years is being built in the ordinary hours of today.",
+      headline:
+        "The person you'll be in five years is being built in the ordinary hours of today.",
       cta: "Continue",
     },
     {
@@ -118,7 +109,8 @@ export const iamClaude: VariantConfig = {
     {
       id: "system-interstitial",
       type: "info",
-      headline: "Consistency isn't a personality trait. It's a system — and you're about to build one.",
+      headline:
+        "Consistency isn't a personality trait. It's a system — and you're about to build one.",
       cta: "Continue",
     },
     {
@@ -157,8 +149,9 @@ export const iamClaude: VariantConfig = {
       id: "notifications",
       type: "notifications",
       headline: "This is how you won't drift.",
-      sub: "Future Self interrupts your day with the right words at the right time. You control how often.",
+      sub: "Future Self finds you through the day with the right words. You control how often, and when.",
       cta: "Allow and Save",
+      mockLine: "Discipline is remembering what you want.",
     },
     {
       id: "streak",
@@ -226,13 +219,29 @@ export const iamClaude: VariantConfig = {
       cta: "Sounds right",
     },
     {
+      id: "source",
+      type: "single",
+      headline: "One last thing — how did you find us?",
+      sub: "It helps a small team keep showing up there",
+      options: [
+        { slug: "web", label: "Web search" },
+        { slug: "app-store", label: "App Store" },
+        { slug: "friend", label: "Friend or family" },
+        { slug: "tiktok", label: "TikTok" },
+        { slug: "instagram", label: "Instagram" },
+        { slug: "other", label: "Other" },
+      ],
+      skippable: true,
+      modelKey: "raw.source",
+    },
+    {
       id: "trial-preframe",
       type: "info",
       headline: (ctx) =>
         ctx.trialLength
           ? `Everything unlocked, free for ${ctx.trialLength}.`
           : "Everything unlocked from day one.",
-      sub: "No surprises: we'll remind you before the trial ends, and cancelling takes two taps.",
+      sub: "No surprises: we'll remind you before the trial ends, and you can cancel anytime.",
       cta: "Show me how it works",
       condition: (ctx) => ctx.trialLength !== null,
     },
@@ -246,6 +255,7 @@ export const iamClaude: VariantConfig = {
       headline: "Put your future on your Lock Screen.",
       sub: "See your words without unlocking your phone",
       cta: "Got it",
+      placeholder: "I will not waste today.",
     },
     {
       id: "widget-home",
@@ -254,6 +264,7 @@ export const iamClaude: VariantConfig = {
       sub: "Touch and hold your Home Screen, tap Edit, and add Future Self",
       cta: "Set up widget",
       secondaryCta: "Later",
+      placeholder: "A year from now, you'll be glad you started today.",
     },
   ],
 };

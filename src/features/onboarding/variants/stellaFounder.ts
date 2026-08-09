@@ -17,13 +17,14 @@ export const stellaFounder: VariantConfig = {
       type: "welcome",
       headline: "Everything I become starts with what you do today.",
       cta: "Continue",
+      secondaryCta: "Already have an account? Sign in",
     },
     {
       id: "notifications",
       type: "notifications",
       lines: [
-        "I'll want to reach you during the day — a few words when they matter most.",
-        "Turn on notifications so I can.",
+        "There will be moments today when you drift. This app would like to catch a few of them.",
+        "Turn on notifications — a few of the right words, in the hours you choose.",
       ],
       cta: "Turn them on",
       secondaryCta: "Maybe later",
@@ -49,7 +50,10 @@ export const stellaFounder: VariantConfig = {
     {
       id: "name-ack",
       type: "info",
-      lines: [(ctx) => (ctx.name ? `${ctx.name}. Still a good name.` : "Still a good name.")],
+      lines: [
+        (ctx) =>
+          ctx.name ? `${ctx.name}. Still a good name.` : "Still a good name.",
+      ],
       autoAdvanceMs: 1600,
     },
     {
@@ -69,7 +73,10 @@ export const stellaFounder: VariantConfig = {
     {
       id: "readiness",
       type: "chips",
-      lines: ["I need to know something first.", "Are you ready to change the direction of our life?"],
+      lines: [
+        "I need to know something first.",
+        "Are you ready to change the direction of our life?",
+      ],
       minSelect: 1,
       maxSelect: 1,
       options: [
@@ -88,7 +95,10 @@ export const stellaFounder: VariantConfig = {
       maxSelect: 1,
       options: [
         { slug: "everything", label: "I'm ready to give it everything" },
-        { slug: "inconsistent", label: "I'm motivated — I just can't stay consistent" },
+        {
+          slug: "inconsistent",
+          label: "I'm motivated — I just can't stay consistent",
+        },
         { slug: "stuck", label: "I want change, but I feel stuck" },
         { slug: "figuring-out", label: "I'm still figuring out what I want" },
         { slug: "exploring", label: "I'm mostly exploring" },
@@ -108,13 +118,16 @@ export const stellaFounder: VariantConfig = {
         { slug: "focus", label: "Focus & consistency" },
         { slug: "peace", label: "Confidence & peace" },
         { slug: "relationships", label: "The people we love" },
+        { slug: "other", label: "Something else" },
       ],
       modelKey: "primary_goals",
     },
     {
       id: "life-goal",
       type: "text",
-      lines: ["Now say it properly. What's the life you're trying to build for us?"],
+      lines: [
+        "Now say it properly. What's the life you're trying to build for us?",
+      ],
       placeholder: "Don't be modest. I already know how it ends…",
       multiline: true,
       maxLength: 280,
@@ -133,6 +146,7 @@ export const stellaFounder: VariantConfig = {
         { slug: "self-doubt", label: "We doubt ourselves" },
         { slug: "no-plan", label: "We don't know where to start" },
         { slug: "on-track", label: "We're moving — keep it that way" },
+        { slug: "other", label: "Something else" },
       ],
       modelKey: "obstacles",
     },
@@ -184,7 +198,10 @@ export const stellaFounder: VariantConfig = {
       hideProgress: true,
       type: "info",
       lines: [
-        (ctx) => (ctx.name ? `That's all I needed, ${ctx.name}.` : "That's all I needed."),
+        (ctx) =>
+          ctx.name
+            ? `That's all I needed, ${ctx.name}.`
+            : "That's all I needed.",
         (ctx) => {
           const motivation = ctx.answers["motivation_level"];
           if (motivation === "everything" || motivation === "inconsistent") {
@@ -193,8 +210,12 @@ export const stellaFounder: VariantConfig = {
           return "You answered honestly. That's rarer than motivation — and it's enough.";
         },
         (ctx) => {
-          const traits = (ctx.answers["future_traits"] as string[] | undefined) ?? [];
-          const t = traits.length === 3 ? `${traits[0]}, ${traits[1]}, ${traits[2]}` : "stronger";
+          const traits =
+            (ctx.answers["future_traits"] as string[] | undefined) ?? [];
+          const t =
+            traits.length === 3
+              ? `${traits[0]}, ${traits[1]}, ${traits[2]}`
+              : "stronger";
           return `I'm building our daily plan now: the quotes, the affirmations, the check-ins. Everything aimed at the ${t} version of us.`;
         },
       ],
@@ -208,13 +229,22 @@ export const stellaFounder: VariantConfig = {
     {
       id: "auth",
       type: "auth-sheet",
-      headline: (ctx) => (ctx.name ? `Don't lose us, ${ctx.name}.` : "Don't lose us."),
+      headline: (ctx) =>
+        ctx.name ? `Don't lose us, ${ctx.name}.` : "Don't lose us.",
       sub: "Sign in so our goal, our streak and our words survive a lost phone.",
       secondaryCta: "Not now",
     },
     {
       id: "paywall",
       type: "paywall",
+    },
+    {
+      id: "post-auth",
+      type: "auth-sheet",
+      headline: "One tap so we're never lost.",
+      sub: "Our goal, our streak, our words — safe on any device.",
+      secondaryCta: "Not now",
+      condition: (ctx) => ctx.isAnonymous,
     },
   ],
 };

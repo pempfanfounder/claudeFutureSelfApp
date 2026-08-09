@@ -1,6 +1,12 @@
 import * as Haptics from "expo-haptics";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, Share, StyleSheet, View, useWindowDimensions } from "react-native";
+import {
+  Pressable,
+  Share,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import Animated, {
   Easing,
   runOnJS,
@@ -27,20 +33,30 @@ interface ContentCardProps {
  * One full-screen card, I Am style: the whole screen is the card —
  * centered serif text, share + heart beneath, double-tap heart burst.
  */
-export function ContentCard({ item, isFavorite, onToggleFavorite }: ContentCardProps) {
+export function ContentCard({
+  item,
+  isFavorite,
+  onToggleFavorite,
+}: ContentCardProps) {
   const colors = useColors();
   const { height } = useWindowDimensions();
   const burstScale = useSharedValue(0);
   const burstOpacity = useSharedValue(0);
   const lastTap = useRef(0);
   const [textSize] = useState(() =>
-    item.body.length > 180 ? type.sizes.h3 : item.body.length > 90 ? type.sizes.h2 : type.sizes.h1,
+    item.body.length > 180
+      ? type.sizes.h3
+      : item.body.length > 90
+        ? type.sizes.h2
+        : type.sizes.h1,
   );
 
   const burst = useCallback(() => {
     burstScale.set(0.4);
     burstOpacity.set(0.9);
-    burstScale.set(withTiming(1.6, { duration: 620, easing: Easing.out(Easing.quad) }));
+    burstScale.set(
+      withTiming(1.6, { duration: 620, easing: Easing.out(Easing.quad) }),
+    );
     burstOpacity.set(
       withSequence(
         withTiming(0.9, { duration: 120 }),
@@ -66,9 +82,14 @@ export function ContentCard({ item, isFavorite, onToggleFavorite }: ContentCardP
   };
 
   const share = async () => {
-    analytics.capture("content_shared", { content_id: item.id, content_type: item.type });
+    analytics.capture("content_shared", {
+      content_id: item.id,
+      content_type: item.type,
+    });
     const suffix = item.author ? ` — ${item.author}` : "";
-    await Share.share({ message: `${item.body}${suffix}\n\nvia Future Self` }).catch(() => {});
+    await Share.share({
+      message: `${item.body}${suffix}\n\nvia Future Self`,
+    }).catch(() => {});
   };
 
   const burstStyle = useAnimatedStyle(() => ({
@@ -112,7 +133,10 @@ export function ContentCard({ item, isFavorite, onToggleFavorite }: ContentCardP
           hitSlop={12}
           testID={`favorite-${item.id}`}
         >
-          <AppText variant="h3" style={{ color: isFavorite ? colors.accent : colors.ink2 }}>
+          <AppText
+            variant="h3"
+            style={{ color: isFavorite ? colors.accent : colors.ink2 }}
+          >
             {isFavorite ? "♥" : "♡"}
           </AppText>
         </Pressable>

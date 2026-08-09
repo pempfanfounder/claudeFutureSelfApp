@@ -8,7 +8,12 @@ export function resolveText(
   return value;
 }
 
-export function resolveLines(step: OnboardingStep, ctx: OnboardingContext): string[] {
+export function resolveLines(
+  step: OnboardingStep,
+  ctx: OnboardingContext,
+): string[] {
   if (!step.lines) return [];
-  return step.lines.map((line) => (typeof line === "function" ? line(ctx) : line));
+  return step.lines.map((line) =>
+    typeof line === "function" ? line(ctx) : line,
+  );
 }

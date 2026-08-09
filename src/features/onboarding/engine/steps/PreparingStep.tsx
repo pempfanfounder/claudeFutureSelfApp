@@ -27,17 +27,30 @@ interface PreparingStepProps {
  * (persisting personalization, generating daily sets, registering the
  * notification plan) actually executes here.
  */
-export function PreparingStep({ headline, work, onDone, minDurationMs = 5500 }: PreparingStepProps) {
+export function PreparingStep({
+  headline,
+  work,
+  onDone,
+  minDurationMs = 5500,
+}: PreparingStepProps) {
   const colors = useColors();
   const scale = useSharedValue(1);
   const glow = useSharedValue(0.4);
 
   useEffect(() => {
     scale.set(
-      withRepeat(withTiming(1.15, { duration: 1600, easing: Easing.inOut(Easing.quad) }), -1, true),
+      withRepeat(
+        withTiming(1.15, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+        -1,
+        true,
+      ),
     );
     glow.set(
-      withRepeat(withTiming(0.9, { duration: 1100, easing: Easing.inOut(Easing.quad) }), -1, true),
+      withRepeat(
+        withTiming(0.9, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
+        -1,
+        true,
+      ),
     );
   }, [scale, glow]);
 
@@ -70,7 +83,9 @@ export function PreparingStep({ headline, work, onDone, minDurationMs = 5500 }: 
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.root}>
-      <Animated.View style={[styles.disc, { backgroundColor: colors.accent }, discStyle]} />
+      <Animated.View
+        style={[styles.disc, { backgroundColor: colors.accent }, discStyle]}
+      />
       <AppText variant="h3" center style={styles.headline}>
         {headline}
       </AppText>

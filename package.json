@@ -54,7 +54,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@testing-library/react-native": "^14.0.1",
+    "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
@@ -62,12 +62,13 @@
     "jest": "^29.7.0",
     "jest-expo": "^57.0.3",
     "prettier": "^3.9.6",
+    "react-test-renderer": "^19.2.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
@@ -89,6 +90,10 @@
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.js"
-    ]
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup-after-env.js"
+    ],
+    "resolver": "react-native-worklets/jest/resolver.js"
   }
 }

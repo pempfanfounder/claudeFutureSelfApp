@@ -20,7 +20,9 @@ export default function PaywallRoute() {
   const [variant, setVariant] = useState<OnboardingVariant | null>(null);
 
   useEffect(() => {
-    getCompletedOnboardingVariant().then((v) => setVariant((v as OnboardingVariant) ?? "iam-claude"));
+    getCompletedOnboardingVariant().then((v) =>
+      setVariant((v as OnboardingVariant) ?? "iam-claude"),
+    );
   }, []);
 
   const isNote = variant === "stella-founder" || variant === "stella-claude";

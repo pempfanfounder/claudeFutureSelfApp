@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { useColors } from "../ThemeProvider";
 import { motion } from "../tokens";
@@ -16,7 +20,9 @@ export function ProgressBar({ progress, height = 4 }: ProgressBarProps) {
   const value = useSharedValue(progress);
 
   useEffect(() => {
-    value.set(withTiming(Math.min(1, Math.max(0, progress)), { duration: motion.base }));
+    value.set(
+      withTiming(Math.min(1, Math.max(0, progress)), { duration: motion.base }),
+    );
   }, [progress, value]);
 
   const fillStyle = useAnimatedStyle(() => ({
@@ -26,7 +32,10 @@ export function ProgressBar({ progress, height = 4 }: ProgressBarProps) {
   return (
     <View
       accessibilityRole="progressbar"
-      style={[styles.track, { backgroundColor: colors.border, height, borderRadius: height / 2 }]}
+      style={[
+        styles.track,
+        { backgroundColor: colors.border, height, borderRadius: height / 2 },
+      ]}
     >
       <Animated.View
         style={[

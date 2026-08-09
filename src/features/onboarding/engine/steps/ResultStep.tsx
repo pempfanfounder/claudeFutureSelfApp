@@ -53,12 +53,15 @@ const label = (slug: string) => LABELS[slug] ?? slug;
  */
 export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
   const colors = useColors();
-  const { answers, notificationPrefs } = useOnboardingStore();
+  const { answers, notificationPrefs, variant } = useOnboardingStore();
   const [preview, setPreview] = useState<ContentItem | null>(null);
+  const isFounder = variant === "iam-founder";
 
   const goals = (answers["primary_goals"] as string[] | undefined) ?? [];
-  const quoteInterests = (answers["quote_interests"] as string[] | undefined) ?? [];
-  const affirmationInterests = (answers["affirmation_interests"] as string[] | undefined) ?? [];
+  const quoteInterests =
+    (answers["quote_interests"] as string[] | undefined) ?? [];
+  const affirmationInterests =
+    (answers["affirmation_interests"] as string[] | undefined) ?? [];
   const traits = (answers["future_traits"] as string[] | undefined) ?? [];
   const lifeGoal = answers["life_goal"] as string | undefined;
   const motivation = answers["motivation_level"] as string | undefined;
@@ -67,10 +70,13 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
     let cancelled = false;
     loadLibrary().then((items) => {
       if (cancelled) return;
-      const targetCategories = quoteInterests.length > 0 ? quoteInterests : ["discipline"];
+      const targetCategories =
+        quoteInterests.length > 0 ? quoteInterests : ["discipline"];
       const match =
         items.find(
-          (i) => i.type === "quote" && i.categories.some((c) => targetCategories.includes(c)),
+          (i) =>
+            i.type === "quote" &&
+            i.categories.some((c) => targetCategories.includes(c)),
         ) ?? items.find((i) => i.type === "quote");
       setPreview(match ?? null);
     });
@@ -80,12 +86,29 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mirror =
-    motivation === "everything" || motivation === "all-in"
-      ? "Your ambition is exactly what Future Self's daily words are built around."
-      : motivation === "stuck" || motivation === "unsure" || motivation === "figuring-out"
+  // Each variant keeps its own voice: founder copy mirrors the founder
+  // doc's honest rewrite; iam-claude uses its own lines.
+  const mirror = isFounder
+    ? motivation === "everything"
+      ? "Your ambition is exactly what Future Self's daily quotes are built around."
+      : motivation === "stuck" ||
+          motivation === "figuring-out" ||
+          motivation === "exploring"
         ? "Starting unsure is still starting — your mix begins gently and builds."
+        : "Your plan is built to keep you moving, not just inspired."
+    : motivation === "all-in"
+      ? "You brought the drive. Your mix brings the rhythm."
+      : motivation === "unsure" || motivation === "empty"
+        ? "Momentum beats motivation — your mix starts small on purpose."
         : "Your mix is tuned to help you stay consistent, not just inspired.";
+
+  const headline = isFounder
+    ? ctx.name
+      ? `That's everything we needed, ${ctx.name}.`
+      : "That's everything we needed."
+    : ctx.name
+      ? `Your daily mix is ready, ${ctx.name}.`
+      : "Your daily mix is ready.";
 
   const quoteLine =
     quoteInterests.length > 0
@@ -103,20 +126,25 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <AppText variant="h2">
-          {ctx.name ? `Your daily mix is ready, ${ctx.name}.` : "Your daily mix is ready."}
-        </AppText>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        <AppText variant="h2">{headline}</AppText>
         <AppText variant="lead" tone="ink2" style={styles.mirror}>
           {mirror}
         </AppText>
 
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
           <Row text={quoteLine} />
           <Row text={affirmationLine} />
           <Row text={cadenceLine} />
           {traits.length > 0 ? (
-            <Row text={`Aimed at the ${traits.slice(0, 3).map(label).join(", ")} version of you.`} />
+            <Row
+              text={`Aimed at the ${traits.slice(0, 3).map(label).join(", ")} version of you.`}
+            />
           ) : null}
           {lifeGoal ? <Row text={`Your line: “${lifeGoal}”`} /> : null}
         </View>
@@ -124,7 +152,10 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
         {preview ? (
           <Animated.View
             entering={FadeIn.duration(400).delay(250)}
-            style={[styles.preview, { backgroundColor: colors.bgAlt, borderColor: colors.border }]}
+            style={[
+              styles.preview,
+              { backgroundColor: colors.bgAlt, borderColor: colors.border },
+            ]}
           >
             <AppText variant="quote" center>
               {preview.body}
@@ -138,7 +169,11 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
         ) : null}
       </ScrollView>
       <View style={styles.footer}>
-        <Button label={step.cta ?? "Sounds right"} onPress={onDone} testID="continue" />
+        <Button
+          label={step.cta ?? "Sounds right"}
+          onPress={onDone}
+          testID="continue"
+        />
       </View>
     </Animated.View>
   );

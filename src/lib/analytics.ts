@@ -50,7 +50,8 @@ export const analytics = {
   },
 };
 
-const FORBIDDEN_KEY_PATTERN = /(email|token|password|goal|affirmation|answer|name|text)/i;
+const FORBIDDEN_KEY_PATTERN =
+  /(email|token|password|goal|affirmation|answer|name|text)/i;
 
 /**
  * Defense in depth: strip properties whose keys suggest sensitive

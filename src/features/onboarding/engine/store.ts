@@ -24,7 +24,9 @@ interface OnboardingState {
   setStepIndex: (index: number) => void;
   setAnswer: (key: string, value: string | string[]) => void;
   setName: (name: string) => void;
-  setNotificationPrefs: (prefs: Partial<OnboardingState["notificationPrefs"]>) => void;
+  setNotificationPrefs: (
+    prefs: Partial<OnboardingState["notificationPrefs"]>,
+  ) => void;
   setPermissionStatus: (status: OnboardingState["permissionStatus"]) => void;
   reset: () => void;
 }
@@ -43,7 +45,8 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   permissionStatus: "undetermined",
   setVariant: (variant) => set({ variant }),
   setStepIndex: (stepIndex) => set({ stepIndex }),
-  setAnswer: (key, value) => set((s) => ({ answers: { ...s.answers, [key]: value } })),
+  setAnswer: (key, value) =>
+    set((s) => ({ answers: { ...s.answers, [key]: value } })),
   setName: (name) => set({ name }),
   setNotificationPrefs: (prefs) =>
     set((s) => ({ notificationPrefs: { ...s.notificationPrefs, ...prefs } })),

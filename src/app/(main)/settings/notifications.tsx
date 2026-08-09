@@ -54,7 +54,9 @@ export default function NotificationSettingsScreen() {
   const colors = useColors();
   const userId = useAppState((s) => s.userId);
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
-  const [permission, setPermission] = useState<"undetermined" | "granted" | "denied">("granted");
+  const [permission, setPermission] = useState<
+    "undetermined" | "granted" | "denied"
+  >("granted");
   const [quietEnabled, setQuietEnabled] = useState(false);
 
   useEffect(() => {
@@ -130,7 +132,12 @@ export default function NotificationSettingsScreen() {
     </View>
   );
 
-  const toggleRow = (label: string, sub: string, value: boolean, onChange: (v: boolean) => void) => (
+  const toggleRow = (
+    label: string,
+    sub: string,
+    value: boolean,
+    onChange: (v: boolean) => void,
+  ) => (
     <View style={[styles.row, { backgroundColor: colors.card }]}>
       <View style={styles.rowLabel}>
         <AppText variant="lead">{label}</AppText>
@@ -138,7 +145,11 @@ export default function NotificationSettingsScreen() {
           {sub}
         </AppText>
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.success }} />
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: colors.success }}
+      />
     </View>
   );
 
@@ -154,7 +165,10 @@ export default function NotificationSettingsScreen() {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         {permission !== "granted" ? (
           <Pressable
             onPress={async () => {
@@ -162,7 +176,13 @@ export default function NotificationSettingsScreen() {
               setPermission(status);
               await registerDevice();
             }}
-            style={[styles.permissionBanner, { backgroundColor: colors.bgAlt, borderColor: colors.borderStrong }]}
+            style={[
+              styles.permissionBanner,
+              {
+                backgroundColor: colors.bgAlt,
+                borderColor: colors.borderStrong,
+              },
+            ]}
           >
             <AppText variant="body">
               {permission === "denied"
@@ -175,7 +195,12 @@ export default function NotificationSettingsScreen() {
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
           Daily words
         </AppText>
-        {stepperRow("Quotes", prefs.quotes_per_day, (v) => save({ ...prefs, quotes_per_day: v }), 3)}
+        {stepperRow(
+          "Quotes",
+          prefs.quotes_per_day,
+          (v) => save({ ...prefs, quotes_per_day: v }),
+          3,
+        )}
         {stepperRow(
           "Affirmations",
           prefs.affirmations_per_day,
@@ -189,7 +214,11 @@ export default function NotificationSettingsScreen() {
         {stepperRow(
           "Start",
           prefs.window_start_minutes,
-          (v) => save({ ...prefs, window_start_minutes: Math.min(v, prefs.window_end_minutes - 60) }),
+          (v) =>
+            save({
+              ...prefs,
+              window_start_minutes: Math.min(v, prefs.window_end_minutes - 60),
+            }),
           23 * 60,
           hourLabel,
           0,
@@ -198,27 +227,37 @@ export default function NotificationSettingsScreen() {
         {stepperRow(
           "End",
           prefs.window_end_minutes,
-          (v) => save({ ...prefs, window_end_minutes: Math.max(v, prefs.window_start_minutes + 60) }),
+          (v) =>
+            save({
+              ...prefs,
+              window_end_minutes: Math.max(v, prefs.window_start_minutes + 60),
+            }),
           23 * 60,
           hourLabel,
           60,
           60,
         )}
         <AppText variant="label" tone="ink3" style={styles.hint}>
-          Times are targets, not guarantees — delivery adapts to your day and timezone.
+          Times are targets, not guarantees — delivery adapts to your day and
+          timezone.
         </AppText>
 
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
           Quiet hours
         </AppText>
-        {toggleRow("Quiet hours", "Nothing arrives inside this window", quietEnabled, (v) => {
-          setQuietEnabled(v);
-          save({
-            ...prefs,
-            quiet_start_minutes: v ? 1320 : null,
-            quiet_end_minutes: v ? 480 : null,
-          });
-        })}
+        {toggleRow(
+          "Quiet hours",
+          "Nothing arrives inside this window",
+          quietEnabled,
+          (v) => {
+            setQuietEnabled(v);
+            save({
+              ...prefs,
+              quiet_start_minutes: v ? 1320 : null,
+              quiet_end_minutes: v ? 480 : null,
+            });
+          },
+        )}
         {quietEnabled
           ? stepperRow(
               "From",

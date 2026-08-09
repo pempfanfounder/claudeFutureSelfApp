@@ -68,11 +68,11 @@ one whose `audience` matches the user wins.
 
 Audience formats:
 
-| Audience JSON | Matches |
-| --- | --- |
-| `{"all": true}` | everyone |
+| Audience JSON                            | Matches                                        |
+| ---------------------------------------- | ---------------------------------------------- |
+| `{"all": true}`                          | everyone                                       |
 | `{"categories": ["discipline","focus"]}` | users whose interests overlap those categories |
-| `{"variant": "stella-founder"}` | users on that onboarding variant |
+| `{"variant": "stella-founder"}`          | users on that onboarding variant               |
 
 ```sql
 -- Push one specific quote to everyone for 24 hours.
@@ -138,14 +138,14 @@ select cron.schedule('fs-trial-reminders', '30 * * * *',
 
 `notification_deliveries` has one row per attempted send. Status meanings:
 
-| Status | Meaning |
-| --- | --- |
-| `queued` | claimed by the dispatcher, not yet handed to Expo (transient) |
-| `ticket_ok` | Expo accepted it; awaiting the delivery receipt |
-| `ticket_error` | Expo rejected it (bad/expired token, etc.) |
-| `receipt_ok` | confirmed handed to Apple/Google |
-| `receipt_error` | Apple/Google rejected it (`error_detail` says why) |
-| `skipped` | intentionally not sent (`error_detail` says why) |
+| Status          | Meaning                                                       |
+| --------------- | ------------------------------------------------------------- |
+| `queued`        | claimed by the dispatcher, not yet handed to Expo (transient) |
+| `ticket_ok`     | Expo accepted it; awaiting the delivery receipt               |
+| `ticket_error`  | Expo rejected it (bad/expired token, etc.)                    |
+| `receipt_ok`    | confirmed handed to Apple/Google                              |
+| `receipt_error` | Apple/Google rejected it (`error_detail` says why)            |
+| `skipped`       | intentionally not sent (`error_detail` says why)              |
 
 ```sql
 -- Last 24h at a glance.
@@ -238,7 +238,7 @@ select pgmq.purge_queue('push_jobs');
 ```
 
 Remember: once `push-dispatch` hands a message to Expo it cannot be recalled.
-The levers above stop *future* sends only.
+The levers above stop _future_ sends only.
 
 ---
 
@@ -246,12 +246,12 @@ The levers above stop *future* sends only.
 
 Configured once; listed here for troubleshooting.
 
-| Where | Name | Used by |
-| --- | --- | --- |
-| Edge function secrets | `DISPATCH_SECRET` | `push-dispatch`, `push-receipts` (must match the vault secret) |
-| Edge function secrets | `REVENUECAT_WEBHOOK_SECRET` | `revenuecat-webhook` (Bearer auth from RevenueCat) |
-| Edge function secrets | `REVENUECAT_SECRET_API_KEY` | `sync-entitlement` (server-side verification; returns 501 until set) |
-| Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller |
+| Where                             | Name                             | Used by                                                              |
+| --------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| Edge function secrets             | `DISPATCH_SECRET`                | `push-dispatch`, `push-receipts` (must match the vault secret)       |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_SECRET`      | `revenuecat-webhook` (Bearer auth from RevenueCat)                   |
+| Edge function secrets             | `REVENUECAT_SECRET_API_KEY`      | `sync-entitlement` (server-side verification; returns 501 until set) |
+| Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller                                 |
 
 Deploy flags: `push-dispatch`, `push-receipts`, and `revenuecat-webhook` are
 called by machines without a Supabase JWT — deploy them with

@@ -9,7 +9,14 @@ import {
   type ReactNode,
 } from "react";
 
-import { DEFAULT_PALETTE, THEMES, themeById, toPalette, type Palette, type Theme } from "./themes";
+import {
+  DEFAULT_PALETTE,
+  THEMES,
+  themeById,
+  toPalette,
+  type Palette,
+  type Theme,
+} from "./themes";
 
 const THEME_STORAGE_KEY = "fs.theme.v1";
 
@@ -52,7 +59,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     [theme, setThemeId],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): ThemeContextValue {

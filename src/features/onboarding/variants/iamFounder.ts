@@ -21,9 +21,9 @@ export const iamFounder: VariantConfig = {
     {
       id: "qualification",
       type: "info",
-      headline: "Let's find out if Future Self is built for you.",
-      sub: "A few honest questions. Two minutes.",
-      cta: "I'm in",
+      headline: "Two minutes. Honest answers only.",
+      sub: "What you tell us shapes every word you'll see.",
+      cta: "I'm ready",
     },
     {
       id: "readiness",
@@ -53,7 +53,9 @@ export const iamFounder: VariantConfig = {
       id: "gender",
       type: "single",
       headline: (ctx) =>
-        ctx.name ? `Which best describes you, ${ctx.name}?` : "Which best describes you?",
+        ctx.name
+          ? `Which best describes you, ${ctx.name}?`
+          : "Which best describes you?",
       sub: "Some quotes and affirmations use your gender",
       options: [
         { slug: "female", label: "Female" },
@@ -71,7 +73,10 @@ export const iamFounder: VariantConfig = {
       sub: "Your answer sets the tone of your daily mix",
       options: [
         { slug: "everything", label: "I'm ready to give it everything" },
-        { slug: "inconsistent", label: "I'm motivated, but I need help staying consistent" },
+        {
+          slug: "inconsistent",
+          label: "I'm motivated, but I need help staying consistent",
+        },
         { slug: "stuck", label: "I want to change, but I feel stuck" },
         { slug: "figuring-out", label: "I'm still figuring out what I want" },
         { slug: "exploring", label: "I'm mostly exploring for now" },
@@ -81,7 +86,8 @@ export const iamFounder: VariantConfig = {
     {
       id: "quote-interstitial",
       type: "info",
-      headline: "The reason you want it so badly is because your Future Self already has it.",
+      headline:
+        "The reason you want it so badly is because your Future Self already has it.",
       cta: "Continue",
     },
     {
@@ -93,11 +99,19 @@ export const iamFounder: VariantConfig = {
       maxSelect: 3,
       options: [
         { slug: "body", label: "Taking care of my body", emoji: "🩺" },
-        { slug: "career", label: "Building my career or business", emoji: "💼" },
+        {
+          slug: "career",
+          label: "Building my career or business",
+          emoji: "💼",
+        },
         { slug: "money", label: "Becoming financially secure", emoji: "💰" },
         { slug: "focus", label: "Staying focused and consistent", emoji: "🎯" },
         { slug: "peace", label: "Feeling confident and at peace", emoji: "🕊️" },
-        { slug: "relationships", label: "Strengthening my relationships", emoji: "❤️" },
+        {
+          slug: "relationships",
+          label: "Strengthening my relationships",
+          emoji: "❤️",
+        },
         { slug: "other", label: "Something else", emoji: "✨" },
       ],
       skippable: true,
@@ -116,7 +130,10 @@ export const iamFounder: VariantConfig = {
         { slug: "overwhelm", label: "I feel overwhelmed" },
         { slug: "self-doubt", label: "I doubt myself" },
         { slug: "no-plan", label: "I don't know where to start" },
-        { slug: "on-track", label: "I'm making progress — I want help staying on track" },
+        {
+          slug: "on-track",
+          label: "I'm making progress — I want help staying on track",
+        },
       ],
       skippable: true,
       modelKey: "obstacles",
@@ -151,8 +168,9 @@ export const iamFounder: VariantConfig = {
       id: "notifications",
       type: "notifications",
       headline: "Your future self will check in during the day.",
-      sub: "A few of the right words, exactly when you drift. You decide how often.",
+      sub: "A few of the right words, spread through your day. You decide how often, and when.",
       cta: "Allow and Save",
+      mockLine: "You said you were ready. Prove it for five minutes.",
     },
     {
       id: "streak",
@@ -207,7 +225,7 @@ export const iamFounder: VariantConfig = {
         ctx.trialLength
           ? `Everything unlocked, free for ${ctx.trialLength}.`
           : "Everything unlocked from day one.",
-      sub: "We'll remind you before it ends. No surprises, no pressure.",
+      sub: "We'll remind you before it ends. No surprises, no pressure — cancel anytime.",
       cta: "How it works",
       condition: (ctx) => ctx.trialLength !== null,
     },
@@ -221,6 +239,7 @@ export const iamFounder: VariantConfig = {
       headline: "Keep me on your Lock Screen.",
       sub: "Your words, visible without unlocking your phone",
       cta: "Got it",
+      placeholder: "Everything I become starts with what you do today.",
     },
     {
       id: "widget-home",
@@ -229,6 +248,8 @@ export const iamFounder: VariantConfig = {
       sub: "Touch and hold your Home Screen, tap Edit, add Future Self",
       cta: "Set up widget",
       secondaryCta: "Later",
+      placeholder:
+        "The reason you want it so badly is because your Future Self already has it.",
     },
   ],
 };

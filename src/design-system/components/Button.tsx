@@ -1,5 +1,10 @@
 import * as Haptics from "expo-haptics";
-import { ActivityIndicator, Pressable, StyleSheet, type ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  type ViewStyle,
+} from "react-native";
 
 import { useColors } from "../ThemeProvider";
 import { radii, shadows, spacing } from "../tokens";
@@ -55,7 +60,8 @@ export function Button({
         isSecondary && { borderWidth: 1, borderColor: colors.borderStrong },
         isPrimary && shadows.md,
         (disabled || loading) && { opacity: 0.5 },
-        pressed && !disabled && { transform: [{ scale: 0.985 }], opacity: 0.92 },
+        pressed &&
+          !disabled && { transform: [{ scale: 0.985 }], opacity: 0.92 },
         style,
       ]}
     >

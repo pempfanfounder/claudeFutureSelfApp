@@ -2,7 +2,9 @@ import { localFallbackVariant, ONBOARDING_VARIANTS } from "@/lib/experiments";
 
 describe("localFallbackVariant", () => {
   it("is deterministic for the same install id", () => {
-    expect(localFallbackVariant("abc-123")).toBe(localFallbackVariant("abc-123"));
+    expect(localFallbackVariant("abc-123")).toBe(
+      localFallbackVariant("abc-123"),
+    );
   });
 
   it("always returns a valid variant", () => {

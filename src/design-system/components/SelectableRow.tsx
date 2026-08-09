@@ -14,7 +14,13 @@ interface SelectableRowProps {
 }
 
 /** Onboarding answer row: rounded card, accent border when selected. */
-export function SelectableRow({ label, emoji, selected, onPress, testID }: SelectableRowProps) {
+export function SelectableRow({
+  label,
+  emoji,
+  selected,
+  onPress,
+  testID,
+}: SelectableRowProps) {
   const colors = useColors();
   const handlePress = () => {
     Haptics.selectionAsync().catch(() => {});

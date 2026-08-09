@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  View,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
@@ -74,7 +73,11 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(320)} exiting={FadeOut.duration(180)} style={styles.root}>
+    <Animated.View
+      entering={FadeIn.duration(320)}
+      exiting={FadeOut.duration(180)}
+      style={styles.root}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -99,7 +102,9 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
                       styles.chip,
                       {
                         backgroundColor: active ? colors.ctaBg : "transparent",
-                        borderColor: active ? colors.ctaBg : colors.borderStrong,
+                        borderColor: active
+                          ? colors.ctaBg
+                          : colors.borderStrong,
                       },
                     ]}
                   >
@@ -121,7 +126,9 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
                 placeholderTextColor={colors.ink3}
                 multiline={step.multiline}
                 maxLength={step.maxLength}
-                keyboardType={step.keyboard === "number-pad" ? "number-pad" : "default"}
+                keyboardType={
+                  step.keyboard === "number-pad" ? "number-pad" : "default"
+                }
                 autoFocus
                 testID="text-input"
                 onSubmitEditing={step.multiline ? undefined : submit}
@@ -141,7 +148,10 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
         </ScrollView>
 
         {streamed && !step.autoAdvanceMs ? (
-          <Animated.View entering={FadeIn.duration(320).delay(120)} style={styles.footer}>
+          <Animated.View
+            entering={FadeIn.duration(320).delay(120)}
+            style={styles.footer}
+          >
             <Button
               label={step.cta ?? "Continue"}
               onPress={submit}
@@ -165,7 +175,11 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: "center", paddingVertical: spacing.xxxl },
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: spacing.xxxl,
+  },
   chips: {
     flexDirection: "row",
     flexWrap: "wrap",

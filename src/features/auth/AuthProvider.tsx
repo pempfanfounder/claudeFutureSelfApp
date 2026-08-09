@@ -19,7 +19,10 @@ import { monitoring } from "@/lib/monitoring";
 import { logInPurchases, logOutPurchases } from "@/lib/purchases";
 import { getSupabase } from "@/lib/supabase";
 
-import { deactivateDevice, registerDevice } from "@/features/notifications/push";
+import {
+  deactivateDevice,
+  registerDevice,
+} from "@/features/notifications/push";
 
 /**
  * Anonymous-first auth.
@@ -37,7 +40,11 @@ import { deactivateDevice, registerDevice } from "@/features/notifications/push"
 
 export type AuthOutcome =
   | { ok: true }
-  | { ok: false; reason: "cancelled" | "unavailable" | "conflict" | "error"; message?: string };
+  | {
+      ok: false;
+      reason: "cancelled" | "unavailable" | "conflict" | "error";
+      message?: string;
+    };
 
 interface AuthContextValue {
   session: Session | null;
@@ -59,22 +66,24 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [initializing, setInitializing] = useState(true);
+  // Nothing to initialize when Supabase isn't configured.
+  const [initializing, setInitializing] = useState(() =>
+    Boolean(getSupabase()),
+  );
   const [appleAvailable, setAppleAvailable] = useState(false);
   const googleReady = useRef(false);
 
   useEffect(() => {
     if (Platform.OS === "ios") {
-      AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {});
+      AppleAuthentication.isAvailableAsync()
+        .then(setAppleAvailable)
+        .catch(() => {});
     }
   }, []);
 
   useEffect(() => {
     const supabase = getSupabase();
-    if (!supabase) {
-      setInitializing(false);
-      return;
-    }
+    if (!supabase) return;
 
     let mounted = true;
 
@@ -101,7 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userId = next?.user.id ?? null;
       useAppState.getState().setUserId(userId);
       if (userId) {
-        analytics.identify(userId, { is_anonymous: next?.user.is_anonymous ?? false });
+        analytics.identify(userId, {
+          is_anonymous: next?.user.is_anonymous ?? false,
+        });
         monitoring.setUser(userId);
         logInPurchases(userId).catch(() => {});
       }
@@ -116,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const ensureGoogle = useCallback(async () => {
     if (!config.hasGoogleAuth) return null;
     try {
-      const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
+      const { GoogleSignin } =
+        await import("@react-native-google-signin/google-signin");
       if (!googleReady.current) {
         GoogleSignin.configure({
           webClientId: config.googleWebClientId!,
@@ -157,7 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const linkWithApple = useCallback(async (): Promise<AuthOutcome> => {
     const supabase = getSupabase();
-    if (!supabase || !appleAvailable) return { ok: false, reason: "unavailable" };
+    if (!supabase || !appleAvailable)
+      return { ok: false, reason: "unavailable" };
     const apple = await getAppleToken();
     if (!apple) return { ok: false, reason: "error" };
     if ("cancelled" in apple) return { ok: false, reason: "cancelled" };
@@ -166,8 +179,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token: apple.token,
     });
     if (error) {
-      if (error.code === "identity_already_exists" || error.code === "email_exists") {
-        return { ok: false, reason: "conflict", message: "That Apple ID already has an account. Use “Already have an account” instead." };
+      if (
+        error.code === "identity_already_exists" ||
+        error.code === "email_exists"
+      ) {
+        return {
+          ok: false,
+          reason: "conflict",
+          message:
+            "That Apple ID already has an account. Use “Already have an account” instead.",
+        };
       }
       monitoring.captureError(error, { area: "auth.linkApple" });
       return { ok: false, reason: "error", message: error.message };
@@ -182,7 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const GoogleSignin = await ensureGoogle();
     if (!supabase || !GoogleSignin) return { ok: false, reason: "unavailable" };
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
       const result = await GoogleSignin.signIn();
       const idToken = result.data?.idToken;
       if (!idToken) return { ok: false, reason: "cancelled" };
@@ -191,8 +214,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token: idToken,
       });
       if (error) {
-        if (error.code === "identity_already_exists" || error.code === "email_exists") {
-          return { ok: false, reason: "conflict", message: "That Google account already has an account here. Use “Already have an account” instead." };
+        if (
+          error.code === "identity_already_exists" ||
+          error.code === "email_exists"
+        ) {
+          return {
+            ok: false,
+            reason: "conflict",
+            message:
+              "That Google account already has an account here. Use “Already have an account” instead.",
+          };
         }
         monitoring.captureError(error, { area: "auth.linkGoogle" });
         return { ok: false, reason: "error", message: error.message };
@@ -210,19 +241,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [ensureGoogle, afterIdentityChange]);
 
-  const startEmailLink = useCallback(async (email: string): Promise<AuthOutcome> => {
-    const supabase = getSupabase();
-    if (!supabase) return { ok: false, reason: "unavailable" };
-    const { error } = await supabase.auth.updateUser({ email });
-    if (error) {
-      if (error.code === "email_exists") {
-        return { ok: false, reason: "conflict", message: "That email already has an account." };
+  const startEmailLink = useCallback(
+    async (email: string): Promise<AuthOutcome> => {
+      const supabase = getSupabase();
+      if (!supabase) return { ok: false, reason: "unavailable" };
+      const { error } = await supabase.auth.updateUser({ email });
+      if (error) {
+        if (error.code === "email_exists") {
+          return {
+            ok: false,
+            reason: "conflict",
+            message: "That email already has an account.",
+          };
+        }
+        monitoring.captureError(error, { area: "auth.emailStart" });
+        return { ok: false, reason: "error", message: error.message };
       }
-      monitoring.captureError(error, { area: "auth.emailStart" });
-      return { ok: false, reason: "error", message: error.message };
-    }
-    return { ok: true };
-  }, []);
+      return { ok: true };
+    },
+    [],
+  );
 
   const verifyEmailLink = useCallback(
     async (email: string, code: string): Promise<AuthOutcome> => {
@@ -234,7 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         type: "email_change",
       });
       if (error) {
-        return { ok: false, reason: "error", message: "That code didn't match. Try again." };
+        return {
+          ok: false,
+          reason: "error",
+          message: "That code didn't match. Try again.",
+        };
       }
       analytics.capture("auth_linked", { provider: "email" });
       await afterIdentityChange();
@@ -243,49 +285,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [afterIdentityChange],
   );
 
-  const signInExistingWithApple = useCallback(async (): Promise<AuthOutcome> => {
-    const supabase = getSupabase();
-    if (!supabase || !appleAvailable) return { ok: false, reason: "unavailable" };
-    const apple = await getAppleToken();
-    if (!apple) return { ok: false, reason: "error" };
-    if ("cancelled" in apple) return { ok: false, reason: "cancelled" };
-    const { error } = await supabase.auth.signInWithIdToken({
-      provider: "apple",
-      token: apple.token,
-    });
-    if (error) {
-      monitoring.captureError(error, { area: "auth.signInApple" });
-      return { ok: false, reason: "error", message: error.message };
-    }
-    analytics.capture("auth_signed_in", { provider: "apple" });
-    await afterIdentityChange();
-    return { ok: true };
-  }, [appleAvailable, getAppleToken, afterIdentityChange]);
-
-  const signInExistingWithGoogle = useCallback(async (): Promise<AuthOutcome> => {
-    const supabase = getSupabase();
-    const GoogleSignin = await ensureGoogle();
-    if (!supabase || !GoogleSignin) return { ok: false, reason: "unavailable" };
-    try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const result = await GoogleSignin.signIn();
-      const idToken = result.data?.idToken;
-      if (!idToken) return { ok: false, reason: "cancelled" };
+  const signInExistingWithApple =
+    useCallback(async (): Promise<AuthOutcome> => {
+      const supabase = getSupabase();
+      if (!supabase || !appleAvailable)
+        return { ok: false, reason: "unavailable" };
+      const apple = await getAppleToken();
+      if (!apple) return { ok: false, reason: "error" };
+      if ("cancelled" in apple) return { ok: false, reason: "cancelled" };
       const { error } = await supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: idToken,
+        provider: "apple",
+        token: apple.token,
       });
       if (error) {
-        monitoring.captureError(error, { area: "auth.signInGoogle" });
+        monitoring.captureError(error, { area: "auth.signInApple" });
         return { ok: false, reason: "error", message: error.message };
       }
-      analytics.capture("auth_signed_in", { provider: "google" });
+      analytics.capture("auth_signed_in", { provider: "apple" });
       await afterIdentityChange();
       return { ok: true };
-    } catch {
-      return { ok: false, reason: "error" };
-    }
-  }, [ensureGoogle, afterIdentityChange]);
+    }, [appleAvailable, getAppleToken, afterIdentityChange]);
+
+  const signInExistingWithGoogle =
+    useCallback(async (): Promise<AuthOutcome> => {
+      const supabase = getSupabase();
+      const GoogleSignin = await ensureGoogle();
+      if (!supabase || !GoogleSignin)
+        return { ok: false, reason: "unavailable" };
+      try {
+        await GoogleSignin.hasPlayServices({
+          showPlayServicesUpdateDialog: true,
+        });
+        const result = await GoogleSignin.signIn();
+        const idToken = result.data?.idToken;
+        if (!idToken) return { ok: false, reason: "cancelled" };
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: "google",
+          token: idToken,
+        });
+        if (error) {
+          monitoring.captureError(error, { area: "auth.signInGoogle" });
+          return { ok: false, reason: "error", message: error.message };
+        }
+        analytics.capture("auth_signed_in", { provider: "google" });
+        await afterIdentityChange();
+        return { ok: true };
+      } catch {
+        return { ok: false, reason: "error" };
+      }
+    }, [ensureGoogle, afterIdentityChange]);
 
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
@@ -308,7 +356,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
     if (!supabase) return { ok: false, reason: "unavailable" };
     try {
-      const { error } = await supabase.functions.invoke("delete-account", { body: {} });
+      const { error } = await supabase.functions.invoke("delete-account", {
+        body: {},
+      });
       if (error) throw error;
       analytics.capture("account_deleted");
       analytics.reset();
@@ -318,7 +368,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     } catch (error) {
       monitoring.captureError(error, { area: "auth.deleteAccount" });
-      return { ok: false, reason: "error", message: "Could not delete the account. Try again." };
+      return {
+        ok: false,
+        reason: "error",
+        message: "Could not delete the account. Try again.",
+      };
     }
   }, []);
 

@@ -21,7 +21,9 @@ export default function MainLayout() {
   if (!isPremium) return <Redirect href="/paywall" />;
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: "slide_from_bottom" }}>
+    <Stack
+      screenOptions={{ headerShown: false, animation: "slide_from_bottom" }}
+    >
       <Stack.Screen name="feed" options={{ animation: "fade" }} />
     </Stack>
   );

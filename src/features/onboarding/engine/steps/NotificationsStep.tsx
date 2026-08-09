@@ -26,9 +26,15 @@ interface NotificationsStepProps {
  * frequency steppers (0-3, server-enforced cap), window steppers.
  * stella family: streamed voice + a single contextual ask.
  */
-export function NotificationsStep({ step, ctx, family, onDone }: NotificationsStepProps) {
+export function NotificationsStep({
+  step,
+  ctx,
+  family,
+  onDone,
+}: NotificationsStepProps) {
   const colors = useColors();
-  const { notificationPrefs, setNotificationPrefs, setPermissionStatus } = useOnboardingStore();
+  const { notificationPrefs, setNotificationPrefs, setPermissionStatus } =
+    useOnboardingStore();
   const [requesting, setRequesting] = useState(false);
   const [streamed, setStreamed] = useState(false);
 
@@ -43,10 +49,18 @@ export function NotificationsStep({ step, ctx, family, onDone }: NotificationsSt
   if (family === "stella") {
     return (
       <Animated.View entering={FadeIn.duration(320)} style={styles.stellaRoot}>
-        <StreamedLines lines={resolveLines(step, ctx)} onDone={() => setStreamed(true)} />
+        <StreamedLines
+          lines={resolveLines(step, ctx)}
+          onDone={() => setStreamed(true)}
+        />
         {streamed ? (
           <Animated.View entering={FadeIn.duration(300)}>
-            <Button label={step.cta ?? "Turn them on"} onPress={ask} loading={requesting} testID="notif-allow" />
+            <Button
+              label={step.cta ?? "Turn them on"}
+              onPress={ask}
+              loading={requesting}
+              testID="notif-allow"
+            />
             <Pressable onPress={onDone} style={styles.maybeLater} hitSlop={8}>
               <AppText variant="body" tone="ink3" center>
                 {step.secondaryCta ?? "Maybe later"}
@@ -65,7 +79,12 @@ export function NotificationsStep({ step, ctx, family, onDone }: NotificationsSt
     max: number,
     suffix: string,
   ) => (
-    <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.row,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <AppText variant="lead" style={styles.rowLabel}>
         {label}
       </AppText>
@@ -101,13 +120,22 @@ export function NotificationsStep({ step, ctx, family, onDone }: NotificationsSt
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <AppText variant="h2">{resolveText(step.headline, ctx)}</AppText>
         <AppText variant="lead" tone="ink2" style={styles.sub}>
           {resolveText(step.sub, ctx)}
         </AppText>
 
-        <View style={[styles.mockCard, { backgroundColor: colors.card }, shadows.md]}>
+        <View
+          style={[
+            styles.mockCard,
+            { backgroundColor: colors.card },
+            shadows.md,
+          ]}
+        >
           <View style={styles.mockHeader}>
             <View style={[styles.mockIcon, { backgroundColor: colors.bg }]}>
               <AppText variant="label">fs</AppText>
@@ -120,11 +148,17 @@ export function NotificationsStep({ step, ctx, family, onDone }: NotificationsSt
             </AppText>
           </View>
           <AppText variant="body" style={styles.mockBody}>
-            Discipline is choosing what you want most over what you want now.
+            {step.mockLine ?? "Discipline is remembering what you want."}
           </AppText>
         </View>
 
-        {stepper("Quotes", notificationPrefs.quotesPerDay, (v) => setNotificationPrefs({ quotesPerDay: v }), 3, "x a day")}
+        {stepper(
+          "Quotes",
+          notificationPrefs.quotesPerDay,
+          (v) => setNotificationPrefs({ quotesPerDay: v }),
+          3,
+          "x a day",
+        )}
         {stepper(
           "Affirmations",
           notificationPrefs.affirmationsPerDay,
@@ -137,7 +171,10 @@ export function NotificationsStep({ step, ctx, family, onDone }: NotificationsSt
           notificationPrefs.windowStartMinutes / 60,
           (v) =>
             setNotificationPrefs({
-              windowStartMinutes: Math.min(v * 60, notificationPrefs.windowEndMinutes - 60),
+              windowStartMinutes: Math.min(
+                v * 60,
+                notificationPrefs.windowEndMinutes - 60,
+              ),
             }),
           23,
           `:00`,
@@ -147,14 +184,18 @@ export function NotificationsStep({ step, ctx, family, onDone }: NotificationsSt
           notificationPrefs.windowEndMinutes / 60,
           (v) =>
             setNotificationPrefs({
-              windowEndMinutes: Math.max(v * 60, notificationPrefs.windowStartMinutes + 60),
+              windowEndMinutes: Math.max(
+                v * 60,
+                notificationPrefs.windowStartMinutes + 60,
+              ),
             }),
           23,
           ":00",
         )}
         <AppText variant="label" tone="ink3" center style={styles.windowHint}>
-          Between {hourLabel(notificationPrefs.windowStartMinutes)} and{" "}
-          {hourLabel(notificationPrefs.windowEndMinutes)} · your future self won't wake you
+          {`Between ${hourLabel(notificationPrefs.windowStartMinutes)} and ${hourLabel(
+            notificationPrefs.windowEndMinutes,
+          )} · your future self won't wake you`}
         </AppText>
       </ScrollView>
       <View style={styles.footer}>

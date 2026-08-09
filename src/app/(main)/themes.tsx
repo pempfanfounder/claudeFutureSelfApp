@@ -29,7 +29,10 @@ export default function ThemesScreen() {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         {SECTIONS.map((section) => (
           <View key={section.key}>
             <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
@@ -48,17 +51,29 @@ export default function ThemesScreen() {
                     }}
                     style={[
                       styles.tile,
-                      { backgroundColor: t.bg, borderColor: active ? t.ink : "transparent" },
+                      {
+                        backgroundColor: t.bg,
+                        borderColor: active ? t.ink : "transparent",
+                      },
                     ]}
                   >
-                    <AppText style={{ color: t.ink, fontFamily: type.serif, fontSize: 16 }}>
+                    <AppText
+                      style={{
+                        color: t.ink,
+                        fontFamily: type.serif,
+                        fontSize: 16,
+                      }}
+                    >
                       I am becoming.
                     </AppText>
                     <View>
                       <AppText variant="label" style={{ color: t.ink }}>
                         {t.name}
                       </AppText>
-                      <AppText variant="label" style={{ color: t.ink, opacity: 0.6 }}>
+                      <AppText
+                        variant="label"
+                        style={{ color: t.ink, opacity: 0.6 }}
+                      >
                         {t.preview}
                       </AppText>
                     </View>

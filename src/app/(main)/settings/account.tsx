@@ -78,7 +78,12 @@ export default function AccountScreen() {
               setOnboardingComplete(false);
               router.replace("/");
             } else {
-              Alert.alert("Delete account", "message" in result && result.message ? result.message : "Something went wrong.");
+              Alert.alert(
+                "Delete account",
+                "message" in result && result.message
+                  ? result.message
+                  : "Something went wrong.",
+              );
             }
           },
         },
@@ -98,7 +103,10 @@ export default function AccountScreen() {
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <AppText variant="lead">
             {auth.isAnonymous ? "Your account isn't saved yet" : "Signed in"}

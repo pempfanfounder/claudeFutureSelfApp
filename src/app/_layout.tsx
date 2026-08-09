@@ -2,7 +2,11 @@ import {
   InstrumentSerif_400Regular,
   InstrumentSerif_400Regular_Italic,
 } from "@expo-google-fonts/instrument-serif";
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+} from "@expo-google-fonts/inter";
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
@@ -56,13 +60,15 @@ function RootLayout() {
 
   // Notification taps deep-link to the exact content that was sent.
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const url = getNotificationDeepLink(response);
-      if (url) {
-        const parsed = Linking.parse(url);
-        if (parsed.path) router.push(`/${parsed.path}` as never);
-      }
-    });
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const url = getNotificationDeepLink(response);
+        if (url) {
+          const parsed = Linking.parse(url);
+          if (parsed.path) router.push(`/${parsed.path}` as never);
+        }
+      },
+    );
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
       const url = getNotificationDeepLink(response);

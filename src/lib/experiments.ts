@@ -33,7 +33,8 @@ const ASSIGNMENT_KEY = "fs.onboarding-variant.v1";
 const ASSIGNMENT_SOURCE_KEY = "fs.onboarding-variant-source.v1";
 const INSTALL_ID_KEY = "fs.install-id.v1";
 
-export type VariantSource = "persisted" | "override" | "posthog" | "local-fallback";
+export type VariantSource =
+  "persisted" | "override" | "posthog" | "local-fallback";
 
 export interface VariantAssignment {
   variant: OnboardingVariant;
@@ -41,7 +42,10 @@ export interface VariantAssignment {
 }
 
 function isValidVariant(value: unknown): value is OnboardingVariant {
-  return typeof value === "string" && (ONBOARDING_VARIANTS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (ONBOARDING_VARIANTS as readonly string[]).includes(value)
+  );
 }
 
 export async function getInstallId(): Promise<string> {
@@ -61,7 +65,10 @@ export async function getOnboardingVariant(): Promise<VariantAssignment> {
   let assignment: VariantAssignment | null = null;
 
   if (config.onboardingVariantOverride) {
-    assignment = { variant: config.onboardingVariantOverride, source: "override" };
+    assignment = {
+      variant: config.onboardingVariantOverride,
+      source: "override",
+    };
   }
 
   if (!assignment) {
@@ -82,7 +89,10 @@ export async function getOnboardingVariant(): Promise<VariantAssignment> {
 
   if (!assignment) {
     const installId = await getInstallId();
-    assignment = { variant: localFallbackVariant(installId), source: "local-fallback" };
+    assignment = {
+      variant: localFallbackVariant(installId),
+      source: "local-fallback",
+    };
   }
 
   await AsyncStorage.multiSet([

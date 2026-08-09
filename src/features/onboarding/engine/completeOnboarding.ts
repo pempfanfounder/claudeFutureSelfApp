@@ -16,7 +16,9 @@ import { markOnboardingComplete, useOnboardingStore } from "./store";
  * Runs during the "preparing" step (stella) or right after the paywall
  * (iam). Idempotent: upserts throughout.
  */
-export async function completeOnboarding(variant: OnboardingVariant): Promise<void> {
+export async function completeOnboarding(
+  variant: OnboardingVariant,
+): Promise<void> {
   const { answers, name, notificationPrefs } = useOnboardingStore.getState();
   const supabase = getSupabase();
 
@@ -59,16 +61,21 @@ export async function completeOnboarding(variant: OnboardingVariant): Promise<vo
         if (pErr) throw pErr;
 
         if (name) {
-          await supabase.from("profiles").update({ display_name: name }).eq("id", userId);
+          await supabase
+            .from("profiles")
+            .update({ display_name: name })
+            .eq("id", userId);
         }
 
-        const { error: nErr } = await supabase.from("notification_prefs").upsert({
-          user_id: userId,
-          quotes_per_day: notificationPrefs.quotesPerDay,
-          affirmations_per_day: notificationPrefs.affirmationsPerDay,
-          window_start_minutes: notificationPrefs.windowStartMinutes,
-          window_end_minutes: notificationPrefs.windowEndMinutes,
-        });
+        const { error: nErr } = await supabase
+          .from("notification_prefs")
+          .upsert({
+            user_id: userId,
+            quotes_per_day: notificationPrefs.quotesPerDay,
+            affirmations_per_day: notificationPrefs.affirmationsPerDay,
+            window_start_minutes: notificationPrefs.windowStartMinutes,
+            window_end_minutes: notificationPrefs.windowEndMinutes,
+          });
         if (nErr) throw nErr;
 
         await registerDevice();
@@ -100,5 +107,7 @@ function mapGoalsToQuoteInterests(goals: string[]): string[] {
     confidence: "courage",
     purpose: "ambition",
   };
-  return [...new Set(goals.map((g) => map[g]).filter((v): v is string => Boolean(v)))];
+  return [
+    ...new Set(goals.map((g) => map[g]).filter((v): v is string => Boolean(v))),
+  ];
 }

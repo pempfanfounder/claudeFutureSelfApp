@@ -54,12 +54,20 @@ export default function FavoritesScreen() {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(`/content/${item.id}`)}
-              style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+              style={[
+                styles.card,
+                { backgroundColor: colors.card },
+                shadows.sm,
+              ]}
             >
               <AppText variant="lead">{item.body}</AppText>
               <View style={styles.cardFooter}>
                 <AppText variant="label" tone="ink3">
-                  {item.author ? `— ${item.author}` : item.type === "quote" ? "Quote" : "Affirmation"}
+                  {item.author
+                    ? `— ${item.author}`
+                    : item.type === "quote"
+                      ? "Quote"
+                      : "Affirmation"}
                 </AppText>
                 <Pressable
                   onPress={() => userId && toggleFavorite(userId, item)}

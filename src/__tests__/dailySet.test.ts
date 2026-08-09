@@ -1,5 +1,12 @@
-import { getLocalDate, scoreItem, selectDailySet } from "@/features/content/dailySet";
-import type { ContentItem, PersonalizationWeights } from "@/features/content/types";
+import {
+  getLocalDate,
+  scoreItem,
+  selectDailySet,
+} from "@/features/content/dailySet";
+import type {
+  ContentItem,
+  PersonalizationWeights,
+} from "@/features/content/types";
 import { DAILY_LIMIT } from "@/features/content/types";
 
 const weights: PersonalizationWeights = {
@@ -45,15 +52,39 @@ describe("selectDailySet", () => {
   });
 
   it("changes across days and users", () => {
-    const day1 = selectDailySet(library, "quote", "user-1", "2026-08-09", weights);
-    const day2 = selectDailySet(library, "quote", "user-1", "2026-08-10", weights);
-    const other = selectDailySet(library, "quote", "user-2", "2026-08-09", weights);
+    const day1 = selectDailySet(
+      library,
+      "quote",
+      "user-1",
+      "2026-08-09",
+      weights,
+    );
+    const day2 = selectDailySet(
+      library,
+      "quote",
+      "user-1",
+      "2026-08-10",
+      weights,
+    );
+    const other = selectDailySet(
+      library,
+      "quote",
+      "user-2",
+      "2026-08-09",
+      weights,
+    );
     expect(day1).not.toEqual(day2);
     expect(day1).not.toEqual(other);
   });
 
   it("returns at most the daily limit, only of the requested type", () => {
-    const set = selectDailySet(library, "affirmation", "user-1", "2026-08-09", weights);
+    const set = selectDailySet(
+      library,
+      "affirmation",
+      "user-1",
+      "2026-08-09",
+      weights,
+    );
     expect(set.length).toBeLessThanOrEqual(DAILY_LIMIT);
     expect(set.every((id) => id.startsWith("aff-"))).toBe(true);
   });

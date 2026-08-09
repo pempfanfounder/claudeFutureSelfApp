@@ -35,7 +35,10 @@ export function isConfigured() {
 
 export async function initPurchases(appUserId?: string) {
   if (config.devMockPurchases) return;
-  const apiKey = Platform.OS === "ios" ? config.revenueCatIosKey : config.revenueCatAndroidKey;
+  const apiKey =
+    Platform.OS === "ios"
+      ? config.revenueCatIosKey
+      : config.revenueCatAndroidKey;
   if (!apiKey) return;
   if (configured) return;
   Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
@@ -104,14 +107,19 @@ export type PurchaseOutcome =
   | { status: "cancelled" }
   | { status: "error"; message: string };
 
-export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseOutcome> {
+export async function purchasePackage(
+  pkg: PurchasesPackage,
+): Promise<PurchaseOutcome> {
   if (config.devMockPurchases) {
     mockPremium = true;
     notify(true);
     return { status: "purchased" };
   }
   if (!configured) {
-    return { status: "error", message: "Purchases are not available right now." };
+    return {
+      status: "error",
+      message: "Purchases are not available right now.",
+    };
   }
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
@@ -123,7 +131,10 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseOu
     notify(premium);
     return premium
       ? { status: "purchased" }
-      : { status: "error", message: "Purchase did not unlock premium. Try Restore Purchases." };
+      : {
+          status: "error",
+          message: "Purchase did not unlock premium. Try Restore Purchases.",
+        };
   } catch (error: unknown) {
     const err = error as { userCancelled?: boolean; message?: string };
     if (err.userCancelled) {
@@ -131,7 +142,10 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseOu
       return { status: "cancelled" };
     }
     monitoring.captureError(error, { area: "purchases.purchasePackage" });
-    return { status: "error", message: err.message ?? "Purchase failed. Please try again." };
+    return {
+      status: "error",
+      message: err.message ?? "Purchase failed. Please try again.",
+    };
   }
 }
 
@@ -142,7 +156,10 @@ export async function restorePurchases(): Promise<PurchaseOutcome> {
     return { status: "purchased" };
   }
   if (!configured) {
-    return { status: "error", message: "Purchases are not available right now." };
+    return {
+      status: "error",
+      message: "Purchases are not available right now.",
+    };
   }
   try {
     const info = await Purchases.restorePurchases();
@@ -151,7 +168,10 @@ export async function restorePurchases(): Promise<PurchaseOutcome> {
     notify(premium);
     return premium
       ? { status: "purchased" }
-      : { status: "error", message: "No previous purchase was found for this account." };
+      : {
+          status: "error",
+          message: "No previous purchase was found for this account.",
+        };
   } catch (error: unknown) {
     monitoring.captureError(error, { area: "purchases.restore" });
     return { status: "error", message: "Restore failed. Please try again." };

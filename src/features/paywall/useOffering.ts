@@ -33,7 +33,9 @@ function periodLabel(pkg: PurchasesPackage): string {
   }
 }
 
-function trialInfo(pkg: PurchasesPackage): { label: string; days: number } | null {
+function trialInfo(
+  pkg: PurchasesPackage,
+): { label: string; days: number } | null {
   const intro = pkg.product.introPrice;
   if (!intro || intro.price !== 0) return null;
   const units = intro.periodNumberOfUnits;
@@ -41,9 +43,15 @@ function trialInfo(pkg: PurchasesPackage): { label: string; days: number } | nul
     case "DAY":
       return { label: units === 1 ? "1 day" : `${units} days`, days: units };
     case "WEEK":
-      return { label: units === 1 ? "1 week" : `${units} weeks`, days: units * 7 };
+      return {
+        label: units === 1 ? "1 week" : `${units} weeks`,
+        days: units * 7,
+      };
     case "MONTH":
-      return { label: units === 1 ? "1 month" : `${units} months`, days: units * 30 };
+      return {
+        label: units === 1 ? "1 month" : `${units} months`,
+        days: units * 30,
+      };
     default:
       return null;
   }
@@ -72,7 +80,10 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
         setData({
           loading: false,
           pkg: null,
-          priceLine: prefer === "annual" ? "$59.99/year (dev mock)" : "$4.99/week (dev mock)",
+          priceLine:
+            prefer === "annual"
+              ? "$59.99/year (dev mock)"
+              : "$4.99/week (dev mock)",
           trialLength: prefer === "annual" ? "3 days" : "1 week",
           trialDays: prefer === "annual" ? 3 : 7,
           devMock: true,

@@ -24,7 +24,10 @@ export async function loadLibrary(force = false): Promise<ContentItem[]> {
       const raw = await AsyncStorage.getItem(LIBRARY_CACHE_KEY);
       if (raw) {
         const cache = JSON.parse(raw) as LibraryCache;
-        if (Date.now() - cache.fetchedAt < LIBRARY_CACHE_TTL_MS && cache.items.length > 0) {
+        if (
+          Date.now() - cache.fetchedAt < LIBRARY_CACHE_TTL_MS &&
+          cache.items.length > 0
+        ) {
           return cache.items;
         }
       }
@@ -106,7 +109,12 @@ export async function getDailySet(
       // re-read so both devices agree on the same set.
       const { error } = await supabase
         .from("daily_sets")
-        .insert({ user_id: userId, local_date: localDate, type, content_ids: ids });
+        .insert({
+          user_id: userId,
+          local_date: localDate,
+          type,
+          content_ids: ids,
+        });
       if (error) {
         const { data } = await supabase
           .from("daily_sets")
@@ -120,10 +128,15 @@ export async function getDailySet(
     }
   }
 
-  return ids.map((id) => byId.get(id)).filter((i): i is ContentItem => Boolean(i));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((i): i is ContentItem => Boolean(i));
 }
 
-async function getYesterdayIds(userId: string, type: ContentType): Promise<string[]> {
+async function getYesterdayIds(
+  userId: string,
+  type: ContentType,
+): Promise<string[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
   const yesterday = new Date();

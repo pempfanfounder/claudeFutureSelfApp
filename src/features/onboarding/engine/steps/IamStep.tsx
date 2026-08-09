@@ -1,10 +1,19 @@
 import { useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 import Animated, { FadeInRight, FadeOut } from "react-native-reanimated";
 
 import { AppText, Button, SelectableRow } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, spacing, type } from "@/design-system/tokens";
+import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import { resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
@@ -29,7 +38,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
 
   const headline = resolveText(step.headline, ctx);
   const sub = resolveText(step.sub, ctx);
-  const isInfo = step.type === "info" || step.type === "welcome" || step.type === "widget-promo";
+  const isInfo =
+    step.type === "info" ||
+    step.type === "welcome" ||
+    step.type === "widget-promo";
   const isSingle = step.type === "single";
   const isMulti = step.type === "multi";
   const isChips = step.type === "chips";
@@ -78,7 +90,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
         style={styles.flex}
       >
         <ScrollView
-          contentContainerStyle={[styles.content, isInfo && styles.contentCentered]}
+          contentContainerStyle={[
+            styles.content,
+            isInfo && styles.contentCentered,
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -93,9 +108,38 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
             {headline}
           </AppText>
           {sub ? (
-            <AppText variant="lead" tone="ink2" center={isInfo} style={styles.sub}>
+            <AppText
+              variant="lead"
+              tone="ink2"
+              center={isInfo}
+              style={styles.sub}
+            >
               {sub}
             </AppText>
+          ) : null}
+
+          {step.type === "widget-promo" && step.placeholder ? (
+            <View
+              style={[
+                styles.widgetMock,
+                { backgroundColor: colors.card },
+                shadows.md,
+              ]}
+            >
+              <AppText
+                variant="body"
+                style={{ fontFamily: type.serif, fontSize: 17 }}
+              >
+                {step.placeholder}
+              </AppText>
+              <AppText
+                variant="label"
+                tone="ink3"
+                style={styles.widgetMockLabel}
+              >
+                Future Self
+              </AppText>
+            </View>
           ) : null}
 
           {isSingle || isMulti ? (
@@ -126,7 +170,9 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
                       styles.chip,
                       {
                         backgroundColor: active ? colors.ctaBg : colors.card,
-                        borderColor: active ? colors.ctaBg : colors.borderStrong,
+                        borderColor: active
+                          ? colors.ctaBg
+                          : colors.borderStrong,
                       },
                     ]}
                   >
@@ -148,7 +194,9 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
               placeholderTextColor={colors.ink3}
               multiline={step.multiline}
               maxLength={step.maxLength}
-              keyboardType={step.keyboard === "number-pad" ? "number-pad" : "default"}
+              keyboardType={
+                step.keyboard === "number-pad" ? "number-pad" : "default"
+              }
               autoFocus
               testID="text-input"
               style={[
@@ -172,14 +220,21 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
         {!isSingle ? (
           <View style={styles.footer}>
             {step.trialCaption ? (
-              <AppText variant="label" tone="ink2" center style={styles.trialCaption}>
+              <AppText
+                variant="label"
+                tone="ink2"
+                center
+                style={styles.trialCaption}
+              >
                 Try everything free
               </AppText>
             ) : null}
             <Button
               label={step.cta ?? "Continue"}
               onPress={() =>
-                onAnswer(isText ? text.trim() : isMulti || isChips ? selected : null)
+                onAnswer(
+                  isText ? text.trim() : isMulti || isChips ? selected : null,
+                )
               }
               disabled={!canContinue}
               testID="continue"
@@ -245,4 +300,12 @@ const styles = StyleSheet.create({
   trialCaption: { marginBottom: spacing.sm },
   secondary: { marginTop: spacing.lg },
   terms: { marginTop: spacing.lg },
+  widgetMock: {
+    borderRadius: radii.xl,
+    padding: spacing.xl,
+    marginTop: spacing.xxl,
+    alignSelf: "center",
+    width: "82%",
+  },
+  widgetMockLabel: { marginTop: spacing.md },
 });

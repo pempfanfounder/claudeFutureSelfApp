@@ -32,20 +32,27 @@ const parsed = envSchema.safeParse({
   EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   EXPO_PUBLIC_REVENUECAT_IOS_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
-  EXPO_PUBLIC_REVENUECAT_ANDROID_KEY: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
+  EXPO_PUBLIC_REVENUECAT_ANDROID_KEY:
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
   EXPO_PUBLIC_POSTHOG_API_KEY: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
   EXPO_PUBLIC_POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST,
   EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE: process.env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
+  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE:
+    process.env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   EXPO_PUBLIC_DEV_MOCK_PURCHASES: process.env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,
 });
 
 if (!parsed.success) {
   // Invalid values are a configuration bug worth failing loudly over in
   // development, but production should never crash on config parsing.
-  console.error("[config] Invalid environment configuration:", parsed.error.flatten().fieldErrors);
+  console.error(
+    "[config] Invalid environment configuration:",
+    parsed.error.flatten().fieldErrors,
+  );
 }
 
 const env = parsed.success ? parsed.data : ({} as z.infer<typeof envSchema>);
@@ -62,7 +69,9 @@ export const config = {
   googleIosClientId: env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   onboardingVariantOverride: env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   devMockPurchases: __DEV__ && env.EXPO_PUBLIC_DEV_MOCK_PURCHASES === "true",
-  hasSupabase: Boolean(env.EXPO_PUBLIC_SUPABASE_URL && env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
+  hasSupabase: Boolean(
+    env.EXPO_PUBLIC_SUPABASE_URL && env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  ),
   hasPosthog: Boolean(env.EXPO_PUBLIC_POSTHOG_API_KEY),
   hasSentry: Boolean(env.EXPO_PUBLIC_SENTRY_DSN),
   hasGoogleAuth: Boolean(env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID),

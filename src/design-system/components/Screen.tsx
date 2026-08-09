@@ -17,7 +17,8 @@ export function Screen({ children, padded = true, style, edges }: ScreenProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const top = edges?.top === false ? 0 : insets.top;
-  const bottom = edges?.bottom === false ? 0 : Math.max(insets.bottom, spacing.md);
+  const bottom =
+    edges?.bottom === false ? 0 : Math.max(insets.bottom, spacing.md);
   return (
     <View
       style={[

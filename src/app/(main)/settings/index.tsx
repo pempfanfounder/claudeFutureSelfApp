@@ -1,5 +1,12 @@
 import { router } from "expo-router";
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { AppText, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
@@ -19,7 +26,12 @@ export default function SettingsScreen() {
   const { isAnonymous } = useAuth();
   const todayIndex = (new Date().getDay() + 6) % 7;
 
-  const row = (label: string, onPress: () => void, detail?: string, testID?: string) => (
+  const row = (
+    label: string,
+    onPress: () => void,
+    detail?: string,
+    testID?: string,
+  ) => (
     <Pressable
       onPress={onPress}
       style={[styles.row, { backgroundColor: colors.card }]}
@@ -47,12 +59,23 @@ export default function SettingsScreen() {
             ✕
           </AppText>
         </Pressable>
-        <AppText variant="h3">{displayName ? `${displayName}` : "Profile"}</AppText>
+        <AppText variant="h3">
+          {displayName ? `${displayName}` : "Profile"}
+        </AppText>
         <View style={styles.spacer} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <View style={[styles.streakCard, { backgroundColor: colors.card }, shadows.sm]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        <View
+          style={[
+            styles.streakCard,
+            { backgroundColor: colors.card },
+            shadows.sm,
+          ]}
+        >
           <AppText variant="eyebrow" tone="ink3">
             Your streak
           </AppText>
@@ -96,8 +119,18 @@ export default function SettingsScreen() {
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
           Customize
         </AppText>
-        {row("Notifications", () => router.push("/(main)/settings/notifications"), undefined, "settings-notifications")}
-        {row("Widgets", () => router.push("/(main)/settings/widgets"), undefined, "settings-widgets")}
+        {row(
+          "Notifications",
+          () => router.push("/(main)/settings/notifications"),
+          undefined,
+          "settings-notifications",
+        )}
+        {row(
+          "Widgets",
+          () => router.push("/(main)/settings/widgets"),
+          undefined,
+          "settings-widgets",
+        )}
         {row("Themes", () => router.push("/(main)/themes"))}
 
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>

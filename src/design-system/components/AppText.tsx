@@ -95,7 +95,12 @@ export function AppText({
   return (
     <Text
       {...rest}
-      style={[variantStyles[variant], { color }, center && { textAlign: "center" }, style]}
+      style={[
+        variantStyles[variant],
+        { color },
+        center && { textAlign: "center" },
+        style,
+      ]}
     />
   );
 }

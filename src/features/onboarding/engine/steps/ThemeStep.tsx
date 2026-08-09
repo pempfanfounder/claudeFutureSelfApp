@@ -18,13 +18,21 @@ interface ThemeStepProps {
 }
 
 /** I Am-style theme picker: grid of live previews, applies immediately. */
-export function ThemeStep({ step, ctx, onDone, previewText = "I will not waste today." }: ThemeStepProps) {
+export function ThemeStep({
+  step,
+  ctx,
+  onDone,
+  previewText = "I will not waste today.",
+}: ThemeStepProps) {
   const { theme, setThemeId } = useTheme();
   const [selected, setSelected] = useState(theme.id);
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
         <AppText variant="h2">{resolveText(step.headline, ctx)}</AppText>
         <AppText variant="lead" tone="ink2" style={styles.sub}>
           {resolveText(step.sub, ctx)}
@@ -43,7 +51,10 @@ export function ThemeStep({ step, ctx, onDone, previewText = "I will not waste t
                 }}
                 style={[
                   styles.tile,
-                  { backgroundColor: t.bg, borderColor: active ? t.ink : "transparent" },
+                  {
+                    backgroundColor: t.bg,
+                    borderColor: active ? t.ink : "transparent",
+                  },
                 ]}
               >
                 <AppText
@@ -52,7 +63,10 @@ export function ThemeStep({ step, ctx, onDone, previewText = "I will not waste t
                 >
                   {previewText}
                 </AppText>
-                <AppText variant="label" style={[styles.tileName, { color: t.ink }]}>
+                <AppText
+                  variant="label"
+                  style={[styles.tileName, { color: t.ink }]}
+                >
                   {t.name}
                 </AppText>
               </Pressable>
@@ -62,11 +76,20 @@ export function ThemeStep({ step, ctx, onDone, previewText = "I will not waste t
       </ScrollView>
       <View style={styles.footer}>
         {step.trialCaption ? (
-          <AppText variant="label" tone="ink2" center style={styles.trialCaption}>
+          <AppText
+            variant="label"
+            tone="ink2"
+            center
+            style={styles.trialCaption}
+          >
             Try everything free
           </AppText>
         ) : null}
-        <Button label={step.cta ?? "Continue"} onPress={onDone} testID="continue" />
+        <Button
+          label={step.cta ?? "Continue"}
+          onPress={onDone}
+          testID="continue"
+        />
       </View>
     </Animated.View>
   );

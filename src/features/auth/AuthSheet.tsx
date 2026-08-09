@@ -48,7 +48,10 @@ export function AuthSheet({
     onDone(ok);
   };
 
-  const run = async (key: string, fn: () => Promise<{ ok: boolean; message?: string }>) => {
+  const run = async (
+    key: string,
+    fn: () => Promise<{ ok: boolean; message?: string }>,
+  ) => {
     setBusy(key);
     setError(null);
     const result = await fn();
@@ -79,12 +82,21 @@ export function AuthSheet({
   };
 
   const verifyEmail = () =>
-    run("email", () => auth.verifyEmailLink(email.trim().toLowerCase(), code.trim()));
+    run("email", () =>
+      auth.verifyEmailLink(email.trim().toLowerCase(), code.trim()),
+    );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => finish(false)}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => finish(false)}
+    >
       <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: colors.card }, shadows.lg]}>
+        <View
+          style={[styles.sheet, { backgroundColor: colors.card }, shadows.lg]}
+        >
           <AppText variant="h3" center>
             {headline}
           </AppText>
@@ -95,7 +107,11 @@ export function AuthSheet({
           ) : null}
 
           {error ? (
-            <AppText variant="body" center style={[styles.error, { color: "#B4553C" }]}>
+            <AppText
+              variant="body"
+              center
+              style={[styles.error, { color: "#B4553C" }]}
+            >
               {error}
             </AppText>
           ) : null}
@@ -106,7 +122,12 @@ export function AuthSheet({
                 <Button
                   label=" Sign in with Apple"
                   onPress={() =>
-                    run("apple", mode === "link" ? auth.linkWithApple : auth.signInExistingWithApple)
+                    run(
+                      "apple",
+                      mode === "link"
+                        ? auth.linkWithApple
+                        : auth.signInExistingWithApple,
+                    )
                   }
                   loading={busy === "apple"}
                   testID="auth-apple"
@@ -119,7 +140,9 @@ export function AuthSheet({
                   onPress={() =>
                     run(
                       "google",
-                      mode === "link" ? auth.linkWithGoogle : auth.signInExistingWithGoogle,
+                      mode === "link"
+                        ? auth.linkWithGoogle
+                        : auth.signInExistingWithGoogle,
                     )
                   }
                   loading={busy === "google"}
@@ -149,7 +172,10 @@ export function AuthSheet({
                 autoComplete="email"
                 keyboardType="email-address"
                 autoFocus
-                style={[styles.input, { borderColor: colors.borderStrong, color: colors.ink }]}
+                style={[
+                  styles.input,
+                  { borderColor: colors.borderStrong, color: colors.ink },
+                ]}
                 testID="auth-email-input"
               />
               <Button
@@ -174,7 +200,10 @@ export function AuthSheet({
                 keyboardType="number-pad"
                 maxLength={6}
                 autoFocus
-                style={[styles.input, { borderColor: colors.borderStrong, color: colors.ink }]}
+                style={[
+                  styles.input,
+                  { borderColor: colors.borderStrong, color: colors.ink },
+                ]}
                 testID="auth-code-input"
               />
               <Button
@@ -187,7 +216,11 @@ export function AuthSheet({
             </View>
           ) : null}
 
-          <Pressable onPress={() => finish(false)} style={styles.dismiss} hitSlop={8}>
+          <Pressable
+            onPress={() => finish(false)}
+            style={styles.dismiss}
+            hitSlop={8}
+          >
             <AppText variant="body" tone="ink3" center>
               {dismissLabel}
             </AppText>

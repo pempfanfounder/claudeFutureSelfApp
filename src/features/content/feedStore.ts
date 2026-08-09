@@ -7,7 +7,7 @@ import { getSupabase } from "@/lib/supabase";
 
 import { getLocalDate } from "./dailySet";
 import { getDailySet } from "./repository";
-import type { ContentItem, ContentType, PersonalizationWeights } from "./types";
+import type { ContentItem, PersonalizationWeights } from "./types";
 import { STREAK_TARGET } from "./types";
 
 const EMPTY_WEIGHTS: PersonalizationWeights = {
@@ -63,17 +63,33 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
     try {
       if (supabase) {
-        const [{ data: p }, { data: favorites }, { data: streak }, { data: progress }] =
-          await Promise.all([
-            supabase.from("personalization").select("*").eq("user_id", userId).maybeSingle(),
-            supabase.from("favorites").select("content_id").eq("user_id", userId).limit(500),
-            supabase.from("streaks").select("*").eq("user_id", userId).maybeSingle(),
-            supabase
-              .from("daily_progress")
-              .select("content_id")
-              .eq("user_id", userId)
-              .eq("local_date", getLocalDate()),
-          ]);
+        const [
+          { data: p },
+          { data: favorites },
+          { data: streak },
+          { data: progress },
+        ] = await Promise.all([
+          supabase
+            .from("personalization")
+            .select("*")
+            .eq("user_id", userId)
+            .maybeSingle(),
+          supabase
+            .from("favorites")
+            .select("content_id")
+            .eq("user_id", userId)
+            .limit(500),
+          supabase
+            .from("streaks")
+            .select("*")
+            .eq("user_id", userId)
+            .maybeSingle(),
+          supabase
+            .from("daily_progress")
+            .select("content_id")
+            .eq("user_id", userId)
+            .eq("local_date", getLocalDate()),
+        ]);
 
         if (p) {
           weights = {
@@ -108,7 +124,14 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         getDailySet(userId, "quote", weights),
         getDailySet(userId, "affirmation", weights),
       ]);
-      set({ quotes, affirmations, weights, lifeGoal, pinnedAffirmation, loading: false });
+      set({
+        quotes,
+        affirmations,
+        weights,
+        lifeGoal,
+        pinnedAffirmation,
+        loading: false,
+      });
     } catch (error) {
       monitoring.captureError(error, { area: "feed.load" });
       set({ loading: false });
@@ -120,7 +143,9 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     if (state.viewedToday.includes(item.id)) return;
     const viewedToday = [...state.viewedToday, item.id];
     set({ viewedToday });
-    AsyncStorage.setItem(viewedKey(userId), JSON.stringify(viewedToday)).catch(() => {});
+    AsyncStorage.setItem(viewedKey(userId), JSON.stringify(viewedToday)).catch(
+      () => {},
+    );
     analytics.capture("content_viewed", {
       content_id: item.id,
       content_type: item.type,
@@ -169,11 +194,17 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     if (!supabase) return;
     try {
       if (isFavorite) {
-        await supabase.from("favorites").delete().match({ user_id: userId, content_id: item.id });
+        await supabase
+          .from("favorites")
+          .delete()
+          .match({ user_id: userId, content_id: item.id });
       } else {
         await supabase
           .from("favorites")
-          .upsert({ user_id: userId, content_id: item.id }, { ignoreDuplicates: true });
+          .upsert(
+            { user_id: userId, content_id: item.id },
+            { ignoreDuplicates: true },
+          );
       }
     } catch (error) {
       monitoring.captureError(error, { area: "feed.toggleFavorite" });
