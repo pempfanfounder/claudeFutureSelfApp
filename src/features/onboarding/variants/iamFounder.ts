@@ -246,8 +246,7 @@ export const iamFounder: VariantConfig = {
       type: "widget-promo",
       headline: "And one for your Home Screen.",
       sub: "Touch and hold your Home Screen, tap Edit, add Future Self",
-      cta: "Set up widget",
-      secondaryCta: "Later",
+      cta: "Got it",
       placeholder:
         "The reason you want it so badly is because your Future Self already has it.",
     },
