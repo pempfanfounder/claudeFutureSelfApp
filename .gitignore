@@ -54,3 +54,6 @@ logo.png
 # Generated native projects (Continuous Native Generation via expo prebuild)
 /ios
 /android
+
+# Local operator documents containing secrets — never commit
+*.local.md
