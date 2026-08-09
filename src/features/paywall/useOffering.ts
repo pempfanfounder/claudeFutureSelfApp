@@ -28,14 +28,25 @@ function periodLabel(pkg: PurchasesPackage): string {
       return "month";
     case PACKAGE_TYPE.WEEKLY:
       return "week";
+    case PACKAGE_TYPE.LIFETIME:
+      return "one-time";
     default:
       return "period";
   }
 }
 
+function formatPriceLine(pkg: PurchasesPackage): string {
+  if (pkg.packageType === PACKAGE_TYPE.LIFETIME) {
+    return `${pkg.product.priceString} once`;
+  }
+  return `${pkg.product.priceString}/${periodLabel(pkg)}`;
+}
+
 function trialInfo(
   pkg: PurchasesPackage,
 ): { label: string; days: number } | null {
+  // A one-time purchase never has a trial.
+  if (pkg.packageType === PACKAGE_TYPE.LIFETIME) return null;
   const intro = pkg.product.introPrice;
   if (!intro || intro.price !== 0) return null;
   const units = intro.periodNumberOfUnits;
@@ -59,8 +70,11 @@ function trialInfo(
 
 /**
  * Loads the current RevenueCat offering and picks the package for a
- * paywall family: iam sells the annual package, stella the weekly —
- * falling back to whatever the offering provides.
+ * paywall family. The real product set is Lifetime/Yearly/Monthly (no
+ * weekly product exists yet):
+ * - iam: annual -> monthly -> first available package.
+ * - stella: weekly (kept first for future flexibility) -> monthly ->
+ *   first available package.
  */
 export function useOffering(prefer: "annual" | "weekly"): PaywallData {
   const [data, setData] = useState<PaywallData>({
@@ -103,13 +117,17 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
       }
       const preferred =
         prefer === "annual"
-          ? (offering.annual ?? offering.availablePackages[0]!)
-          : (offering.weekly ?? offering.availablePackages[0]!);
+          ? (offering.annual ??
+            offering.monthly ??
+            offering.availablePackages[0]!)
+          : (offering.weekly ??
+            offering.monthly ??
+            offering.availablePackages[0]!);
       const trial = trialInfo(preferred);
       setData({
         loading: false,
         pkg: preferred,
-        priceLine: `${preferred.product.priceString}/${periodLabel(preferred)}`,
+        priceLine: formatPriceLine(preferred),
         trialLength: trial?.label ?? null,
         trialDays: trial?.days ?? null,
         devMock: false,

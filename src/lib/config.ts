@@ -26,6 +26,14 @@ const envSchema = z.object({
     .optional(),
   /** Explicit opt-in for the development-only purchases mock. */
   EXPO_PUBLIC_DEV_MOCK_PURCHASES: z.enum(["true", "false"]).optional(),
+  /** RevenueCat entitlement identifier. Defaults to "premium". */
+  EXPO_PUBLIC_RC_ENTITLEMENT_ID: z.string().min(1).optional(),
+  /**
+   * Opt-in to presenting RevenueCat's remote Paywall on the standalone
+   * hard gate (`src/app/paywall.tsx`) instead of the custom gate paywall.
+   * Never affects the in-onboarding variant paywalls.
+   */
+  EXPO_PUBLIC_USE_RC_PAYWALL_GATE: z.enum(["true", "false"]).optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -44,6 +52,9 @@ const parsed = envSchema.safeParse({
   EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE:
     process.env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   EXPO_PUBLIC_DEV_MOCK_PURCHASES: process.env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,
+  EXPO_PUBLIC_RC_ENTITLEMENT_ID: process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID,
+  EXPO_PUBLIC_USE_RC_PAYWALL_GATE:
+    process.env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE,
 });
 
 if (!parsed.success) {
@@ -69,6 +80,8 @@ export const config = {
   googleIosClientId: env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   onboardingVariantOverride: env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   devMockPurchases: __DEV__ && env.EXPO_PUBLIC_DEV_MOCK_PURCHASES === "true",
+  rcEntitlementId: env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
+  useRcPaywallGate: env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE === "true",
   hasSupabase: Boolean(
     env.EXPO_PUBLIC_SUPABASE_URL && env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),

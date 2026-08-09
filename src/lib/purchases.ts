@@ -14,14 +14,15 @@ import { monitoring } from "./monitoring";
  * Purchases abstraction over RevenueCat.
  *
  * RevenueCat is the source of truth for premium access via the
- * `premium` entitlement. In production a missing RevenueCat key NEVER
- * unlocks the app: `isPremium` stays false and the paywall stays up.
- * In development an explicitly enabled mock (EXPO_PUBLIC_DEV_MOCK_PURCHASES)
- * lets the four onboarding funnels be tested end-to-end without a store
- * account; the mock is compiled out of production behavior by the
- * `__DEV__` guard in config.
+ * configured entitlement (EXPO_PUBLIC_RC_ENTITLEMENT_ID, default
+ * "premium"). In production a missing RevenueCat key NEVER unlocks the
+ * app: `isPremium` stays false and the paywall stays up. In development
+ * an explicitly enabled mock (EXPO_PUBLIC_DEV_MOCK_PURCHASES) lets the
+ * four onboarding funnels be tested end-to-end without a store account;
+ * the mock is compiled out of production behavior by the `__DEV__` guard
+ * in config.
  */
-export const PREMIUM_ENTITLEMENT_ID = "premium";
+export const PREMIUM_ENTITLEMENT_ID = config.rcEntitlementId;
 
 let configured = false;
 let mockPremium = false;
@@ -41,6 +42,16 @@ export async function initPurchases(appUserId?: string) {
       : config.revenueCatAndroidKey;
   if (!apiKey) return;
   if (configured) return;
+  if (apiKey.startsWith("test_") && !__DEV__) {
+    // A RevenueCat Test Store key has no billing power. Refusing to
+    // configure with one in a release build means `configured` stays
+    // false and the paywall stays closed, per the "no bypass" contract —
+    // it never falls back to unlocking premium.
+    console.error(
+      "[purchases] Refusing to configure RevenueCat with a test_ API key in a release build.",
+    );
+    return;
+  }
   Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
   Purchases.configure({ apiKey, appUserID: appUserId ?? null });
   configured = true;
@@ -74,8 +85,26 @@ export async function logOutPurchases() {
   }
 }
 
+/**
+ * This is a single-tier app: any genuinely active RevenueCat entitlement
+ * means premium. The configured entitlement id is checked first; if it
+ * isn't the one that's active (e.g. a dashboard rename/typo) we still
+ * honor whatever entitlement IS active rather than falsely locking out a
+ * paying customer — but we warn loudly in dev so the misconfiguration
+ * gets fixed. This still requires a real, active store entitlement; it
+ * is not a bypass.
+ */
 function hasPremium(info: CustomerInfo): boolean {
-  return Boolean(info.entitlements.active[PREMIUM_ENTITLEMENT_ID]);
+  if (info.entitlements.active[PREMIUM_ENTITLEMENT_ID]) return true;
+  const anyActive = Object.keys(info.entitlements.active).length > 0;
+  if (anyActive && __DEV__) {
+    console.warn(
+      `[purchases] Active entitlement found, but not under the configured id "${PREMIUM_ENTITLEMENT_ID}". ` +
+        `Falling back to treating the user as premium. Active entitlements: ${Object.keys(info.entitlements.active).join(", ")}. ` +
+        "Check EXPO_PUBLIC_RC_ENTITLEMENT_ID against the RevenueCat dashboard.",
+    );
+  }
+  return anyActive;
 }
 
 export async function getIsPremium(): Promise<boolean> {

@@ -45,19 +45,36 @@ Until 3/4 are configured the corresponding sign-in buttons simply don't render
 
 ## 2. RevenueCat (~30 min + store console work)
 
-1. Create the RevenueCat project; add iOS + Android apps
-   (`com.futureself.app`).
-2. App Store Connect / Play Console: create the subscriptions —
-   an **annual** subscription with an introductory free trial (sold by the
-   `iam-*` paywalls) and a **weekly** subscription with a free trial (sold by
-   the `stella-*` paywalls). Any prices you like — the app reads real prices
-   and trial eligibility from the store at runtime and never hardcodes them.
-3. RevenueCat: create entitlement **`premium`** (exact id — the app checks it),
-   attach both products, add them to the **current Offering** (the app uses
-   `offering.annual` and `offering.weekly`, falling back to the first
-   available package).
-4. Put the **public SDK keys** in `.env`:
-   `EXPO_PUBLIC_REVENUECAT_IOS_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`.
+The RevenueCat project already exists (see credentials below); what's left is
+store-console product setup and the real per-platform keys before release.
+
+1. RevenueCat project is live; iOS + Android apps for `com.futureself.app`
+   are added.
+2. App Store Connect / Play Console: create three products —
+   a **monthly** subscription, a **yearly** subscription (both with an
+   introductory free trial — `iam-*` paywalls sell the yearly, falling back
+   to monthly), and a **lifetime** non-consumable. There's currently no
+   weekly product; the `stella-*` paywalls prefer `offering.weekly` (kept
+   for future flexibility) but fall back to monthly today. Any prices you
+   like — the app reads real prices and trial eligibility from the store at
+   runtime and never hardcodes them.
+3. RevenueCat: entitlement **`FutureSelffffff Pro`** already exists (its id
+   is wired via `EXPO_PUBLIC_RC_ENTITLEMENT_ID` in `.env` — the app reads it
+   from config rather than hardcoding it, defaulting to `"premium"` if unset).
+   Attach all three products (monthly, yearly, lifetime) to that entitlement
+   **and** to the **current Offering** in the dashboard. The client also
+   treats *any* active entitlement as premium as a misconfiguration
+   safety net (with a loud `__DEV__` warning if it's not the configured one)
+   — but that's a fallback, not a substitute for wiring the entitlement id
+   correctly.
+4. **API keys:** a RevenueCat **Test Store** key
+   (`test_AyrDXEiqnvraxCsTJnuzvAOQAxx`) is already wired into `.env` for both
+   `EXPO_PUBLIC_REVENUECAT_IOS_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
+   — dev builds work end-to-end against the Test Store today. Test keys have
+   **no billing power** and `initPurchases()` refuses to configure with one
+   in a release build (paywall stays closed, no bypass). Before shipping,
+   replace both with the real per-platform **public SDK keys**
+   (`appl_…` / `goog_…`) from the RevenueCat dashboard.
 5. **Webhook** (drives server-side premium gating for notifications):
    RevenueCat → Integrations → Webhooks →
    URL `https://ykgswczatkspryetstor.supabase.co/functions/v1/revenuecat-webhook`,
@@ -65,6 +82,22 @@ Until 3/4 are configured the corresponding sign-in buttons simply don't render
    `supabase secrets set REVENUECAT_WEBHOOK_SECRET=<that secret>`.
 6. **Server API key** (fallback entitlement sync when the webhook lags):
    `supabase secrets set REVENUECAT_SECRET_API_KEY=<RevenueCat secret key>`.
+   `sync-entitlement` treats the user as premium if *any* entitlement in the
+   RevenueCat subscriber record is active, mirroring the client fallback.
+7. **Customer Center** (`react-native-purchases-ui`): Settings → "Manage
+   subscription" already presents RevenueCat's native Customer Center when
+   purchases are really configured (falls back to the store's own
+   subscriptions page if RevenueCat isn't configured, is dev-mocked, or
+   presentation throws). Configure the Customer Center's look/options in
+   RevenueCat → Customer Center in the dashboard; no code changes needed.
+8. **Optional: RevenueCat remote Paywall on the standalone gate.** Set
+   `EXPO_PUBLIC_USE_RC_PAYWALL_GATE=true` to make `src/app/paywall.tsx` (the
+   hard gate shown when onboarding is done but there's no entitlement) try
+   RevenueCat's hosted Paywall first via `presentPaywallIfNeeded`, falling
+   back to the existing custom gate paywall on any non-purchase result or
+   error. This is off by default and only ever applies to that standalone
+   gate — the in-onboarding `TimelinePaywall`/`NotePaywall` A/B variants are
+   untouched and keep their own selling logic regardless of this flag.
 
 Until RevenueCat is configured, production builds keep the paywall closed (no
 bypass); dev builds can use `EXPO_PUBLIC_DEV_MOCK_PURCHASES=true`.
@@ -138,7 +171,9 @@ locally, so users never switch funnels either way.
 | Variable                                                     | Where                    | Purpose                |
 | ------------------------------------------------------------ | ------------------------ | ---------------------- |
 | `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env`                   | set ✅                 |
-| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `_ANDROID_KEY`            | `.env`                   | purchases              |
+| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `_ANDROID_KEY`            | `.env`                   | set ✅ (Test Store — replace with real keys for release) |
+| `EXPO_PUBLIC_RC_ENTITLEMENT_ID`                              | `.env`                   | set ✅ (`FutureSelffffff Pro`; defaults to `"premium"`) |
+| `EXPO_PUBLIC_USE_RC_PAYWALL_GATE`                            | `.env` (optional)        | opt in to RC Paywall on the standalone gate only |
 | `EXPO_PUBLIC_POSTHOG_API_KEY` / `_HOST`                      | `.env`                   | set ✅                 |
 | `EXPO_PUBLIC_SENTRY_DSN`                                     | `.env`                   | crash reporting        |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `_IOS_CLIENT_ID`        | `.env`                   | Google sign-in         |

@@ -7,14 +7,45 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import RevenueCatUI from "react-native-purchases-ui";
 
 import { AppText, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAppState } from "@/lib/appState";
+import { config } from "@/lib/config";
+import { monitoring } from "@/lib/monitoring";
+import { isConfigured } from "@/lib/purchases";
 
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useFeedStore } from "@/features/content/feedStore";
+
+function openStoreSubscriptionsUrl() {
+  return Linking.openURL(
+    Platform.OS === "ios"
+      ? "https://apps.apple.com/account/subscriptions"
+      : "https://play.google.com/store/account/subscriptions",
+  );
+}
+
+/**
+ * Prefers RevenueCat's native Customer Center (manage/cancel, refund
+ * requests, restore) when purchases are really configured; falls back to
+ * the store's own subscriptions page when RevenueCat isn't configured
+ * (or is only dev-mocked) or if presentation throws.
+ */
+async function manageSubscription() {
+  if (!isConfigured() || config.devMockPurchases) {
+    await openStoreSubscriptionsUrl();
+    return;
+  }
+  try {
+    await RevenueCatUI.presentCustomerCenter();
+  } catch (error) {
+    monitoring.captureError(error, { area: "settings.customerCenter" });
+    await openStoreSubscriptionsUrl();
+  }
+}
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
@@ -142,13 +173,7 @@ export default function SettingsScreen() {
           isAnonymous ? "Not saved yet" : "Signed in",
           "settings-account",
         )}
-        {row("Manage subscription", () =>
-          Linking.openURL(
-            Platform.OS === "ios"
-              ? "https://apps.apple.com/account/subscriptions"
-              : "https://play.google.com/store/account/subscriptions",
-          ),
-        )}
+        {row("Manage subscription", manageSubscription)}
       </ScrollView>
     </Screen>
   );
