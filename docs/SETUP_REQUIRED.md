@@ -15,11 +15,19 @@ gracefully until configured. Work through the sections in order.
 > ⚠️ **Bundle id changed to `com.futureself.mobile`** (Apple refused
 > `com.futureself.app`); app.json + native projects already updated. iOS App
 > Group is now `group.com.futureself.mobile` (creation pending).
-> **Remaining console work** (see `CODEX_CONSOLE_TASKS_2.local.md`): webhook
-> secret reconciliation, Apple provider client-id update to the new bundle
-> id, App Group creation/assignment, ASC In-App Purchase key → RevenueCat
-> App Store app → real `appl_` SDK key, custom SMTP (blocks the email-OTP
-> template edit). Google/Play/Firebase/Expo intentionally skipped for now.
+> **Round 2 (2026-08-10) — all console items closed:** webhook secret set
+> identically on both sides and **verified live** (401 wrong secret / 200
+> correct — the function now accepts raw and Bearer forms; v5 deployed);
+> Supabase Apple provider lists `com.futureself.mobile,com.futureself.app`;
+> App Group `group.com.futureself.mobile` created and assigned; ASC In-App
+> Purchase key (ID `CZ85P76P36`) uploaded to RevenueCat; App Store products
+> attached to entitlement + offering; production iOS SDK key
+> `appl_DFqxkzQsOpehmQzQwabKojFgwdz` collected (commented in `.env` — dev
+> stays on the Test Store key; swap for release builds).
+> **Still open:** custom SMTP (blocks the email-OTP template → email
+> sign-in linking deferred), terms/privacy hosting at futureself.app, and
+> the intentionally skipped Google/Play/Firebase/Expo track (Android
+> release, Google sign-in, and real-device push verification wait on it).
 
 ## Already live (done during the build)
 

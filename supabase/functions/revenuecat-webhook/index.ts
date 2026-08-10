@@ -20,9 +20,12 @@ const ACTIVE_EVENT_TYPES = new Set([
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
+  // RevenueCat sends the Authorization header exactly as configured in
+  // the dashboard — ours is configured as the raw secret, but accept a
+  // "Bearer " prefix too so either dashboard convention works.
   const secret = Deno.env.get('REVENUECAT_WEBHOOK_SECRET');
   const auth = req.headers.get('Authorization');
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!secret || (auth !== secret && auth !== `Bearer ${secret}`)) {
     return json({ error: 'unauthorized' }, 401);
   }
 
