@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.futureself.app",
+      "bundleIdentifier": "com.futureself.mobile",
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -17,7 +17,7 @@
       }
     },
     "android": {
-      "package": "com.futureself.app",
+      "package": "com.futureself.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#F3E9DC",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -64,7 +64,7 @@
       [
         "@use-voltra/ios-client",
         {
-          "groupIdentifier": "group.com.futureself.app",
+          "groupIdentifier": "group.com.futureself.mobile",
           "enablePushNotifications": false,
           "targetName": "FutureSelfWidgets",
           "widgets": [

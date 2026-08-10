@@ -4,6 +4,23 @@ Everything below needs credentials or store-console access that only the app
 owner has. The code for every integration is complete; each item degrades
 gracefully until configured. Work through the sections in order.
 
+> **Status update (2026-08-10, after the Codex browser session):**
+> ✅ Supabase: anonymous sign-ins ON, manual linking ON, Apple provider
+> enabled, `DISPATCH_SECRET` + `REVENUECAT_SECRET_API_KEY` function secrets
+> set. ✅ RevenueCat: entitlement + Test Store products + offering + webhook
+> in place. ✅ App Store Connect: app **"Future Self — Daily Quotes"**
+> created; products `yearly` ($59.99/yr, 3-day trial), `monthly`, `lifetime`
+> created; **Paid Apps agreement active**. ✅ Sentry: EU org
+> `future-self-i2`, project `futureself`, DSN + source-map token in `.env`.
+> ⚠️ **Bundle id changed to `com.futureself.mobile`** (Apple refused
+> `com.futureself.app`); app.json + native projects already updated. iOS App
+> Group is now `group.com.futureself.mobile` (creation pending).
+> **Remaining console work** (see `CODEX_CONSOLE_TASKS_2.local.md`): webhook
+> secret reconciliation, Apple provider client-id update to the new bundle
+> id, App Group creation/assignment, ASC In-App Purchase key → RevenueCat
+> App Store app → real `appl_` SDK key, custom SMTP (blocks the email-OTP
+> template edit). Google/Play/Firebase/Expo intentionally skipped for now.
+
 ## Already live (done during the build)
 
 - Supabase project `claudefutureself` (`ykgswczatkspryetstor`): all
