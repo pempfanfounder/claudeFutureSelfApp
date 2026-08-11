@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.futureself.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#F3E9DC",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -85,7 +86,11 @@
               "id": "future_self",
               "displayName": "Future Self",
               "description": "Your life goal or pinned affirmation — until you change it.",
-              "supportedFamilies": ["systemSmall", "systemMedium", "accessoryRectangular"],
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium",
+                "accessoryRectangular"
+              ],
               "initialStatePath": "./widgets/ios/future-self-initial.tsx"
             }
           ]
@@ -123,7 +128,27 @@
     },
     "extra": {
       "router": {},
-      "eas": {}
-    }
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "FutureSelfWidgets",
+                  "bundleIdentifier": "com.futureself.mobile.FutureSelfWidgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.futureself.mobile"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "42611c58-20f3-49d7-8e4c-a4c32016e8fd"
+      }
+    },
+    "owner": "norjanssen"
   }
 }

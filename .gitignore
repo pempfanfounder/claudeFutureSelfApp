@@ -57,3 +57,4 @@ logo.png
 
 # Local operator documents containing secrets — never commit
 *.local.md
+credentials/

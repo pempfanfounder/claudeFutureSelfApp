@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "983503541251",
+    "project_id": "futureself-494215",
+    "storage_bucket": "futureself-494215.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:983503541251:android:03e4acf3398e8e6a026a36",
+        "android_client_info": {
+          "package_name": "com.futureself.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "983503541251-cp67doucqnag7i5sgo2ahh9bv28g15kg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJrFkUT1E4azWQuVMotL1pRmaKDNR9gOg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "983503541251-cp67doucqnag7i5sgo2ahh9bv28g15kg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "983503541251-br279h1e04dvb1kssejcmf4j7lgiqljl.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.forthefutureself.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
