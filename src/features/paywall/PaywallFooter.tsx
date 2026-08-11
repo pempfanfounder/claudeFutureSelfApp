@@ -5,8 +5,10 @@ import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 import { restorePurchases } from "@/lib/purchases";
 
-const TERMS_URL = "https://futureself.app/terms";
-const PRIVACY_URL = "https://futureself.app/privacy";
+// Hosted by the `legal` Supabase edge function — swap for a branded
+// domain later without an app update being required for the store pages.
+const TERMS_URL = "https://ykgswczatkspryetstor.supabase.co/functions/v1/legal/terms";
+const PRIVACY_URL = "https://ykgswczatkspryetstor.supabase.co/functions/v1/legal/privacy";
 
 interface PaywallFooterProps {
   onRestored: () => void;
