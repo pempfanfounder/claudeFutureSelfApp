@@ -15,6 +15,16 @@ gracefully until configured. Work through the sections in order.
 > ⚠️ **Bundle id changed to `com.futureself.mobile`** (Apple refused
 > `com.futureself.app`); app.json + native projects already updated. iOS App
 > Group is now `group.com.futureself.mobile` (creation pending).
+> **Round 4 (2026-08-12):** widget App Group assigned → **iOS credentials
+> fully provisioned** (cert + both profiles; build-ready pending Expo quota
+> decision). Android: production `.aab` built on EAS; SHA-1 issued; Android
+> OAuth client created (Google sign-in Android console-complete). Resend
+> domain `joinfutureself.com` **verified** (EU, DNS at Porkbun) — Supabase
+> SMTP still pending a fresh API key. Play: merchant profile created (payout
+> verification pending); products blocked until a billing-enabled AAB is
+> uploaded — the built artifact is ready for that upload. APNs: no key
+> revoked; plan is to reuse the team-scoped EAS key `32X543A5XM`
+> (Sandbox & Production) during the next credentials pass.
 > **Round 2 (2026-08-10) — all console items closed:** webhook secret set
 > identically on both sides and **verified live** (401 wrong secret / 200
 > correct — the function now accepts raw and Bearer forms; v5 deployed);
