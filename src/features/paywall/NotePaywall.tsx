@@ -8,7 +8,7 @@ import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
-import type { PaywallData } from "./useOffering";
+import { formatPriceLine, trialInfo, type PaywallData } from "./useOffering";
 
 interface NotePaywallProps {
   data: PaywallData;
@@ -101,6 +101,26 @@ export function NotePaywall({
             </AppText>
           ) : null}
 
+          {data.allPackages && data.allPackages.length > 1 ? (
+            <View style={styles.planSelector}>
+              {data.allPackages.map((p) => {
+                const isSelected = data.pkg?.identifier === p.identifier;
+                const pTrial = trialInfo(p);
+                return (
+                  <View key={p.identifier} style={styles.planWrapper}>
+                    <Button
+                      label={`${p.product.title || p.packageType} — ${formatPriceLine(p)}${pTrial ? ` (${pTrial.label} free)` : ""}`}
+                      variant={isSelected ? "primary" : "secondary"}
+                      onPress={() => data.selectPackage(p)}
+                      style={styles.planButton}
+                      testID={`plan-${p.identifier}`}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
           {data.unavailable ? (
             <AppText variant="body" tone="ink2" center style={styles.paragraph}>
               {
@@ -153,6 +173,17 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "right",
   },
+  planSelector: {
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  planWrapper: {
+    marginBottom: 4,
+  },
+  planButton: {
+    width: "100%",
+  },
   cta: { marginTop: spacing.sm },
   price: { marginTop: spacing.md },
 });
+

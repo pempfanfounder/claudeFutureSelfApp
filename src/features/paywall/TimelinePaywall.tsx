@@ -16,7 +16,12 @@ import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
-import { shortDateInDays, type PaywallData } from "./useOffering";
+import {
+  formatPriceLine,
+  shortDateInDays,
+  trialInfo,
+  type PaywallData,
+} from "./useOffering";
 
 interface TimelinePaywallProps {
   data: PaywallData;
@@ -204,6 +209,55 @@ export function TimelinePaywall({
           </View>
         ) : null}
 
+        {data.allPackages && data.allPackages.length > 1 ? (
+          <View style={styles.planSelector}>
+            {data.allPackages.map((p) => {
+              const isSelected = data.pkg?.identifier === p.identifier;
+              const trial = trialInfo(p);
+              return (
+                <Pressable
+                  key={p.identifier}
+                  onPress={() => data.selectPackage(p)}
+                  style={[
+                    styles.planOption,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: isSelected ? colors.ctaBg : colors.border,
+                      borderWidth: isSelected ? 2 : 1,
+                    },
+                    isSelected && shadows.sm,
+                  ]}
+                  testID={`plan-${p.identifier}`}
+                >
+                  <View style={styles.planHeader}>
+                    <AppText
+                      variant="body"
+                      style={{ fontWeight: isSelected ? "700" : "600" }}
+                    >
+                      {p.product.title || p.packageType}
+                    </AppText>
+                    {trial ? (
+                      <View
+                        style={[
+                          styles.trialBadge,
+                          { backgroundColor: colors.accent },
+                        ]}
+                      >
+                        <AppText variant="label" tone="ctaInk">
+                          {trial.label} FREE
+                        </AppText>
+                      </View>
+                    ) : null}
+                  </View>
+                  <AppText variant="label" tone="ink2">
+                    {formatPriceLine(p)}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         {data.unavailable ? (
           <AppText variant="body" tone="ink2" center style={styles.unavailable}>
             {
@@ -243,6 +297,7 @@ export function TimelinePaywall({
   );
 }
 
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   close: { position: "absolute", top: 64, left: spacing.xl, zIndex: 10 },
@@ -274,6 +329,25 @@ const styles = StyleSheet.create({
   },
   reminderLabel: { flex: 1 },
   unavailable: { marginTop: spacing.lg },
+  planSelector: {
+    marginTop: spacing.xl,
+    gap: spacing.sm,
+  },
+  planOption: {
+    borderRadius: radii.lg,
+    padding: spacing.md,
+  },
+  planHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  trialBadge: {
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   price: { marginTop: spacing.md },
 });

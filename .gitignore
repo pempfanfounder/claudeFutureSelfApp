@@ -58,3 +58,6 @@ logo.png
 # Local operator documents containing secrets — never commit
 *.local.md
 credentials/
+
+# Standalone UI preview builds (ignored by git and AI scanners)
+.onboarding-preview/
