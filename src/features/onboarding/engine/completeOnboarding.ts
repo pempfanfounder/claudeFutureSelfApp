@@ -6,7 +6,12 @@ import { getSupabase } from "@/lib/supabase";
 
 import { registerDevice } from "@/features/notifications/push";
 
-import { markOnboardingComplete, useOnboardingStore } from "./store";
+import {
+  clearOnboardingState,
+  getCompletedOnboardingVariant,
+  markOnboardingComplete,
+  useOnboardingStore,
+} from "./store";
 
 /**
  * Persists everything the funnel collected, in one pass:
@@ -92,6 +97,62 @@ export async function completeOnboarding(
   useAppState.getState().setOnboardingComplete(true);
   if (name) useAppState.getState().setDisplayName(name);
   analytics.capture("onboarding_completed", { variant });
+}
+
+/**
+ * Reconciles the device's onboarding-complete flag with the server
+ * after the authenticated user changes (boot, account switch, account
+ * deletion). The server's `personalization` row is the source of
+ * truth when it can be read:
+ *  - row exists  -> adopt completion (and the row's variant) locally
+ *  - row absent  -> this user never finished onboarding; clear local
+ *  - query fails -> could not verify; keep local state (offline grace)
+ * Returns whether onboarding is complete afterwards.
+ */
+export async function reconcileOnboardingState(
+  userId: string,
+): Promise<boolean> {
+  const localComplete = async () =>
+    Boolean(await getCompletedOnboardingVariant());
+
+  const supabase = getSupabase();
+  if (!supabase) return localComplete();
+
+  try {
+    const { data, error } = await supabase
+      .from("personalization")
+      .select("variant")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      // A PostgrestError (RLS hiccup, transient server fault) is a
+      // failure to verify, not proof of absence: keep local state.
+      return localComplete();
+    }
+
+    if (data) {
+      const variant = (data.variant ?? "iam-claude") as OnboardingVariant;
+      await markOnboardingComplete(variant);
+      useAppState.getState().setOnboardingComplete(true);
+      return true;
+    }
+
+    // Definitive answer: no personalization row, so this user never
+    // completed onboarding. Only clear when there is a stale flag —
+    // fresh installs reconcile mid-funnel and must keep their
+    // in-memory progress.
+    if (await localComplete()) {
+      await clearOnboardingState();
+    }
+    useAppState.getState().setOnboardingComplete(false);
+    return false;
+  } catch (error) {
+    // Network failure: offline relaunches must never bounce a
+    // finished user back into onboarding.
+    monitoring.captureError(error, { area: "onboarding.reconcile" });
+    return localComplete();
+  }
 }
 
 /** Founder variants collect "areas"; reuse them as quote interests. */

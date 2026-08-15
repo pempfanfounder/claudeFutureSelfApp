@@ -34,6 +34,13 @@ const envSchema = z.object({
    * Never affects the in-onboarding variant paywalls.
    */
   EXPO_PUBLIC_USE_RC_PAYWALL_GATE: z.enum(["true", "false"]).optional(),
+  /**
+   * Shows email (OTP) sign-in in the auth sheets. Off by default:
+   * with Supabase's built-in SMTP, OTP mail only reaches project team
+   * members, so the flow would silently fail for real users until
+   * custom SMTP is configured.
+   */
+  EXPO_PUBLIC_EMAIL_AUTH_ENABLED: z.enum(["true", "false"]).optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -53,8 +60,8 @@ const parsed = envSchema.safeParse({
     process.env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   EXPO_PUBLIC_DEV_MOCK_PURCHASES: process.env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,
   EXPO_PUBLIC_RC_ENTITLEMENT_ID: process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID,
-  EXPO_PUBLIC_USE_RC_PAYWALL_GATE:
-    process.env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE,
+  EXPO_PUBLIC_USE_RC_PAYWALL_GATE: process.env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE,
+  EXPO_PUBLIC_EMAIL_AUTH_ENABLED: process.env.EXPO_PUBLIC_EMAIL_AUTH_ENABLED,
 });
 
 if (!parsed.success) {
@@ -82,6 +89,7 @@ export const config = {
   devMockPurchases: __DEV__ && env.EXPO_PUBLIC_DEV_MOCK_PURCHASES === "true",
   rcEntitlementId: env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
   useRcPaywallGate: env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE === "true",
+  emailAuthEnabled: env.EXPO_PUBLIC_EMAIL_AUTH_ENABLED === "true",
   hasSupabase: Boolean(
     env.EXPO_PUBLIC_SUPABASE_URL && env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),

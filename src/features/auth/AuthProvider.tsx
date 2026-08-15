@@ -16,13 +16,18 @@ import { analytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
 import { config } from "@/lib/config";
 import { monitoring } from "@/lib/monitoring";
-import { logInPurchases, logOutPurchases } from "@/lib/purchases";
+import { getIsPremium, logInPurchases, logOutPurchases } from "@/lib/purchases";
 import { getSupabase } from "@/lib/supabase";
 
 import {
   deactivateDevice,
   registerDevice,
 } from "@/features/notifications/push";
+import { reconcileOnboardingState } from "@/features/onboarding/engine/completeOnboarding";
+import {
+  clearLocalUserData,
+  clearOnboardingState,
+} from "@/features/onboarding/engine/store";
 
 /**
  * Anonymous-first auth.
@@ -72,6 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [appleAvailable, setAppleAvailable] = useState(false);
   const googleReady = useRef(false);
+  // Last user id seen by the auth listener, so onboarding-state
+  // reconciliation runs once per boot/account-switch instead of on
+  // every token refresh.
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS === "ios") {
@@ -109,6 +118,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(next);
       const userId = next?.user.id ?? null;
       useAppState.getState().setUserId(userId);
+      if (userId && userId !== lastUserIdRef.current) {
+        // Boot or account switch: make the local onboarding flag agree
+        // with the server before the gate trusts it. Deferred out of
+        // the auth callback per supabase-js guidance (the callback runs
+        // under the auth lock; nested Supabase calls can deadlock).
+        setTimeout(() => {
+          reconcileOnboardingState(userId).catch(() => {});
+        }, 0);
+      }
+      lastUserIdRef.current = userId;
       if (userId) {
         analytics.identify(userId, {
           is_anonymous: next?.user.is_anonymous ?? false,
@@ -293,7 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const apple = await getAppleToken();
       if (!apple) return { ok: false, reason: "error" };
       if ("cancelled" in apple) return { ok: false, reason: "cancelled" };
-      const { error } = await supabase.auth.signInWithIdToken({
+      const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
         token: apple.token,
       });
@@ -302,6 +321,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, reason: "error", message: error.message };
       }
       analytics.capture("auth_signed_in", { provider: "apple" });
+      // Switched accounts: this device's onboarding flag now belongs
+      // to the signed-in user, not whoever held it before.
+      const newUserId = data.session?.user.id ?? data.user?.id;
+      if (newUserId) await reconcileOnboardingState(newUserId);
       await afterIdentityChange();
       return { ok: true };
     }, [appleAvailable, getAppleToken, afterIdentityChange]);
@@ -319,7 +342,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await GoogleSignin.signIn();
         const idToken = result.data?.idToken;
         if (!idToken) return { ok: false, reason: "cancelled" };
-        const { error } = await supabase.auth.signInWithIdToken({
+        const { data, error } = await supabase.auth.signInWithIdToken({
           provider: "google",
           token: idToken,
         });
@@ -328,6 +351,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false, reason: "error", message: error.message };
         }
         analytics.capture("auth_signed_in", { provider: "google" });
+        // Switched accounts: reconcile the local onboarding flag with
+        // the signed-in user's server state.
+        const newUserId = data.session?.user.id ?? data.user?.id;
+        if (newUserId) await reconcileOnboardingState(newUserId);
         await afterIdentityChange();
         return { ok: true };
       } catch {
@@ -343,6 +370,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logOutPurchases();
       analytics.reset();
       await supabase.auth.signOut();
+      // The sign-out copy promises "this device returns to a fresh
+      // start": drop the persisted onboarding flag with the session.
+      await clearOnboardingState();
+      useAppState.getState().setOnboardingComplete(false);
       // Immediately start a fresh anonymous session so the app keeps a
       // stable identity for the gate/paywall.
       const { data } = await supabase.auth.signInAnonymously();
@@ -363,8 +394,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       analytics.capture("account_deleted");
       analytics.reset();
       await supabase.auth.signOut();
+      // Detach RevenueCat from the deleted identity so its entitlement
+      // cannot unlock the paywall for the next (anonymous) user.
+      await logOutPurchases();
+      // A deleted account must not leave this device pre-onboarded:
+      // drop the persisted completion flag and per-user local caches.
+      await clearOnboardingState();
+      await clearLocalUserData();
+      useAppState.getState().setOnboardingComplete(false);
       const { data } = await supabase.auth.signInAnonymously();
       setSession(data.session);
+      // Re-read premium for the fresh anonymous RevenueCat customer.
+      useAppState.getState().setPremium(await getIsPremium());
       return { ok: true };
     } catch (error) {
       monitoring.captureError(error, { area: "auth.deleteAccount" });
@@ -384,7 +425,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       availableProviders: {
         apple: Platform.OS === "ios" && appleAvailable,
         google: config.hasGoogleAuth,
-        email: config.hasSupabase,
+        // Gated: Supabase's default SMTP only reaches team members, so
+        // email OTP stays hidden until custom SMTP is configured.
+        email: config.hasSupabase && config.emailAuthEnabled,
       },
       linkWithApple,
       linkWithGoogle,
