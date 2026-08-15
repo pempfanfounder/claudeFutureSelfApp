@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { PACKAGE_TYPE, type PurchasesPackage } from "react-native-purchases";
 
 import { config } from "@/lib/config";
-import { getCurrentOffering, isConfigured } from "@/lib/purchases";
+import { getCurrentOffering, initPurchases, isConfigured } from "@/lib/purchases";
 
 export interface PaywallData {
   loading: boolean;
@@ -123,6 +123,9 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
         return;
       }
       if (!isConfigured()) {
+        await initPurchases();
+      }
+      if (!isConfigured()) {
         setData((d) => ({
           ...d,
           loading: false,
@@ -131,7 +134,12 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
         }));
         return;
       }
-      const offering = await getCurrentOffering();
+      let offering = await getCurrentOffering();
+      if (!offering && !cancelled) {
+        // Short backoff retry in case store offerings are still fetching
+        await new Promise((r) => setTimeout(r, 500));
+        offering = await getCurrentOffering();
+      }
       if (cancelled) return;
       if (!offering || offering.availablePackages.length === 0) {
         setData((d) => ({
@@ -142,6 +150,7 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
         }));
         return;
       }
+
       const preferred =
         prefer === "annual"
           ? (offering.annual ??

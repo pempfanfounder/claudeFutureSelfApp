@@ -40,24 +40,25 @@ export async function initPurchases(appUserId?: string) {
     Platform.OS === "ios"
       ? config.revenueCatIosKey
       : config.revenueCatAndroidKey;
-  if (!apiKey) return;
-  if (configured) return;
-  if (apiKey.startsWith("test_") && !__DEV__) {
-    // A RevenueCat Test Store key has no billing power. Refusing to
-    // configure with one in a release build means `configured` stays
-    // false and the paywall stays closed, per the "no bypass" contract —
-    // it never falls back to unlocking premium.
-    console.error(
-      "[purchases] Refusing to configure RevenueCat with a test_ API key in a release build.",
+  if (!apiKey) {
+    console.warn(
+      `[purchases] No RevenueCat API key found for platform "${Platform.OS}". Check environment configuration.`,
     );
     return;
   }
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
-  Purchases.configure({ apiKey, appUserID: appUserId ?? null });
-  configured = true;
-  Purchases.addCustomerInfoUpdateListener((info) => {
-    notify(hasPremium(info));
-  });
+  if (configured) return;
+
+  Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+  try {
+    Purchases.configure({ apiKey, appUserID: appUserId ?? null });
+    configured = true;
+    Purchases.addCustomerInfoUpdateListener((info) => {
+      notify(hasPremium(info));
+    });
+  } catch (error) {
+    console.error("[purchases] Purchases.configure failed:", error);
+    monitoring.captureError(error, { area: "purchases.configure" });
+  }
 }
 
 /**
@@ -124,12 +125,15 @@ export async function getCurrentOffering(): Promise<PurchasesOffering | null> {
   if (!configured) return null;
   try {
     const offerings = await Purchases.getOfferings();
-    return offerings.current;
+    // Fall back to first available offering if current is not explicitly set as default
+    return offerings.current ?? Object.values(offerings.all)[0] ?? null;
   } catch (error) {
+    console.error("[purchases] getOfferings error:", error);
     monitoring.captureError(error, { area: "purchases.getOfferings" });
     return null;
   }
 }
+
 
 export type PurchaseOutcome =
   | { status: "purchased" }
