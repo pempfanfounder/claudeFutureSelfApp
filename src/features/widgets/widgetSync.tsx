@@ -6,14 +6,21 @@ import { useFeedStore } from "@/features/content/feedStore";
 import type { ContentItem } from "@/features/content/types";
 
 import { getPinnedText } from "./pinned";
+import {
+  loadWidgetPrefs,
+  paletteForWidget,
+  useWidgetPrefs,
+} from "./widgetPrefs";
 
 /**
  * Voltra widget sync.
  *
- * - `daily` widget: today's quotes + affirmations interleaved. iOS gets
- *   a real WidgetKit timeline (entries rotate through the day with no
- *   app involvement); Android Glance gets the current item and
- *   refreshes on each app foreground.
+ * - `daily` widget: today's quotes + affirmations interleaved (or the
+ *   pinned line when the user picked that source). iOS gets a real
+ *   WidgetKit timeline (entries rotate through the day with no app
+ *   involvement); Android Glance gets the current item and refreshes
+ *   on each app foreground. Palette + content source follow the user's
+ *   widget prefs (see `widgetPrefs.ts`).
  * - `future_self` widget: the persistent pinned line (life goal or the
  *   user's own affirmation). Unchanged until the user edits it.
  *
@@ -22,6 +29,8 @@ import { getPinnedText } from "./pinned";
  */
 export async function syncWidgets(): Promise<void> {
   try {
+    // Idempotent: guarantees a cold-start sync uses persisted prefs.
+    await loadWidgetPrefs();
     const { quotes, affirmations, lifeGoal, pinnedAffirmation } =
       useFeedStore.getState();
     const items = interleave(quotes, affirmations);
@@ -63,15 +72,12 @@ function slotDates(count: number): Date[] {
   return dates;
 }
 
-// Widgets render outside the app's theme context; use the brand's
-// warm-sand palette directly.
-const palette = () => ({ bg: "#F3E9DC", ink: "#3B2E25", ink2: "#8A7770" });
-
 async function syncIos(items: ContentItem[], pinned: string) {
   const { Voltra } = await import("@use-voltra/ios");
   const { scheduleWidget, updateWidget } =
     await import("@use-voltra/ios-client");
-  const colors = palette();
+  const { home, lock } = useWidgetPrefs.getState().prefs;
+  const colors = paletteForWidget(home.themeId);
 
   const card = (text: string, author: string | null, fontSize: number) => (
     <Voltra.VStack
@@ -93,7 +99,33 @@ async function syncIos(items: ContentItem[], pinned: string) {
     </Voltra.VStack>
   );
 
-  if (items.length > 0) {
+  // Lock Screen accessories follow their own source preference.
+  const lockLine = (item: ContentItem | undefined) =>
+    lock.source === "pinned" ? pinned : (item?.body ?? pinned);
+  const accessories = (item: ContentItem | undefined) => ({
+    accessoryRectangular: (
+      <Voltra.Text style={{ fontSize: 12 }}>
+        {truncate(lockLine(item), 70)}
+      </Voltra.Text>
+    ),
+    accessoryInline: <Voltra.Text>{truncate(lockLine(item), 40)}</Voltra.Text>,
+  });
+
+  if (home.source === "pinned") {
+    // Static content: a single always-current entry is enough.
+    await scheduleWidget("daily", [
+      {
+        date: new Date(Date.now() - 60_000),
+        deepLinkUrl: "futureself://widget-setup",
+        variants: {
+          systemSmall: card(truncate(pinned, 90), null, 13),
+          systemMedium: card(truncate(pinned, 140), null, 14),
+          systemLarge: card(pinned, null, 18),
+          ...accessories(items[0]),
+        },
+      },
+    ]);
+  } else if (items.length > 0) {
     const dates = slotDates(items.length);
     // A past-dated first entry makes item 0 the current state.
     dates[0] = new Date(Date.now() - 60_000);
@@ -104,14 +136,17 @@ async function syncIos(items: ContentItem[], pinned: string) {
         deepLinkUrl: `futureself://content/${item.id}?kind=${item.type}`,
         variants: {
           systemSmall: card(truncate(item.body, 90), null, 13),
-          systemMedium: card(truncate(item.body, 140), item.author, 14),
-          systemLarge: card(item.body, item.author, 18),
-          accessoryRectangular: (
-            <Voltra.Text style={{ fontSize: 12 }}>
-              {truncate(item.body, 70)}
-            </Voltra.Text>
+          systemMedium: card(
+            truncate(item.body, 140),
+            home.showAuthor ? item.author : null,
+            14,
           ),
-          accessoryInline: <Voltra.Text>{truncate(item.body, 40)}</Voltra.Text>,
+          systemLarge: card(
+            item.body,
+            home.showAuthor ? item.author : null,
+            18,
+          ),
+          ...accessories(item),
         },
       })),
     );
@@ -135,7 +170,8 @@ async function syncIos(items: ContentItem[], pinned: string) {
 async function syncAndroid(items: ContentItem[], pinned: string) {
   const { VoltraAndroid } = await import("@use-voltra/android");
   const { updateAndroidWidget } = await import("@use-voltra/android-client");
-  const colors = palette();
+  const { home } = useWidgetPrefs.getState().prefs;
+  const colors = paletteForWidget(home.themeId);
 
   const card = (text: string, author: string | null, fontSize: number) => (
     <VoltraAndroid.Column
@@ -158,22 +194,28 @@ async function syncAndroid(items: ContentItem[], pinned: string) {
     </VoltraAndroid.Column>
   );
 
+  const usePinned = home.source === "pinned";
   const current = items[0];
-  if (current) {
+  if (usePinned || current) {
+    const body = usePinned ? pinned : current!.body;
+    const author =
+      usePinned || !home.showAuthor ? null : (current!.author ?? null);
     await updateAndroidWidget(
       "daily",
       [
         {
           size: { width: 110, height: 110 },
-          content: card(truncate(current.body, 90), null, 13),
+          content: card(truncate(body, 90), null, 13),
         },
         {
           size: { width: 250, height: 110 },
-          content: card(truncate(current.body, 160), current.author, 15),
+          content: card(truncate(body, 160), author, 15),
         },
       ],
       {
-        deepLinkUrl: `futureself://content/${current.id}?kind=${current.type}`,
+        deepLinkUrl: usePinned
+          ? "futureself://widget-setup"
+          : `futureself://content/${current!.id}?kind=${current!.type}`,
       },
     );
   }
