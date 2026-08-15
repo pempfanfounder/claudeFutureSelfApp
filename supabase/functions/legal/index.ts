@@ -12,8 +12,8 @@ const COMPANY = 'Improvement Labs';
 // replaced with the real KVK/BTW/address values before deploying.
 const OWNER = {
   tradeName: 'Improvement Labs',
-  kvk: '[KVK-NUMMER — INVULLEN VOOR DEPLOY]',
-  btw: '[BTW-ID — INVULLEN VOOR DEPLOY]',
+  kvk: '42039945',
+  btw: 'NL005448561B16',
   address: '[ZAKELIJK ADRES — INVULLEN VOOR DEPLOY]',
 };
 
