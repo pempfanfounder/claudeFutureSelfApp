@@ -40,7 +40,6 @@
         }
       ],
       "expo-font",
-      "expo-secure-store",
       "expo-localization",
       "expo-apple-authentication",
       [
