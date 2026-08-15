@@ -8,8 +8,11 @@ import { registerDevice } from "@/features/notifications/push";
 
 import {
   clearOnboardingState,
+  clearPendingServerSync,
   getCompletedOnboardingVariant,
+  getPendingServerSync,
   markOnboardingComplete,
+  setPendingServerSync,
   useOnboardingStore,
 } from "./store";
 
@@ -42,9 +45,14 @@ export async function completeOnboarding(
   }
 
   if (supabase) {
+    let userId: string | undefined;
+    // Tracks whether the personalization row provably reached the
+    // server — the one write reconcileOnboardingState treats as the
+    // source of truth for "finished onboarding".
+    let personalizationSynced = false;
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user.id;
+      userId = sessionData.session?.user.id;
       if (userId) {
         const { error: pErr } = await supabase.from("personalization").upsert({
           user_id: userId,
@@ -64,6 +72,10 @@ export async function completeOnboarding(
           onboarding_completed_at: new Date().toISOString(),
         });
         if (pErr) throw pErr;
+        personalizationSynced = true;
+        // The row is on the server: any earlier failure marker is
+        // obsolete.
+        await clearPendingServerSync();
 
         if (name) {
           await supabase
@@ -85,11 +97,19 @@ export async function completeOnboarding(
 
         await registerDevice();
         await supabase.rpc("recalc_my_notification_state");
+      } else {
+        // No session to write under: remember the completion so the
+        // next boot's reconcile retries instead of clearing the flag.
+        await setPendingServerSync(null, variant);
       }
     } catch (error) {
       // Persistence failures must never trap the user in onboarding —
-      // the local completion flag still flips and a later sync retries.
+      // the local completion flag still flips, and the pending-sync
+      // marker makes reconcileOnboardingState retry the write.
       monitoring.captureError(error, { area: "onboarding.complete" });
+      if (!personalizationSynced) {
+        await setPendingServerSync(userId ?? null, variant).catch(() => {});
+      }
     }
   }
 
@@ -138,7 +158,32 @@ export async function reconcileOnboardingState(
       return true;
     }
 
-    // Definitive answer: no personalization row, so this user never
+    // Definitive answer: no personalization row. Before treating that
+    // as "this user never completed onboarding", honor a completion
+    // that never reached the server (failed upsert, or no session at
+    // completion time): retry the write instead of bouncing a finished
+    // — possibly paying — user back into the funnel.
+    const pending = await getPendingServerSync();
+    if (pending && (pending.userId === userId || pending.userId === null)) {
+      const { error: retryError } = await supabase
+        .from("personalization")
+        .upsert({
+          user_id: userId,
+          variant: pending.variant,
+          onboarding_completed_at: new Date().toISOString(),
+        });
+      if (!retryError) {
+        await clearPendingServerSync();
+        await markOnboardingComplete(pending.variant);
+        useAppState.getState().setOnboardingComplete(true);
+        return true;
+      }
+      // Still can't reach the server: keep local state and leave the
+      // marker in place for the next reconcile.
+      return localComplete();
+    }
+
+    // No row and no matching pending write, so this user never
     // completed onboarding. Only clear when there is a stale flag —
     // fresh installs reconcile mid-funnel and must keep their
     // in-memory progress.

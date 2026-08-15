@@ -5,8 +5,9 @@ import { monitoring } from "@/lib/monitoring";
 import { useFeedStore } from "@/features/content/feedStore";
 import type { ContentItem } from "@/features/content/types";
 
-import { getPinnedText } from "./pinned";
+import { DEFAULT_PINNED, getPinnedText } from "./pinned";
 import {
+  DEFAULT_WIDGET_PREFS,
   loadWidgetPrefs,
   paletteForWidget,
   useWidgetPrefs,
@@ -44,6 +45,29 @@ export async function syncWidgets(): Promise<void> {
   } catch (error) {
     // Widget sync must never break the app (e.g. running in Expo Go).
     monitoring.captureError(error, { area: "widgets.sync" });
+  }
+}
+
+/** Neutral copy shown on the daily widget after sign-out/deletion. */
+const CLEARED_DAILY_TEXT = "Your daily words return here.";
+
+/**
+ * Replaces both widgets' content with neutral copy (default palette,
+ * default pinned line). Runs on sign-out and account deletion so a
+ * departed user's personal line never lingers on the OS home screen.
+ * Same fail-soft contract as `syncWidgets`: Voltra's native modules
+ * only exist in dev/production builds, so imports stay lazy and every
+ * failure is swallowed into monitoring.
+ */
+export async function clearWidgets(): Promise<void> {
+  try {
+    if (Platform.OS === "ios") {
+      await clearIos();
+    } else if (Platform.OS === "android") {
+      await clearAndroid();
+    }
+  } catch (error) {
+    monitoring.captureError(error, { area: "widgets.clear" });
   }
 }
 
@@ -167,6 +191,60 @@ async function syncIos(items: ContentItem[], pinned: string) {
   );
 }
 
+async function clearIos() {
+  const { Voltra } = await import("@use-voltra/ios");
+  const { scheduleWidget, updateWidget } =
+    await import("@use-voltra/ios-client");
+  const colors = paletteForWidget(DEFAULT_WIDGET_PREFS.home.themeId);
+
+  const card = (text: string, fontSize: number) => (
+    <Voltra.VStack
+      style={{
+        flex: 1,
+        padding: 14,
+        backgroundColor: colors.bg,
+        justifyContent: "center",
+      }}
+    >
+      <Voltra.Text style={{ color: colors.ink, fontSize, fontWeight: "500" }}>
+        {text}
+      </Voltra.Text>
+    </Voltra.VStack>
+  );
+
+  await scheduleWidget("daily", [
+    {
+      date: new Date(Date.now() - 60_000),
+      deepLinkUrl: "futureself://widget-setup",
+      variants: {
+        systemSmall: card(CLEARED_DAILY_TEXT, 13),
+        systemMedium: card(CLEARED_DAILY_TEXT, 14),
+        systemLarge: card(CLEARED_DAILY_TEXT, 18),
+        accessoryRectangular: (
+          <Voltra.Text style={{ fontSize: 12 }}>
+            {CLEARED_DAILY_TEXT}
+          </Voltra.Text>
+        ),
+        accessoryInline: (
+          <Voltra.Text>{truncate(CLEARED_DAILY_TEXT, 40)}</Voltra.Text>
+        ),
+      },
+    },
+  ]);
+
+  await updateWidget(
+    "future_self",
+    {
+      systemSmall: card(DEFAULT_PINNED, 14),
+      systemMedium: card(DEFAULT_PINNED, 16),
+      accessoryRectangular: (
+        <Voltra.Text style={{ fontSize: 12 }}>{DEFAULT_PINNED}</Voltra.Text>
+      ),
+    },
+    { deepLinkUrl: "futureself://widget-setup" },
+  );
+}
+
 async function syncAndroid(items: ContentItem[], pinned: string) {
   const { VoltraAndroid } = await import("@use-voltra/android");
   const { updateAndroidWidget } = await import("@use-voltra/android-client");
@@ -226,6 +304,54 @@ async function syncAndroid(items: ContentItem[], pinned: string) {
       {
         size: { width: 110, height: 110 },
         content: card(truncate(pinned, 120), null, 14),
+      },
+    ],
+    { deepLinkUrl: "futureself://widget-setup" },
+  );
+}
+
+async function clearAndroid() {
+  const { VoltraAndroid } = await import("@use-voltra/android");
+  const { updateAndroidWidget } = await import("@use-voltra/android-client");
+  const colors = paletteForWidget(DEFAULT_WIDGET_PREFS.home.themeId);
+
+  const card = (text: string, fontSize: number) => (
+    <VoltraAndroid.Column
+      style={{
+        width: "100%",
+        height: "100%",
+        padding: 14,
+        backgroundColor: colors.bg,
+      }}
+      verticalAlignment="center-vertically"
+    >
+      <VoltraAndroid.Text style={{ color: colors.ink, fontSize }}>
+        {text}
+      </VoltraAndroid.Text>
+    </VoltraAndroid.Column>
+  );
+
+  await updateAndroidWidget(
+    "daily",
+    [
+      {
+        size: { width: 110, height: 110 },
+        content: card(CLEARED_DAILY_TEXT, 13),
+      },
+      {
+        size: { width: 250, height: 110 },
+        content: card(CLEARED_DAILY_TEXT, 15),
+      },
+    ],
+    { deepLinkUrl: "futureself://widget-setup" },
+  );
+
+  await updateAndroidWidget(
+    "future_self",
+    [
+      {
+        size: { width: 110, height: 110 },
+        content: card(DEFAULT_PINNED, 14),
       },
     ],
     { deepLinkUrl: "futureself://widget-setup" },

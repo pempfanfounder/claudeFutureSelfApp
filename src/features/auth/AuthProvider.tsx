@@ -28,6 +28,7 @@ import {
   clearLocalUserData,
   clearOnboardingState,
 } from "@/features/onboarding/engine/store";
+import { clearWidgets } from "@/features/widgets/widgetSync";
 
 /**
  * Anonymous-first auth.
@@ -68,6 +69,20 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * `functions.invoke` surfaces a FunctionsHttpError whose `context` is
+ * the raw fetch Response (some transports expose `status` directly).
+ * For delete-account, a 401 means the JWT's user no longer exists —
+ * i.e. a previous deletion already went through.
+ */
+function isAccountAlreadyGone(error: unknown): boolean {
+  const err = error as {
+    status?: unknown;
+    context?: { status?: unknown } | null;
+  };
+  return err?.status === 401 || err?.context?.status === 401;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -371,8 +386,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       analytics.reset();
       await supabase.auth.signOut();
       // The sign-out copy promises "this device returns to a fresh
-      // start": drop the persisted onboarding flag with the session.
+      // start": drop the persisted onboarding flag with the session,
+      // plus per-user local caches (pinned line, widget prefs).
       await clearOnboardingState();
+      await clearLocalUserData();
+      // Fire-and-forget: the home-screen widgets must not keep showing
+      // the departed user's personal line.
+      clearWidgets().catch(() => {});
       useAppState.getState().setOnboardingComplete(false);
       // Immediately start a fresh anonymous session so the app keeps a
       // stable identity for the gate/paywall.
@@ -390,7 +410,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.functions.invoke("delete-account", {
         body: {},
       });
-      if (error) throw error;
+      // A 401 means this session's user no longer exists server-side:
+      // a previous attempt already deleted the account but the
+      // response was lost. Proceed to local teardown instead of
+      // failing the same dead session forever.
+      if (error && !isAccountAlreadyGone(error)) throw error;
+    } catch (error) {
+      monitoring.captureError(error, { area: "auth.deleteAccount" });
+      return {
+        ok: false,
+        reason: "error",
+        message: "Could not delete the account. Try again.",
+      };
+    }
+    // Server-side deletion is done. From here on, failures are
+    // reported but must NOT surface as "deletion failed" — the user
+    // would retry forever against an account that is already gone.
+    try {
       analytics.capture("account_deleted");
       analytics.reset();
       await supabase.auth.signOut();
@@ -401,20 +437,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // drop the persisted completion flag and per-user local caches.
       await clearOnboardingState();
       await clearLocalUserData();
+      // Fire-and-forget: the home-screen widgets must not keep showing
+      // the deleted user's personal line.
+      clearWidgets().catch(() => {});
       useAppState.getState().setOnboardingComplete(false);
       const { data } = await supabase.auth.signInAnonymously();
       setSession(data.session);
       // Re-read premium for the fresh anonymous RevenueCat customer.
       useAppState.getState().setPremium(await getIsPremium());
-      return { ok: true };
     } catch (error) {
-      monitoring.captureError(error, { area: "auth.deleteAccount" });
-      return {
-        ok: false,
-        reason: "error",
-        message: "Could not delete the account. Try again.",
-      };
+      monitoring.captureError(error, { area: "auth.deleteAccount.teardown" });
     }
+    return { ok: true };
   }, []);
 
   const value = useMemo<AuthContextValue>(
