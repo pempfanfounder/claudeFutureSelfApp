@@ -9,6 +9,7 @@ import Purchases, {
 import { analytics } from "./analytics";
 import { config } from "./config";
 import { monitoring } from "./monitoring";
+import { getSupabase } from "./supabase";
 
 /**
  * Purchases abstraction over RevenueCat.
@@ -48,7 +49,7 @@ export async function initPurchases(appUserId?: string) {
   }
   if (configured) return;
 
-  Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
   try {
     Purchases.configure({ apiKey, appUserID: appUserId ?? null });
     configured = true;
@@ -140,6 +141,17 @@ export type PurchaseOutcome =
   | { status: "cancelled" }
   | { status: "error"; message: string };
 
+/**
+ * Fire-and-forget push of the fresh entitlement to the server right
+ * after a purchase/restore, so server-side premium state doesn't have
+ * to wait on the RevenueCat webhook.
+ */
+function syncEntitlementToServer() {
+  getSupabase()
+    ?.functions.invoke("sync-entitlement", { body: {} })
+    .catch(() => {});
+}
+
 export async function purchasePackage(
   pkg: PurchasesPackage,
 ): Promise<PurchaseOutcome> {
@@ -162,6 +174,7 @@ export async function purchasePackage(
       product_id: pkg.product.identifier,
     });
     notify(premium);
+    if (premium) syncEntitlementToServer();
     return premium
       ? { status: "purchased" }
       : {
@@ -199,6 +212,7 @@ export async function restorePurchases(): Promise<PurchaseOutcome> {
     const premium = hasPremium(info);
     analytics.capture("restore_completed", { premium });
     notify(premium);
+    if (premium) syncEntitlementToServer();
     return premium
       ? { status: "purchased" }
       : {
