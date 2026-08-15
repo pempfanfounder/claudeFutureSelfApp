@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { AppText, Button, Screen } from "@/design-system/components";
+import { AppText, Button, Icon, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -64,7 +64,7 @@ export default function AccountScreen() {
   const deleteAccount = () => {
     Alert.alert(
       "Delete account",
-      "This permanently deletes your account, personalization, streaks, and saved words. Purchases can be restored through the store, but everything else is gone. Continue?",
+      "This permanently deletes your account, personalization, streaks, and saved quotes. Purchases can be restored through the store, but everything else is gone. Continue?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -95,9 +95,7 @@ export default function AccountScreen() {
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <AppText variant="h3" tone="ink3">
-            ‹
-          </AppText>
+          <Icon name="back" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">Account</AppText>
         <View style={styles.spacer} />
@@ -113,7 +111,7 @@ export default function AccountScreen() {
           </AppText>
           <AppText variant="body" tone="ink2" style={styles.cardSub}>
             {auth.isAnonymous
-              ? "Everything lives only on this phone. Sign in so your goal, streak and saved words survive a lost or new device."
+              ? "Everything lives only on this phone. Sign in so your goal, streak and saved quotes survive a lost or new device."
               : (email ?? "Your progress is safe across devices.")}
           </AppText>
           {auth.isAnonymous ? (
@@ -176,7 +174,7 @@ export default function AccountScreen() {
         sub={
           sheet === "switch"
             ? "Sign in to the account that has your history. This device's fresh data will be replaced by it."
-            : "Sign in so your goal, your streak and your saved words survive a lost phone."
+            : "Sign in so your goal, your streak and your saved quotes survive a lost phone."
         }
         dismissLabel="Cancel"
         onDone={(authenticated) => {

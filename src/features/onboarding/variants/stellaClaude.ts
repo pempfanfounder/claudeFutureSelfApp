@@ -230,7 +230,7 @@ export const stellaClaude: VariantConfig = {
       type: "auth-sheet",
       headline: (ctx) =>
         ctx.name ? `Keep it safe, ${ctx.name}.` : "Keep it safe.",
-      sub: "Sign in so your goal, your streak and your saved words survive a lost phone — and follow you to a new one.",
+      sub: "Sign in so your goal, your streak and your saved quotes survive a lost phone — and follow you to a new one.",
       secondaryCta: "Not now",
     },
     {
@@ -241,7 +241,7 @@ export const stellaClaude: VariantConfig = {
       id: "post-auth",
       type: "auth-sheet",
       headline: "One tap so this is never lost.",
-      sub: "Your goal, your streak and your saved words — safe on any device.",
+      sub: "Your goal, your streak and your saved quotes — safe on any device.",
       secondaryCta: "Not now",
       condition: (ctx) => ctx.isAnonymous,
     },

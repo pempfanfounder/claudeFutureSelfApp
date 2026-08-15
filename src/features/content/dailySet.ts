@@ -5,7 +5,7 @@ import { DAILY_LIMIT } from "./types";
  * Deterministic, personalized daily selection.
  *
  * The same (userId, localDate, type, library) always produces the same
- * ten items, so reopening the app never reshuffles the day. The stored
+ * items, so reopening the app never reshuffles the day. The stored
  * daily_sets row is still the source of truth — mid-day library edits
  * can't shift an already-generated day.
  */

@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
-import { AppText, Screen } from "@/design-system/components";
+import { AppText, Icon, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAppState } from "@/lib/appState";
@@ -28,11 +28,9 @@ export default function FavoritesScreen() {
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <AppText variant="h3" tone="ink3">
-            ✕
-          </AppText>
+          <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
-        <AppText variant="h3">Saved words</AppText>
+        <AppText variant="h3">Saved Quotes</AppText>
         <View style={styles.spacer} />
       </View>
 
@@ -74,9 +72,7 @@ export default function FavoritesScreen() {
                   hitSlop={10}
                   testID={`unfavorite-${item.id}`}
                 >
-                  <AppText variant="lead" tone="accent">
-                    ♥
-                  </AppText>
+                  <Icon name="heartFill" size={18} color={colors.accent} />
                 </Pressable>
               </View>
             </Pressable>

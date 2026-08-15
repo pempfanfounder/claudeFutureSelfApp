@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { AppText, Screen } from "@/design-system/components";
+import { AppText, Icon, Screen } from "@/design-system/components";
+import { useColors } from "@/design-system/ThemeProvider";
 import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
@@ -18,6 +19,7 @@ import type { ContentItem } from "@/features/content/types";
  * the item was edited or deactivated after sending.
  */
 export default function ContentDeepLink() {
+  const colors = useColors();
   const { id, kind } = useLocalSearchParams<{ id: string; kind?: string }>();
   const userId = useAppState((s) => s.userId);
   const { isPremium, onboardingComplete } = useAppState();
@@ -58,9 +60,7 @@ export default function ContentDeepLink() {
           }
           hitSlop={12}
         >
-          <AppText variant="h3" tone="ink3">
-            ✕
-          </AppText>
+          <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
       </View>
       {item ? (

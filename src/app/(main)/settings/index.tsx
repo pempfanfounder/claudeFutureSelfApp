@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import RevenueCatUI from "react-native-purchases-ui";
 
-import { AppText, Screen } from "@/design-system/components";
+import { AppText, Icon, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAppState } from "@/lib/appState";
@@ -76,9 +76,7 @@ export default function SettingsScreen() {
           {detail}
         </AppText>
       ) : null}
-      <AppText variant="lead" tone="ink3">
-        ›
-      </AppText>
+      <Icon name="chevronRight" size={18} color={colors.ink3} />
     </Pressable>
   );
 
@@ -86,9 +84,7 @@ export default function SettingsScreen() {
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <AppText variant="h3" tone="ink3">
-            ✕
-          </AppText>
+          <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">
           {displayName ? `${displayName}` : "Profile"}

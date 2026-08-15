@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 
-import { AppText, Screen } from "@/design-system/components";
+import { AppText, Icon, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -117,7 +117,7 @@ export default function NotificationSettingsScreen() {
           style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
           hitSlop={6}
         >
-          <AppText variant="h3">−</AppText>
+          <Icon name="minus" size={18} color={colors.ink} />
         </Pressable>
         <AppText variant="body" style={styles.stepValue}>
           {formatter(value)}
@@ -127,7 +127,7 @@ export default function NotificationSettingsScreen() {
           style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
           hitSlop={6}
         >
-          <AppText variant="h3">+</AppText>
+          <Icon name="plus" size={18} color={colors.ink} />
         </Pressable>
       </View>
     </View>
@@ -158,9 +158,7 @@ export default function NotificationSettingsScreen() {
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <AppText variant="h3" tone="ink3">
-            ‹
-          </AppText>
+          <Icon name="back" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">Notifications</AppText>
         <View style={styles.spacer} />

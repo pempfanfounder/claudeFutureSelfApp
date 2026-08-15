@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-import { AppText, Button } from "@/design-system/components";
+import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -131,9 +131,7 @@ export function TimelinePaywall({
       {showClose && onClose ? (
         <Animated.View entering={FadeIn.duration(400)} style={styles.close}>
           <Pressable onPress={onClose} hitSlop={12} testID="paywall-close">
-            <AppText variant="h3" tone="ink3">
-              ✕
-            </AppText>
+            <Icon name="close" size={22} color={colors.ink3} />
           </Pressable>
         </Animated.View>
       ) : null}

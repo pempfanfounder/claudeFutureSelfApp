@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText } from "@/design-system/components";
+import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAppState } from "@/lib/appState";
@@ -167,14 +167,18 @@ export default function FeedScreen() {
             shadows.sm,
           ]}
         >
-          <AppText
-            variant="label"
-            tone={feed.completedToday ? "accent" : "ink2"}
-          >
-            {feed.completedToday
-              ? `✦ ${feed.currentStreak}`
-              : `${Math.min(viewedCount, STREAK_TARGET)}/${STREAK_TARGET}`}
-          </AppText>
+          {feed.completedToday ? (
+            <View style={styles.streakRow}>
+              <Icon name="sparkle" size={12} color={colors.accent} />
+              <AppText variant="label" tone="accent">
+                {feed.currentStreak}
+              </AppText>
+            </View>
+          ) : (
+            <AppText variant="label" tone="ink2">
+              {`${Math.min(viewedCount, STREAK_TARGET)}/${STREAK_TARGET}`}
+            </AppText>
+          )}
         </View>
       </View>
 
@@ -184,15 +188,17 @@ export default function FeedScreen() {
           onPress={() => router.push("/(main)/favorites")}
           style={[styles.fab, { backgroundColor: colors.card }, shadows.md]}
           testID="open-favorites"
+          accessibilityLabel="Saved Quotes"
         >
-          <AppText variant="h3">♡</AppText>
+          <Icon name="heart" size={24} color={colors.ink} />
         </Pressable>
         <Pressable
           onPress={() => router.push("/(main)/themes")}
           style={[styles.fab, { backgroundColor: colors.card }, shadows.md]}
           testID="open-themes"
+          accessibilityLabel="Themes"
         >
-          <AppText variant="h3">◐</AppText>
+          <Icon name="palette" size={24} color={colors.ink} />
         </Pressable>
       </View>
 
@@ -266,6 +272,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
   },
+  streakRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   bottom: {
     position: "absolute",
     left: spacing.xl,

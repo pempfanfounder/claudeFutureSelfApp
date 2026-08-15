@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 
-import { AppText, Button } from "@/design-system/components";
+import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 
@@ -95,7 +95,7 @@ export function NotificationsStep({
           style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
           hitSlop={6}
         >
-          <AppText variant="h3">−</AppText>
+          <Icon name="minus" size={18} color={colors.ink} />
         </Pressable>
         <AppText variant="lead" style={styles.stepValue}>
           {value}
@@ -106,7 +106,7 @@ export function NotificationsStep({
           style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
           hitSlop={6}
         >
-          <AppText variant="h3">+</AppText>
+          <Icon name="plus" size={18} color={colors.ink} />
         </Pressable>
       </View>
     </View>

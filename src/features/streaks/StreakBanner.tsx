@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 import Animated, { SlideInUp, SlideOutUp } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppText } from "@/design-system/components";
+import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 
@@ -45,9 +45,9 @@ export function StreakBanner({ streak, onDismiss }: StreakBannerProps) {
         <View style={[styles.circle, { borderColor: colors.accent }]}>
           <AppText variant="h2">{streak}</AppText>
         </View>
-        <AppText variant="label" tone="accent" style={styles.spark}>
-          ✦
-        </AppText>
+        <View style={styles.spark}>
+          <Icon name="sparkle" size={14} color={colors.accent} />
+        </View>
       </View>
       <View style={styles.week}>
         {WEEKDAYS.map((d, i) => (

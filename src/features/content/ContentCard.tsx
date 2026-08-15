@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { AppText } from "@/design-system/components";
+import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { spacing, type } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -114,15 +114,13 @@ export function ContentCard({
         ) : null}
 
         <Animated.View pointerEvents="none" style={[styles.burst, burstStyle]}>
-          <AppText style={styles.burstHeart}>♥</AppText>
+          <Icon name="heartFill" size={96} color={colors.accent} />
         </Animated.View>
       </View>
 
       <View style={styles.actions}>
         <Pressable onPress={share} hitSlop={12} testID={`share-${item.id}`}>
-          <AppText variant="h3" tone="ink2">
-            ↗
-          </AppText>
+          <Icon name="share" size={24} color={colors.ink2} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -133,12 +131,11 @@ export function ContentCard({
           hitSlop={12}
           testID={`favorite-${item.id}`}
         >
-          <AppText
-            variant="h3"
-            style={{ color: isFavorite ? colors.accent : colors.ink2 }}
-          >
-            {isFavorite ? "♥" : "♡"}
-          </AppText>
+          <Icon
+            name={isFavorite ? "heartFill" : "heart"}
+            size={24}
+            color={isFavorite ? colors.accent : colors.ink2}
+          />
         </Pressable>
       </View>
     </Pressable>
@@ -158,7 +155,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignSelf: "center",
   },
-  burstHeart: { fontSize: 96 },
   actions: {
     position: "absolute",
     bottom: 140,

@@ -1,8 +1,8 @@
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { AppText, Screen } from "@/design-system/components";
-import { useTheme } from "@/design-system/ThemeProvider";
+import { AppText, Icon, Screen } from "@/design-system/components";
+import { useColors, useTheme } from "@/design-system/ThemeProvider";
 import { THEMES, type ThemeCategory } from "@/design-system/themes";
 import { radii, spacing, type } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -15,15 +15,14 @@ const SECTIONS: { key: ThemeCategory; title: string }[] = [
 
 /** Theme browser — the same theme drives feed and widgets. */
 export default function ThemesScreen() {
+  const colors = useColors();
   const { theme, setThemeId } = useTheme();
 
   return (
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <AppText variant="h3" tone="ink3">
-            ✕
-          </AppText>
+          <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">Themes</AppText>
         <View style={styles.spacer} />
