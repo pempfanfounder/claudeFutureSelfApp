@@ -31,7 +31,7 @@ export default function PaywallRoute() {
   const { setPremium, displayName } = useAppState();
   const [variant, setVariant] = useState<OnboardingVariant | null>(null);
   const useRcGate =
-    config.useRcPaywallGate && isConfigured() && !config.devMockPurchases;
+    config.useRcPaywallGate && isConfigured() && !config.mockPurchases;
   const [showCustomGate, setShowCustomGate] = useState(!useRcGate);
 
   const onPurchased = () => {

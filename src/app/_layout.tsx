@@ -22,6 +22,7 @@ import { initMonitoring, withMonitoring } from "@/lib/monitoring";
 import { getIsPremium, initPurchases, subscribePremium } from "@/lib/purchases";
 
 import { AuthProvider } from "@/features/auth/AuthProvider";
+import { BypassBanner } from "@/features/paywall/BypassBanner";
 import { getNotificationDeepLink } from "@/features/notifications/push";
 import { getCompletedOnboardingVariant } from "@/features/onboarding/engine/store";
 
@@ -92,6 +93,7 @@ function RootLayout() {
     <ThemeProvider>
       <AuthProvider>
         <StatusBar style="dark" />
+        <BypassBanner />
         <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
       </AuthProvider>
     </ThemeProvider>

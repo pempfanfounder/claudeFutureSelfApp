@@ -83,14 +83,17 @@ export type OfferingResult =
 type KeyKind = "none" | "test" | "apple" | "google" | "unknown";
 
 let configured = false;
-let mockPremium = false;
+// With the release-build bypass on, premium is granted at boot so the gate
+// never blocks an internal test build. The dev mock still starts locked so
+// the purchase flow itself stays testable.
+let mockPremium = config.bypassPaywall;
 let lastFailure: PurchasesFailure | null = null;
 
 type PremiumListener = (isPremium: boolean) => void;
 const listeners = new Set<PremiumListener>();
 
 export function isConfigured() {
-  return configured || config.devMockPurchases;
+  return configured || config.mockPurchases;
 }
 
 function fail(
@@ -127,12 +130,12 @@ export function getPurchasesDiagnostics() {
     platform: Platform.OS,
     keyKind: keyKind(apiKey),
     entitlementId: PREMIUM_ENTITLEMENT_ID,
-    devMock: config.devMockPurchases,
+    devMock: config.mockPurchases,
   };
 }
 
 export async function initPurchases(appUserId?: string) {
-  if (config.devMockPurchases) return;
+  if (config.mockPurchases) return;
   if (configured) return;
 
   const apiKey =
@@ -248,7 +251,7 @@ function hasPremium(info: CustomerInfo): boolean {
 }
 
 export async function getIsPremium(): Promise<boolean> {
-  if (config.devMockPurchases) return mockPremium;
+  if (config.mockPurchases) return mockPremium;
   if (!configured) return false;
   try {
     const info = await Purchases.getCustomerInfo();
@@ -334,7 +337,7 @@ export type PurchaseOutcome =
 export async function purchasePackage(
   pkg: PurchasesPackage,
 ): Promise<PurchaseOutcome> {
-  if (config.devMockPurchases) {
+  if (config.mockPurchases) {
     mockPremium = true;
     notify(true);
     return { status: "purchased" };
@@ -377,7 +380,7 @@ export async function purchasePackage(
 }
 
 export async function restorePurchases(): Promise<PurchaseOutcome> {
-  if (config.devMockPurchases) {
+  if (config.mockPurchases) {
     mockPremium = true;
     notify(true);
     return { status: "purchased" };
@@ -419,7 +422,7 @@ function notify(isPremium: boolean) {
 
 /** Development helper for the dev-only mock. No-op in production. */
 export function devResetMockPremium() {
-  if (!config.devMockPurchases) return;
+  if (!config.mockPurchases) return;
   mockPremium = false;
   notify(false);
 }

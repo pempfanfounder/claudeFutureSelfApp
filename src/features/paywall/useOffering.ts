@@ -101,7 +101,7 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
     priceLine: null,
     trialLength: null,
     trialDays: null,
-    devMock: config.devMockPurchases,
+    devMock: config.mockPurchases,
     unavailable: false,
     failure: null,
     retry: () => {},
@@ -123,7 +123,7 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (config.devMockPurchases) {
+      if (config.mockPurchases) {
         setData({
           loading: false,
           pkg: null,

@@ -35,7 +35,7 @@ function openStoreSubscriptionsUrl() {
  * (or is only dev-mocked) or if presentation throws.
  */
 async function manageSubscription() {
-  if (!isConfigured() || config.devMockPurchases) {
+  if (!isConfigured() || config.mockPurchases) {
     await openStoreSubscriptionsUrl();
     return;
   }

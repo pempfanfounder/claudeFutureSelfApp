@@ -36,7 +36,7 @@ interface ConfigOverrides {
   revenueCatIosKey?: string;
   revenueCatAndroidKey?: string;
   allowTestStore?: boolean;
-  devMockPurchases?: boolean;
+  mockPurchases?: boolean;
   rcDebugLogs?: boolean;
 }
 
@@ -54,7 +54,7 @@ function loadPurchases(overrides: ConfigOverrides, opts?: { dev?: boolean }) {
         revenueCatIosKey: undefined,
         revenueCatAndroidKey: undefined,
         rcEntitlementId: "premium",
-        devMockPurchases: false,
+        mockPurchases: false,
         allowTestStore: false,
         rcDebugLogs: false,
         ...overrides,
