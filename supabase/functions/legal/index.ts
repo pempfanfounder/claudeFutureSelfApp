@@ -1,4 +1,4 @@
-// DO NOT DEPLOY until OWNER placeholders below are replaced with real values.
+// Identity block filled 2026-08-15 — safe to deploy.
 //
 // legal: serves the Terms of Service and Privacy Policy as public HTML
 // pages, so the app has working legal links without external hosting.
@@ -14,7 +14,7 @@ const OWNER = {
   tradeName: 'Improvement Labs',
   kvk: '42039945',
   btw: 'NL005448561B16',
-  address: '[ZAKELIJK ADRES — INVULLEN VOOR DEPLOY]',
+  address: 'Van der Poelstraat 57C, 3021 VT Rotterdam, Netherlands',
 };
 
 // Runtime guard (review finding 7): if a habitual deploy ships this file
