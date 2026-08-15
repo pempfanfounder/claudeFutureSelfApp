@@ -46,6 +46,9 @@ const SF: Record<IconName, SymbolViewProps["name"]> = {
   check: "checkmark",
 };
 
+// Monochrome text glyphs only (a color emoji would ignore `color`).
+// `person`/`bell` are abstract placeholders until the vector-icons
+// fallback lands; neither is used by a screen yet.
 const FALLBACK: Record<IconName, string> = {
   share: "↗",
   heart: "♡",
@@ -59,9 +62,9 @@ const FALLBACK: Record<IconName, string> = {
   plus: "+",
   minus: "−",
   grid: "⊞",
-  person: "◯",
+  person: "웃",
   widget: "▣",
-  bell: "🔔",
+  bell: "⍾",
   check: "✓",
 };
 

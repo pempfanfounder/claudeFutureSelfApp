@@ -17,11 +17,27 @@ const OWNER = {
   address: '[ZAKELIJK ADRES — INVULLEN VOOR DEPLOY]',
 };
 
-const OWNER_BLOCK = `
+// Runtime guard (review finding 7): if a habitual deploy ships this file
+// with the placeholders still in place, render the pages WITHOUT the
+// identity block rather than publishing "[… INVULLEN …]" to reviewers.
+const OWNER_READY = ![OWNER.kvk, OWNER.btw, OWNER.address].some((v) =>
+  v.includes('INVULLEN'),
+);
+if (!OWNER_READY) {
+  console.error(
+    'legal: OWNER placeholders not filled in — serving pages without the identity block',
+  );
+}
+
+const OWNER_BLOCK = OWNER_READY
+  ? `
 <p>${OWNER.tradeName}<br>
 KVK: ${OWNER.kvk}<br>
 BTW-id: ${OWNER.btw}<br>
 ${OWNER.address}<br>
+<a href="mailto:${CONTACT}">${CONTACT}</a></p>`
+  : `
+<p>${OWNER.tradeName}<br>
 <a href="mailto:${CONTACT}">${CONTACT}</a></p>`;
 
 function page(title: string, body: string): string {

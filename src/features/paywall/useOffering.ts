@@ -28,6 +28,12 @@ export function periodLabel(pkg: PurchasesPackage): string {
   switch (pkg.packageType) {
     case PACKAGE_TYPE.ANNUAL:
       return "year";
+    case PACKAGE_TYPE.SIX_MONTH:
+      return "6 months";
+    case PACKAGE_TYPE.THREE_MONTH:
+      return "3 months";
+    case PACKAGE_TYPE.TWO_MONTH:
+      return "2 months";
     case PACKAGE_TYPE.MONTHLY:
       return "month";
     case PACKAGE_TYPE.WEEKLY:
@@ -35,7 +41,9 @@ export function periodLabel(pkg: PurchasesPackage): string {
     case PACKAGE_TYPE.LIFETIME:
       return "one-time";
     default:
-      return "period";
+      // Never let "per period" reach the 3.1.2 disclosure — fall back
+      // to the store-provided subscription period when the enum is new.
+      return "billing period";
   }
 }
 
@@ -66,6 +74,11 @@ export function trialInfo(
       return {
         label: units === 1 ? "1 month" : `${units} months`,
         days: units * 30,
+      };
+    case "YEAR":
+      return {
+        label: units === 1 ? "1 year" : `${units} years`,
+        days: units * 365,
       };
     default:
       return null;
@@ -98,7 +111,14 @@ export function subscriptionDisclosure(
  * the defensive fallback.
  */
 export function ctaLabel(trialLength: string | null): string {
-  return trialLength ? `Start ${trialLength} free trial` : "Start free trial";
+  if (!trialLength) return "Start free trial";
+  // "3 days" → "3-day", "1 week" → "1-week": reads as natural English
+  // in "Start your 3-day free trial".
+  const hyphenated = trialLength.replace(
+    /^(\d+) (day|week|month|year)s?$/,
+    "$1-$2",
+  );
+  return `Start your ${hyphenated} free trial`;
 }
 
 /**

@@ -82,8 +82,14 @@ describe("subscriptionDisclosure", () => {
 });
 
 describe("ctaLabel", () => {
-  it("names the trial length from the store", () => {
-    expect(ctaLabel("3 days")).toBe("Start 3 days free trial");
+  it("names the trial length from the store, hyphenated", () => {
+    expect(ctaLabel("3 days")).toBe("Start your 3-day free trial");
+    expect(ctaLabel("1 week")).toBe("Start your 1-week free trial");
+    expect(ctaLabel("2 months")).toBe("Start your 2-month free trial");
+  });
+
+  it("keeps unrecognized trial labels verbatim", () => {
+    expect(ctaLabel("a while")).toBe("Start your a while free trial");
   });
 
   it("falls back to a generic trial label when the length is unknown", () => {
