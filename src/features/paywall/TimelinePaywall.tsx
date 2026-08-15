@@ -13,9 +13,10 @@ import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
-import { purchasePackage } from "@/lib/purchases";
+import { describeFailure, purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
+import { PurchasesUnavailableNotice } from "./PurchasesUnavailableNotice";
 import {
   formatPriceLine,
   shortDateInDays,
@@ -64,7 +65,10 @@ export function TimelinePaywall({
     if (data.unavailable) {
       Alert.alert(
         "Purchases unavailable",
-        "The store can't be reached right now. Please check your connection and try again.",
+        describeFailure(
+          data.failure,
+          "The store can't be reached right now. Please check your connection and try again.",
+        ),
       );
       return;
     }
@@ -259,11 +263,13 @@ export function TimelinePaywall({
         ) : null}
 
         {data.unavailable ? (
-          <AppText variant="body" tone="ink2" center style={styles.unavailable}>
-            {
+          <PurchasesUnavailableNotice
+            failure={data.failure}
+            onRetry={data.retry}
+            message={
               "The store can't be reached right now. Your access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
             }
-          </AppText>
+          />
         ) : null}
         {data.devMock ? (
           <AppText
@@ -296,7 +302,6 @@ export function TimelinePaywall({
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

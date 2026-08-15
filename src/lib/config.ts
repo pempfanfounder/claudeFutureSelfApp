@@ -34,6 +34,19 @@ const envSchema = z.object({
    * Never affects the in-onboarding variant paywalls.
    */
   EXPO_PUBLIC_USE_RC_PAYWALL_GATE: z.enum(["true", "false"]).optional(),
+  /**
+   * Deliberately permit a RevenueCat Test Store key (`test_…`) in a
+   * release-configuration build. Off by default: Test Store keys have no
+   * billing power and RevenueCat forbids shipping one to a store, so the
+   * default is to refuse and keep the paywall closed.
+   */
+  EXPO_PUBLIC_ALLOW_TEST_STORE: z.enum(["true", "false"]).optional(),
+  /**
+   * Force RevenueCat's verbose SDK logging on in a release-configuration
+   * build. Off by default so production never logs purchase internals;
+   * turn it on for a preview/TestFlight build you are debugging.
+   */
+  EXPO_PUBLIC_RC_DEBUG_LOGS: z.enum(["true", "false"]).optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -53,8 +66,9 @@ const parsed = envSchema.safeParse({
     process.env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   EXPO_PUBLIC_DEV_MOCK_PURCHASES: process.env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,
   EXPO_PUBLIC_RC_ENTITLEMENT_ID: process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID,
-  EXPO_PUBLIC_USE_RC_PAYWALL_GATE:
-    process.env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE,
+  EXPO_PUBLIC_USE_RC_PAYWALL_GATE: process.env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE,
+  EXPO_PUBLIC_ALLOW_TEST_STORE: process.env.EXPO_PUBLIC_ALLOW_TEST_STORE,
+  EXPO_PUBLIC_RC_DEBUG_LOGS: process.env.EXPO_PUBLIC_RC_DEBUG_LOGS,
 });
 
 if (!parsed.success) {
@@ -82,6 +96,8 @@ export const config = {
   devMockPurchases: __DEV__ && env.EXPO_PUBLIC_DEV_MOCK_PURCHASES === "true",
   rcEntitlementId: env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
   useRcPaywallGate: env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE === "true",
+  allowTestStore: env.EXPO_PUBLIC_ALLOW_TEST_STORE === "true",
+  rcDebugLogs: env.EXPO_PUBLIC_RC_DEBUG_LOGS === "true",
   hasSupabase: Boolean(
     env.EXPO_PUBLIC_SUPABASE_URL && env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),

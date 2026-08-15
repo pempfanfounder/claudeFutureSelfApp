@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { PACKAGE_TYPE, type PurchasesPackage } from "react-native-purchases";
 
 import { config } from "@/lib/config";
-import { getCurrentOffering, initPurchases, isConfigured } from "@/lib/purchases";
+import {
+  getCurrentOffering,
+  getPurchasesDiagnostics,
+  initPurchases,
+  isConfigured,
+  type PurchasesFailure,
+} from "@/lib/purchases";
 
 export interface PaywallData {
   loading: boolean;
@@ -22,6 +28,14 @@ export interface PaywallData {
   devMock: boolean;
   /** RevenueCat not configured/reachable: keep the gate, show a wait state. */
   unavailable: boolean;
+  /**
+   * Why it is unavailable. Null while loading or when everything is fine.
+   * Surfaced on-device outside production so a preview build can be
+   * diagnosed without a cable.
+   */
+  failure: PurchasesFailure | null;
+  /** Re-runs configuration and the offerings fetch. */
+  retry: () => void;
 }
 
 export function periodLabel(pkg: PurchasesPackage): string {
@@ -89,7 +103,11 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
     trialDays: null,
     devMock: config.devMockPurchases,
     unavailable: false,
+    failure: null,
+    retry: () => {},
   });
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => setAttempt((n) => n + 1);
 
   const selectPackage = (pkg: PurchasesPackage) => {
     const trial = trialInfo(pkg);
@@ -119,37 +137,48 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
           trialDays: prefer === "annual" ? 3 : 7,
           devMock: true,
           unavailable: false,
+          failure: null,
+          retry,
         });
         return;
       }
       if (!isConfigured()) {
         await initPurchases();
       }
+      if (cancelled) return;
       if (!isConfigured()) {
         setData((d) => ({
           ...d,
           loading: false,
           unavailable: true,
+          failure: getPurchasesDiagnostics().failure,
           selectPackage,
+          retry,
         }));
         return;
       }
-      let offering = await getCurrentOffering();
-      if (!offering && !cancelled) {
-        // Short backoff retry in case store offerings are still fetching
+
+      let result = await getCurrentOffering();
+      // Only a transport error is worth retrying: an empty or
+      // misconfigured catalogue will read the same on a second call.
+      if (!result.ok && result.failure.reason === "offerings-error") {
         await new Promise((r) => setTimeout(r, 500));
-        offering = await getCurrentOffering();
+        if (cancelled) return;
+        result = await getCurrentOffering();
       }
       if (cancelled) return;
-      if (!offering || offering.availablePackages.length === 0) {
+      if (!result.ok) {
         setData((d) => ({
           ...d,
           loading: false,
           unavailable: true,
+          failure: result.failure,
           selectPackage,
+          retry,
         }));
         return;
       }
+      const offering = result.offering;
 
       const preferred =
         prefer === "annual"
@@ -170,12 +199,14 @@ export function useOffering(prefer: "annual" | "weekly"): PaywallData {
         trialDays: trial?.days ?? null,
         devMock: false,
         unavailable: false,
+        failure: null,
+        retry,
       });
     })();
     return () => {
       cancelled = true;
     };
-  }, [prefer]);
+  }, [prefer, attempt]);
 
   return data;
 }
@@ -186,4 +217,3 @@ export function shortDateInDays(days: number): string {
   d.setDate(d.getDate() + days);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
-

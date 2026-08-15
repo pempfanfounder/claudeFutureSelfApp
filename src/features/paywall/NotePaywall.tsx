@@ -5,9 +5,10 @@ import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
-import { purchasePackage } from "@/lib/purchases";
+import { describeFailure, purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
+import { PurchasesUnavailableNotice } from "./PurchasesUnavailableNotice";
 import { formatPriceLine, trialInfo, type PaywallData } from "./useOffering";
 
 interface NotePaywallProps {
@@ -43,7 +44,10 @@ export function NotePaywall({
     if (data.unavailable) {
       Alert.alert(
         "Purchases unavailable",
-        "The store can't be reached right now. Please check your connection and try again.",
+        describeFailure(
+          data.failure,
+          "The store can't be reached right now. Please check your connection and try again.",
+        ),
       );
       return;
     }
@@ -122,11 +126,13 @@ export function NotePaywall({
           ) : null}
 
           {data.unavailable ? (
-            <AppText variant="body" tone="ink2" center style={styles.paragraph}>
-              {
-                "The store can't be reached right now. Access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+            <PurchasesUnavailableNotice
+              failure={data.failure}
+              onRetry={data.retry}
+              message={
+                "The store can't be reached right now. Your access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
               }
-            </AppText>
+            />
           ) : null}
           {data.devMock ? (
             <AppText variant="label" tone="ink3" center>
@@ -186,4 +192,3 @@ const styles = StyleSheet.create({
   cta: { marginTop: spacing.sm },
   price: { marginTop: spacing.md },
 });
-

@@ -83,8 +83,14 @@ Until 3/4 are configured the corresponding sign-in buttons simply don't render
 The RevenueCat project already exists (see credentials below); what's left is
 store-console product setup and the real per-platform keys before release.
 
-1. RevenueCat project is live; iOS + Android apps for `com.futureself.app`
-   are added.
+1. RevenueCat project is live. ⚠️ **The RevenueCat app records were created
+   for `com.futureself.app`, but the app now builds as
+   `com.futureself.mobile`** (Apple refused the original id — see the
+   status block at the top of this file). A bundle id that disagrees
+   between the app, RevenueCat, and App Store Connect is the single most
+   common cause of an offering that comes back with zero packages, which
+   the paywall reports as `empty-offering`. **Verify the bundle id on the
+   RevenueCat iOS app record before testing purchases.**
 2. App Store Connect / Play Console: create three products —
    a **monthly** subscription, a **yearly** subscription (both with an
    introductory free trial — `iam-*` paywalls sell the yearly, falling back
@@ -102,14 +108,22 @@ store-console product setup and the real per-platform keys before release.
    safety net (with a loud `__DEV__` warning if it's not the configured one)
    — but that's a fallback, not a substitute for wiring the entitlement id
    correctly.
-4. **API keys:** a RevenueCat **Test Store** key
-   (`test_AyrDXEiqnvraxCsTJnuzvAOQAxx`) is already wired into `.env` for both
-   `EXPO_PUBLIC_REVENUECAT_IOS_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
-   — dev builds work end-to-end against the Test Store today. Test keys have
-   **no billing power** and `initPurchases()` refuses to configure with one
-   in a release build (paywall stays closed, no bypass). Before shipping,
-   replace both with the real per-platform **public SDK keys**
-   (`appl_…` / `goog_…`) from the RevenueCat dashboard.
+4. **API keys.** Two different things, and mixing them up is what breaks
+   sandbox testing:
+
+   - **Platform keys** — `appl_…` (iOS) and `goog_…` (Android). These are
+     the real keys. They talk to StoreKit / Play Billing, so they are the
+     **only** keys that can transact against a **sandbox Apple Account**.
+     Wired into the `preview*` and `production` EAS profiles.
+   - **Test Store key** — `test_…`. RevenueCat's own *virtual* store. It
+     never touches StoreKit, so it can **never** process a sandbox Apple
+     Account purchase, and RevenueCat forbids shipping one. Wired into the
+     `development` profile only (a debug build, where it is legitimate).
+
+   `initPurchases()` refuses a `test_` key in a release build unless
+   `EXPO_PUBLIC_ALLOW_TEST_STORE=true`, and refuses a key for the wrong
+   platform. In both cases `configured` stays false and the paywall stays
+   closed — it never falls back to unlocking.
 5. **Webhook** (drives server-side premium gating for notifications):
    RevenueCat → Integrations → Webhooks →
    URL `https://ykgswczatkspryetstor.supabase.co/functions/v1/revenuecat-webhook`,
@@ -136,6 +150,34 @@ store-console product setup and the real per-platform keys before release.
 
 Until RevenueCat is configured, production builds keep the paywall closed (no
 bypass); dev builds can use `EXPO_PUBLIC_DEV_MOCK_PURCHASES=true`.
+
+### Testing a real purchase with a sandbox Apple Account
+
+1. Build a profile that carries a **platform** key:
+   `eas build --profile preview --platform ios`.
+2. Install on a **physical device**. StoreKit sandbox purchases do not work
+   in the iOS Simulator.
+3. On the device: Settings → App Store → **Sandbox Account** → sign in with
+   the sandbox tester from App Store Connect → Users and Access → Sandbox.
+   Do **not** sign out of your normal iCloud account in Settings → [name].
+4. Open the paywall. Prices come from the store, so real prices appearing at
+   all confirms the catalogue resolved.
+
+### When the paywall says the store can't be reached
+
+The `preview*` profiles set `EXPO_PUBLIC_RC_DEBUG_LOGS=true`, so the paywall
+prints the concrete reason underneath that message on-device. The reasons map
+one-to-one onto fixes:
+
+| Reason | What it means | Fix |
+| --- | --- | --- |
+| `missing-api-key` | No key reached the build for this platform | Add `EXPO_PUBLIC_REVENUECAT_*_KEY` to the profile you are building |
+| `test-key-in-release` | A `test_` key in a release build | Use the `appl_`/`goog_` key, or set `EXPO_PUBLIC_ALLOW_TEST_STORE=true` |
+| `key-platform-mismatch` | `goog_` key on iOS, or `appl_` on Android | Use the key matching the platform |
+| `offerings-error` | The offerings request failed | Network, or a key that does not belong to this project |
+| `no-offerings` | The project has no offerings | Create an Offering and attach products |
+| `no-current-offering` | Offerings exist, none marked Current | Mark one Current in the dashboard |
+| `empty-offering` | Offering resolved, but zero packages | **Usually the bundle id mismatch above.** Also check products are Ready to Submit and the Paid Applications agreement is active |
 
 ## 3. Push notifications (APNs + FCM + EAS)
 
