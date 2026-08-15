@@ -177,12 +177,13 @@ export const iamFounder: VariantConfig = {
       type: "streak-commit",
       headline: "Show up for three words a day.",
       sub: "Read any 3 quotes or affirmations and the day counts. Your future self keeps score.",
-      options: [
-        { slug: "3", label: "3 days to start" },
-        { slug: "7", label: "7 days in a row" },
-        { slug: "21", label: "21 days — a habit" },
+      lines: [
+        "Days 1–3 · Momentum does the lifting. Enjoy it.",
+        "Days 4–14 · The dip. This is where the old you argues back — and where most people fold.",
+        "Days 15–21 · The reps take over. Showing up stops being a decision.",
       ],
-      cta: "Commit",
+      info: "Most habit research puts the first real foothold around three weeks of daily reps.",
+      cta: "I'm in for 21 days",
       modelKey: "raw.streak_goal",
     },
     {

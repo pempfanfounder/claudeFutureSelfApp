@@ -1,12 +1,11 @@
-import { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInRight, ZoomIn } from "react-native-reanimated";
 
-import { AppText, Button, SelectableRow } from "@/design-system/components";
+import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 
-import { resolveText } from "../resolve";
+import { resolveLines, resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
 
 const WEEKDAYS = ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"];
@@ -17,14 +16,18 @@ interface StreakCommitStepProps {
   onAnswer: (value: string) => void;
 }
 
-/** I Am-style streak commitment: day "1", weekday tracker, goal pick. */
+/**
+ * I Am-style 21-day commitment: day "1", weekday tracker, then three
+ * education beats on how the habit actually forms. No goal picking —
+ * the single CTA commits to 21 days.
+ */
 export function StreakCommitStep({
   step,
   ctx,
   onAnswer,
 }: StreakCommitStepProps) {
   const colors = useColors();
-  const [goal, setGoal] = useState<string | null>(null);
+  const lines = resolveLines(step, ctx);
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
@@ -86,23 +89,38 @@ export function StreakCommitStep({
           </AppText>
         </View>
 
-        <View style={styles.options}>
-          {step.options?.map((option) => (
-            <SelectableRow
-              key={option.slug}
-              label={option.label}
-              selected={goal === option.slug}
-              onPress={() => setGoal(option.slug)}
-              testID={`goal-${option.slug}`}
-            />
-          ))}
+        <View style={styles.lines}>
+          {lines.map((line, i) => {
+            const sep = line.indexOf(" · ");
+            const prefix = sep >= 0 ? line.slice(0, sep) : null;
+            const body = sep >= 0 ? line.slice(sep + 3) : line;
+            return (
+              <Animated.View
+                key={line}
+                entering={FadeInRight.duration(280).delay(150 + i * 120)}
+                style={styles.lineRow}
+              >
+                {prefix ? (
+                  <AppText variant="label" tone="ink3">
+                    {prefix}
+                  </AppText>
+                ) : null}
+                <AppText variant="body">{body}</AppText>
+              </Animated.View>
+            );
+          })}
         </View>
+
+        {step.info ? (
+          <AppText variant="label" tone="ink3" center style={styles.info}>
+            {step.info}
+          </AppText>
+        ) : null}
       </ScrollView>
       <View style={styles.footer}>
         <Button
-          label={step.cta ?? "Commit"}
-          onPress={() => goal && onAnswer(goal)}
-          disabled={!goal}
+          label={step.cta ?? "I'm in for 21 days"}
+          onPress={() => onAnswer("21")}
           testID="continue"
         />
       </View>
@@ -133,6 +151,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   weekCaption: { marginTop: spacing.md },
-  options: { marginBottom: spacing.md },
+  lines: { gap: spacing.lg, marginBottom: spacing.xl },
+  lineRow: { gap: spacing.xs },
+  info: { marginBottom: spacing.md, paddingHorizontal: spacing.lg },
   footer: { paddingBottom: spacing.sm },
 });

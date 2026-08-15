@@ -75,6 +75,17 @@ describe("onboarding variant configs", () => {
         }
       });
 
+      it("replaces streak goal choices with a 21-day commitment", () => {
+        for (const step of config.steps) {
+          if (step.type !== "streak-commit") continue;
+          // Education beats + single commitment CTA, no 3/7/21 picker.
+          expect(step.options).toBeUndefined();
+          expect(step.lines).toHaveLength(3);
+          expect(step.info).toBeTruthy();
+          expect(step.cta).toBeTruthy();
+        }
+      });
+
       it("uses only known personalization model keys", () => {
         for (const step of config.steps) {
           if (!step.modelKey) continue;

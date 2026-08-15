@@ -43,6 +43,8 @@ export interface OnboardingStep {
    * input appears. When present, `headline` is unused.
    */
   lines?: (string | ((ctx: OnboardingContext) => string))[];
+  /** Small supporting caption under the main content (streak-commit). */
+  info?: string;
   options?: StepOption[];
   placeholder?: string;
   cta?: string;

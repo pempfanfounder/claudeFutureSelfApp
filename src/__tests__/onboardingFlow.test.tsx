@@ -1,4 +1,4 @@
-import { render, act } from "@testing-library/react-native";
+import { render, act, fireEvent } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -114,6 +114,18 @@ describe("OnboardingFlow smoke render", () => {
       }
     });
   }
+
+  it("commits to 21 days from the streak step CTA", async () => {
+    const config = VARIANT_CONFIGS["iam-claude"];
+    const streakIndex = config.steps.findIndex(
+      (s) => s.type === "streak-commit",
+    );
+    expect(streakIndex).toBeGreaterThan(-1);
+    const screen = renderVariant("iam-claude", streakIndex);
+    fireEvent.press(screen.getByTestId("continue"));
+    expect(useOnboardingStore.getState().answers["raw.streak_goal"]).toBe("21");
+    screen.unmount();
+  });
 
   it("renders the timeline paywall step for iam-claude", async () => {
     const config = VARIANT_CONFIGS["iam-claude"];

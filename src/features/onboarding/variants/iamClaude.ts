@@ -158,12 +158,13 @@ export const iamClaude: VariantConfig = {
       type: "streak-commit",
       headline: "Three small readings a day. That's the whole ask.",
       sub: "Read any 3 quotes or affirmations and the day counts. Miss a day, the chain breaks.",
-      options: [
-        { slug: "3", label: "3 days to start" },
-        { slug: "7", label: "7 days in a row" },
-        { slug: "21", label: "21 days — a real habit" },
+      lines: [
+        "Days 1–3 · Novelty carries you. Everyone survives this part.",
+        "Days 4–14 · The dip. Motivation fades before results show — this is where most people quit.",
+        "Days 15–21 · It stops being effort. The reading finds you, not the other way around.",
       ],
-      cta: "Commit",
+      info: "Most habit research puts the first real foothold around three weeks of daily reps.",
+      cta: "I'm in for 21 days",
       modelKey: "raw.streak_goal",
     },
     {
