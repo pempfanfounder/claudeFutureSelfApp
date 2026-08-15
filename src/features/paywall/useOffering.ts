@@ -72,6 +72,35 @@ export function trialInfo(
   }
 }
 
+/** Guideline 3.1.2 disclosure for the selected package. */
+export function subscriptionDisclosure(
+  pkg: PurchasesPackage | null,
+): string | null {
+  if (!pkg) return null;
+  if (pkg.packageType === PACKAGE_TYPE.LIFETIME) {
+    return `One-time purchase of ${pkg.product.priceString}. Charged to your App Store account at confirmation.`;
+  }
+  const period = periodLabel(pkg); // "year" | "month" | "week"
+  const trial = trialInfo(pkg);
+  const lead = trial
+    ? `${trial.label} free, then ${pkg.product.priceString} per ${period}.`
+    : `${pkg.product.priceString} per ${period}.`;
+  return (
+    `${lead} Payment is charged to your App Store account at confirmation. ` +
+    `The subscription renews automatically unless cancelled at least 24 hours ` +
+    `before the end of the current period. Manage or cancel anytime in App Store settings.`
+  );
+}
+
+/**
+ * Trial CTA label (Guideline 3.1.2: name the real trial length from the
+ * store). Callers only use this when a trial exists; the null branch is
+ * the defensive fallback.
+ */
+export function ctaLabel(trialLength: string | null): string {
+  return trialLength ? `Start ${trialLength} free trial` : "Start free trial";
+}
+
 /**
  * Loads the current RevenueCat offering and enables package selection
  * across Lifetime, Yearly, and Monthly packages:

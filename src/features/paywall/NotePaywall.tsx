@@ -8,7 +8,12 @@ import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
-import { formatPriceLine, trialInfo, type PaywallData } from "./useOffering";
+import {
+  formatPriceLine,
+  subscriptionDisclosure,
+  trialInfo,
+  type PaywallData,
+} from "./useOffering";
 
 interface NotePaywallProps {
   data: PaywallData;
@@ -47,6 +52,7 @@ export function NotePaywall({
       );
       return;
     }
+    if (!data.pkg && !data.devMock) return;
     setPurchasing(true);
     const result = await purchasePackage(data.pkg!);
     setPurchasing(false);
@@ -58,6 +64,7 @@ export function NotePaywall({
   };
 
   const trial = data.trialLength;
+  const disclosure = subscriptionDisclosure(data.pkg);
   const header =
     voice === "team"
       ? "A note before you begin"
@@ -147,6 +154,16 @@ export function NotePaywall({
               {trial ? `${trial} free, then ${data.priceLine}` : data.priceLine}
             </AppText>
           ) : null}
+          {disclosure ? (
+            <AppText
+              variant="label"
+              tone="ink3"
+              center
+              style={styles.disclosure}
+            >
+              {disclosure}
+            </AppText>
+          ) : null}
           <PaywallFooter onRestored={onPurchased} />
         </ScrollView>
       </View>
@@ -185,5 +202,6 @@ const styles = StyleSheet.create({
   },
   cta: { marginTop: spacing.sm },
   price: { marginTop: spacing.md },
+  disclosure: { marginTop: spacing.sm },
 });
 

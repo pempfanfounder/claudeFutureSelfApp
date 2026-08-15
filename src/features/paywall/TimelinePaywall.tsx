@@ -17,8 +17,10 @@ import { purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
 import {
+  ctaLabel,
   formatPriceLine,
   shortDateInDays,
+  subscriptionDisclosure,
   trialInfo,
   type PaywallData,
 } from "./useOffering";
@@ -80,6 +82,7 @@ export function TimelinePaywall({
   };
 
   const hasTrial = data.trialLength !== null && data.trialDays !== null;
+  const disclosure = subscriptionDisclosure(data.pkg);
   const reminderDay = hasTrial
     ? shortDateInDays(Math.max(0, data.trialDays! - 1))
     : null;
@@ -280,7 +283,7 @@ export function TimelinePaywall({
 
       <View style={styles.footer}>
         <Button
-          label={hasTrial ? "Try for $0.00" : "Continue"}
+          label={hasTrial ? ctaLabel(data.trialLength) : "Continue"}
           onPress={buy}
           loading={purchasing}
           disabled={data.loading || (data.unavailable && !data.devMock)}
@@ -289,6 +292,11 @@ export function TimelinePaywall({
         {data.priceLine ? (
           <AppText variant="label" tone="ink2" center style={styles.price}>
             {hasTrial ? `Then ${data.priceLine}` : data.priceLine}
+          </AppText>
+        ) : null}
+        {disclosure ? (
+          <AppText variant="label" tone="ink3" center style={styles.disclosure}>
+            {disclosure}
           </AppText>
         ) : null}
         <PaywallFooter onRestored={onPurchased} />
@@ -350,4 +358,5 @@ const styles = StyleSheet.create({
   },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   price: { marginTop: spacing.md },
+  disclosure: { marginTop: spacing.sm },
 });
