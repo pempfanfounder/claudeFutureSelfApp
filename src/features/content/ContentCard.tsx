@@ -1,12 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useCallback, useRef, useState } from "react";
-import {
-  Pressable,
-  Share,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Pressable, Share, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   runOnJS,
@@ -25,6 +19,12 @@ import type { ContentItem } from "./types";
 
 interface ContentCardProps {
   item: ContentItem;
+  /**
+   * Page height, measured from the feed list's own layout. Paging snaps
+   * by the list's height, so cards must be exactly that tall — never
+   * the window height, which drifts apart from it by any chrome/insets.
+   */
+  height: number;
   isFavorite: boolean;
   onToggleFavorite: () => void;
 }
@@ -35,11 +35,11 @@ interface ContentCardProps {
  */
 export function ContentCard({
   item,
+  height,
   isFavorite,
   onToggleFavorite,
 }: ContentCardProps) {
   const colors = useColors();
-  const { height } = useWindowDimensions();
   const burstScale = useSharedValue(0);
   const burstOpacity = useSharedValue(0);
   const lastTap = useRef(0);

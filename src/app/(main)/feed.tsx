@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   View,
-  useWindowDimensions,
   type ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,16 +24,30 @@ import { syncWidgets } from "@/features/widgets/widgetSync";
 type FeedRow = { kind: "item"; item: ContentItem } | { kind: "end" };
 
 /**
+ * `pagingEnabled` snaps by the FlatList's OWN layout height, so pages
+ * must be sized from that same measurement — not the window height.
+ * Any difference (status banners, insets, future chrome) would
+ * otherwise accumulate: page i lands `i × (windowH − listH)` too low.
+ */
+export function pageLayout(pageHeight: number, index: number) {
+  return { length: pageHeight, offset: pageHeight * index, index };
+}
+
+const UNMEASURED_ROWS: FeedRow[] = [];
+
+/**
  * The I Am-inspired core: a chrome-less, full-bleed vertical feed with
  * floating controls. Separate Quotes and Affirmations destinations via
- * the segmented pill; both draw from today's stable 10-item sets.
+ * the segmented pill; both draw from today's stable daily sets.
  */
 export default function FeedScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   const userId = useAppState((s) => s.userId);
   const [tab, setTab] = useState<ContentType>("quote");
+  // Measured list height drives page size; null until the first layout
+  // pass so no mis-sized pages ever flash.
+  const [pageH, setPageH] = useState<number | null>(null);
   const feed = useFeedStore();
   const listRef = useRef<FlatList<FeedRow>>(null);
 
@@ -87,12 +100,16 @@ export default function FeedScreen() {
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <FlatList
         ref={listRef}
-        data={rows}
+        // Render pages only once the list is measured; renderItem and
+        // getItemLayout therefore never run with a null pageH.
+        data={pageH == null ? UNMEASURED_ROWS : rows}
+        onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}
         keyExtractor={(row) => (row.kind === "item" ? row.item.id : "end")}
         renderItem={({ item: row }) =>
           row.kind === "item" ? (
             <ContentCard
               item={row.item}
+              height={pageH ?? 0}
               isFavorite={feed.favoriteIds.includes(row.item.id)}
               onToggleFavorite={() =>
                 userId && feed.toggleFavorite(userId, row.item)
@@ -100,7 +117,7 @@ export default function FeedScreen() {
             />
           ) : (
             <EndCard
-              height={height}
+              height={pageH ?? 0}
               tab={tab}
               completed={feed.completedToday}
             />
@@ -110,11 +127,7 @@ export default function FeedScreen() {
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        getItemLayout={(_, index) => ({
-          length: height,
-          offset: height * index,
-          index,
-        })}
+        getItemLayout={(_, index) => pageLayout(pageH ?? 0, index)}
       />
 
       {/* Top chrome */}
@@ -205,7 +218,7 @@ function EndCard({
   return (
     <View style={[styles.endCard, { height }]}>
       <AppText variant="h2" center>
-        {"That's your ten for today."}
+        {"That's the whole set for today."}
       </AppText>
       <AppText variant="lead" tone="ink2" center style={styles.endSub}>
         {completed

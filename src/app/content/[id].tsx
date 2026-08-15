@@ -24,6 +24,8 @@ export default function ContentDeepLink() {
   const feed = useFeedStore();
   const [item, setItem] = useState<ContentItem | null>(null);
   const [missing, setMissing] = useState(false);
+  // ContentCard is sized by its host, not the window (see feed.tsx).
+  const [cardH, setCardH] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -62,11 +64,21 @@ export default function ContentDeepLink() {
         </Pressable>
       </View>
       {item ? (
-        <ContentCard
-          item={item}
-          isFavorite={feed.favoriteIds.includes(item.id)}
-          onToggleFavorite={() => userId && feed.toggleFavorite(userId, item)}
-        />
+        <View
+          style={styles.cardHost}
+          onLayout={(e) => setCardH(Math.round(e.nativeEvent.layout.height))}
+        >
+          {cardH != null ? (
+            <ContentCard
+              item={item}
+              height={cardH}
+              isFavorite={feed.favoriteIds.includes(item.id)}
+              onToggleFavorite={() =>
+                userId && feed.toggleFavorite(userId, item)
+              }
+            />
+          ) : null}
+        </View>
       ) : missing ? (
         <View style={styles.missing}>
           <AppText variant="h3" center>
@@ -84,6 +96,7 @@ export default function ContentDeepLink() {
 }
 
 const styles = StyleSheet.create({
+  cardHost: { flex: 1 },
   close: {
     position: "absolute",
     top: 64,

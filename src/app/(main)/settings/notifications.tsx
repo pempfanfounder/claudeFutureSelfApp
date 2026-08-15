@@ -10,6 +10,7 @@ import { useAppState } from "@/lib/appState";
 import { monitoring } from "@/lib/monitoring";
 import { getSupabase } from "@/lib/supabase";
 
+import { DAILY_LIMIT } from "@/features/content/types";
 import {
   getPermissionStatus,
   registerDevice,
@@ -199,13 +200,13 @@ export default function NotificationSettingsScreen() {
           "Quotes",
           prefs.quotes_per_day,
           (v) => save({ ...prefs, quotes_per_day: v }),
-          3,
+          DAILY_LIMIT,
         )}
         {stepperRow(
           "Affirmations",
           prefs.affirmations_per_day,
           (v) => save({ ...prefs, affirmations_per_day: v }),
-          3,
+          DAILY_LIMIT,
         )}
 
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>

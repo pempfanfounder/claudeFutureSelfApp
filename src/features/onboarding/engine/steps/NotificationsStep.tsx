@@ -6,6 +6,7 @@ import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 
+import { DAILY_LIMIT } from "@/features/content/types";
 import { requestNotificationPermission } from "@/features/notifications/push";
 
 import { resolveLines, resolveText } from "../resolve";
@@ -23,7 +24,7 @@ interface NotificationsStepProps {
 /**
  * Notification education before the OS dialog.
  * iam family: I Am-style config screen — mock notification, per-type
- * frequency steppers (0-3, server-enforced cap), window steppers.
+ * frequency steppers (0-20, server-enforced cap), window steppers.
  * stella family: streamed voice + a single contextual ask.
  */
 export function NotificationsStep({
@@ -156,14 +157,14 @@ export function NotificationsStep({
           "Quotes",
           notificationPrefs.quotesPerDay,
           (v) => setNotificationPrefs({ quotesPerDay: v }),
-          3,
+          DAILY_LIMIT,
           "x a day",
         )}
         {stepper(
           "Affirmations",
           notificationPrefs.affirmationsPerDay,
           (v) => setNotificationPrefs({ affirmationsPerDay: v }),
-          3,
+          DAILY_LIMIT,
           "x a day",
         )}
         {stepper(
