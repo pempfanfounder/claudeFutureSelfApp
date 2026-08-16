@@ -99,13 +99,13 @@ export function TimelinePaywall({
       ? {
           icon: "🔓",
           title: "Today — free trial starts",
-          body: `Everything unlocks: your full daily mix, streaks, widgets and every theme, free for ${data.trialLength}`,
+          body: `Everything unlocks: all your daily quotes and affirmations, streaks, widgets and every theme, free for ${data.trialLength}`,
           done: false,
         }
       : {
           icon: "🔓",
           title: "Today — everything unlocks",
-          body: "Your full daily mix, streaks, widgets and every theme",
+          body: "All your daily quotes and affirmations, streaks, widgets and every theme",
           done: false,
         },
     ...(hasTrial
@@ -302,7 +302,6 @@ export function TimelinePaywall({
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

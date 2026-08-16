@@ -3,6 +3,10 @@ import type { VariantConfig } from "../engine/types";
 /**
  * iam-claude: Claude-original copy on the I Am UX framework.
  * Spec: docs/ONBOARDING_COPY_IAM_CLAUDE.md
+ *
+ * Rhythm follows I Am: bursts of 2–4 quick taps, then a breather
+ * (interstitial, notification config, streak visual, science/benefits).
+ * Every `raw.*` key lands in raw_answers (Supabase only, never analytics).
  */
 export const iamClaude: VariantConfig = {
   id: "iam-claude",
@@ -34,7 +38,7 @@ export const iamClaude: VariantConfig = {
       type: "single",
       headline: (ctx) =>
         ctx.name ? `How old are you, ${ctx.name}?` : "How old are you?",
-      sub: "We tune the voice to where you are in life",
+      sub: "Your age helps us personalize your quotes and affirmations",
       options: [
         { slug: "u18", label: "Under 18" },
         { slug: "18-24", label: "18 to 24" },
@@ -50,7 +54,7 @@ export const iamClaude: VariantConfig = {
       id: "motivation",
       type: "single",
       headline: "Where's your motivation right now?",
-      sub: "Honest answer — it sets your starting pace",
+      sub: "Be honest — we'll meet you where you are",
       options: [
         { slug: "all-in", label: "Ready to change everything", emoji: "🔥" },
         {
@@ -58,8 +62,8 @@ export const iamClaude: VariantConfig = {
           label: "Motivated, but inconsistent",
           emoji: "📈",
         },
-        { slug: "empty", label: "Running on empty", emoji: "🌫️" },
-        { slug: "unsure", label: "Honestly, I'm not sure", emoji: "🤍" },
+        { slug: "empty", label: "Not motivated right now", emoji: "🌫️" },
+        { slug: "unsure", label: "I'm not sure yet", emoji: "🤍" },
       ],
       modelKey: "motivation_level",
     },
@@ -71,10 +75,68 @@ export const iamClaude: VariantConfig = {
       cta: "Continue",
     },
     {
+      id: "familiarity",
+      type: "single",
+      headline: (ctx) =>
+        ctx.name
+          ? `How familiar are you with affirmations, ${ctx.name}?`
+          : "How familiar are you with affirmations?",
+      sub: "Your answer shapes how we introduce them",
+      options: [
+        { slug: "new", label: "This is new for me" },
+        { slug: "occasionally", label: "I've used them occasionally" },
+        { slug: "regularly", label: "I use them regularly" },
+      ],
+      skippable: true,
+      modelKey: "raw.affirmation_familiarity",
+    },
+    {
+      id: "affirmations-intro",
+      type: "info",
+      headline:
+        "Affirmations are short, positive statements you repeat to yourself — until they become how you think.",
+      cta: "Continue",
+      // Only newcomers get the primer — that is what makes the
+      // familiarity sub ("shapes how we introduce them") honest.
+      condition: (ctx) => ctx.answers["raw.affirmation_familiarity"] === "new",
+    },
+    {
+      id: "habit-helper",
+      type: "multi",
+      headline: "What would help make affirmations a daily habit?",
+      sub: "Choose all that apply",
+      minSelect: 1,
+      // Every option maps to a real Future Self feature.
+      options: [
+        { slug: "reminders", label: "Getting regular reminders" },
+        { slug: "progress", label: "Tracking my progress" },
+        { slug: "widget", label: "A Home or Lock Screen widget" },
+        { slug: "fit", label: "Quotes that fit my goals" },
+        { slug: "unsure", label: "I don't know yet" },
+      ],
+      skippable: true,
+      modelKey: "raw.habit_helpers",
+    },
+    {
+      id: "repetition",
+      type: "info",
+      headline:
+        "Through daily repetition, you can change your beliefs and your mindset.",
+      cta: "Continue",
+    },
+    {
+      id: "notifications",
+      type: "notifications",
+      headline: "This is how you won't drift.",
+      sub: "Future Self finds you through the day with the quotes you need to hear. You choose how often, and when.",
+      cta: "Allow and Save",
+      mockLine: "Discipline is remembering what you want.",
+    },
+    {
       id: "goals",
       type: "multi",
       headline: "What matters most to you right now?",
-      sub: "Choose up to three — they shape your daily mix",
+      sub: "Choose up to three — they shape your daily quotes and affirmations",
       maxSelect: 3,
       minSelect: 1,
       options: [
@@ -93,7 +155,7 @@ export const iamClaude: VariantConfig = {
       id: "obstacles",
       type: "multi",
       headline: "And what keeps getting in the way?",
-      sub: "Naming it is the first push",
+      sub: "Naming it is the first step",
       minSelect: 1,
       options: [
         { slug: "procrastination", label: "I put things off", emoji: "⏳" },
@@ -112,6 +174,54 @@ export const iamClaude: VariantConfig = {
       headline:
         "Consistency isn't a personality trait. It's a system — and you're about to build one.",
       cta: "Continue",
+    },
+    {
+      id: "results-preframe",
+      type: "info",
+      headline:
+        "A few minutes a day is all it takes. Give it a couple of weeks.",
+      cta: "Continue",
+    },
+    {
+      id: "time-devotion",
+      type: "single",
+      headline: "How much time will you give your future self each day?",
+      sub: "Small and daily beats big and rare",
+      options: [
+        { slug: "1", label: "1 minute a day" },
+        { slug: "3", label: "3 minutes a day" },
+        { slug: "10", label: "10 minutes a day" },
+      ],
+      skippable: true,
+      modelKey: "raw.daily_minutes",
+    },
+    {
+      id: "streak-goal",
+      type: "single",
+      headline: "What goal do you want to start with?",
+      sub: "Pick what feels doable — your streak keeps counting either way",
+      options: [
+        { slug: "3", label: "3 days in a row" },
+        { slug: "7", label: "7 days in a row" },
+        { slug: "21", label: "21 days in a row" },
+      ],
+      skippable: true,
+      modelKey: "raw.streak_goal",
+    },
+    {
+      id: "streak",
+      type: "streak-commit",
+      headline: "Three small readings a day. That's the whole ask.",
+      sub: "Read any 3 quotes or affirmations and the day counts. Miss a day, the chain breaks.",
+      lines: [
+        "Days 1–3 · Novelty carries you. Everyone survives this part.",
+        "Days 4–14 · The dip. Motivation fades before results show — this is where most people quit.",
+        "Days 15–21 · It stops being effort. The reading finds you, not the other way around.",
+      ],
+      info: "Most habit research puts the first real foothold around three weeks of daily reps.",
+      // Echoes the goal picked one screen earlier; 21 when it was skipped.
+      cta: (ctx) => `I'm in for ${ctx.answers["raw.streak_goal"] ?? "21"} days`,
+      modelKey: "raw.streak_goal",
     },
     {
       id: "traits",
@@ -134,38 +244,80 @@ export const iamClaude: VariantConfig = {
       modelKey: "future_traits",
     },
     {
-      id: "life-goal",
-      type: "text",
-      headline: "Finish the sentence: a year from now, I want to be…",
-      sub: "Your words. They'll follow you through the app — and onto your Home Screen if you want.",
-      placeholder: "…someone who shows up every single day",
-      multiline: true,
-      maxLength: 280,
-      cta: "Save it",
-      skippable: true,
-      modelKey: "life_goal",
-    },
-    {
-      id: "notifications",
-      type: "notifications",
-      headline: "This is how you won't drift.",
-      sub: "Future Self finds you through the day with the right words. You control how often, and when.",
-      cta: "Allow and Save",
-      mockLine: "Discipline is remembering what you want.",
-    },
-    {
-      id: "streak",
-      type: "streak-commit",
-      headline: "Three small readings a day. That's the whole ask.",
-      sub: "Read any 3 quotes or affirmations and the day counts. Miss a day, the chain breaks.",
-      lines: [
-        "Days 1–3 · Novelty carries you. Everyone survives this part.",
-        "Days 4–14 · The dip. Motivation fades before results show — this is where most people quit.",
-        "Days 15–21 · It stops being effort. The reading finds you, not the other way around.",
+      id: "vision",
+      type: "single",
+      headline: "Do you have a clear vision of the life you want?",
+      sub: "Pick the one that feels true",
+      options: [
+        { slug: "yes", label: "Yes, I do" },
+        { slug: "working", label: "I'm working on it" },
+        { slug: "day-by-day", label: "I take it one day at a time" },
+        { slug: "no", label: "Not really" },
       ],
-      info: "Most habit research puts the first real foothold around three weeks of daily reps.",
-      cta: "I'm in for 21 days",
-      modelKey: "raw.streak_goal",
+      skippable: true,
+      modelKey: "raw.vision",
+    },
+    {
+      id: "belief-manifestation",
+      type: "single",
+      headline: "Do you believe in the power of manifestation?",
+      sub: "Pick the one that feels true",
+      options: [
+        { slug: "yes", label: "Yes, absolutely" },
+        { slug: "curious", label: "Not sure, but I'm curious" },
+        { slug: "no", label: "It's not my thing" },
+      ],
+      skippable: true,
+      modelKey: "raw.belief_manifestation",
+    },
+    {
+      id: "belief-thoughts",
+      type: "single",
+      headline: "Do you believe your thoughts help shape your reality?",
+      sub: "Pick the one that feels true",
+      options: [
+        { slug: "yes", label: "Yes, I've seen it happen" },
+        { slug: "open", label: "I'm open to it" },
+        { slug: "no", label: "Not really" },
+      ],
+      skippable: true,
+      modelKey: "raw.belief_thoughts",
+    },
+    {
+      id: "belief-rewire",
+      type: "single",
+      headline: "Did you know affirmations can rewire your brain?",
+      sub: "Pick the one that feels true",
+      options: [
+        { slug: "yes", label: "Yes, I believe that" },
+        { slug: "unsure", label: "I've heard of it, but I'm not sure" },
+        { slug: "tell-me", label: "I didn't know — tell me more" },
+        { slug: "skeptical", label: "I'm skeptical, but open" },
+      ],
+      skippable: true,
+      modelKey: "raw.belief_rewire",
+    },
+    {
+      id: "science",
+      type: "info",
+      // Claim wording stays inside what the cited papers support.
+      headline:
+        "Studies show daily self-affirmation boosts self-confidence, resilience and overall well-being.",
+      sub: "In brain-imaging studies it activates the brain's reward and self-processing centers — most strongly when people focus on their future selves.",
+      footnote:
+        "Cohen & Sherman, Annual Review of Psychology (2014) · Cascio et al., Social Cognitive and Affective Neuroscience (2016)",
+      cta: "Continue",
+    },
+    {
+      id: "benefits",
+      type: "info",
+      headline: "The benefits of daily personalized affirmations",
+      bullets: [
+        "Focus on achieving your goals",
+        "Shift negative thoughts",
+        "Improve mental health",
+      ],
+      cta: "Got it",
     },
     {
       id: "quote-topics",
@@ -207,12 +359,61 @@ export const iamClaude: VariantConfig = {
       modelKey: "affirmation_interests",
     },
     {
+      id: "practice-mode",
+      type: "multi",
+      headline: "How would you like to practice with Future Self?",
+      sub: "Choose at least one",
+      minSelect: 1,
+      // No "listening" option: the app has no audio.
+      options: [
+        { slug: "phone", label: "Reading them on my phone" },
+        { slug: "widget", label: "Seeing them on my Home or Lock Screen" },
+        { slug: "aloud", label: "Saying them out loud" },
+        { slug: "journal", label: "Writing them in a journal" },
+        { slug: "post-it", label: "Writing them on a post-it" },
+        { slug: "unsure", label: "I'm not sure yet" },
+      ],
+      skippable: true,
+      modelKey: "raw.practice_modes",
+    },
+    {
       id: "theme",
       type: "theme",
       headline: "Choose how your words should look.",
       sub: "You can change this anytime — or build your own",
       trialCaption: true,
       cta: "Continue",
+    },
+    {
+      id: "life-goal",
+      type: "text",
+      headline: "Finish the sentence: a year from now, I want to be…",
+      sub: "Your words. They'll follow you through the app — and onto your Home Screen if you want.",
+      placeholder: "…someone who shows up every single day",
+      multiline: true,
+      maxLength: 280,
+      cta: "Save it",
+      skippable: true,
+      modelKey: "life_goal",
+    },
+    {
+      id: "achieve",
+      type: "multi",
+      headline: "What do you want to achieve with Future Self?",
+      sub: "Choose at least one",
+      minSelect: 1,
+      options: [
+        { slug: "best-self", label: "Become the best version of myself" },
+        { slug: "discipline", label: "Build discipline that lasts" },
+        { slug: "confidence", label: "Feel more self-confident" },
+        { slug: "mindset", label: "Develop a positive mindset" },
+        { slug: "presence", label: "Be more present and enjoy life" },
+        { slug: "mental-health", label: "Improve my mental health" },
+      ],
+      skippable: true,
+      // Last question before the result/paywall.
+      trialCaption: true,
+      modelKey: "raw.outcome_goals",
     },
     {
       id: "result",

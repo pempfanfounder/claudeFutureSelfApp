@@ -4,14 +4,10 @@ import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "@/design-system/components";
 import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
+import { LEGAL_URLS } from "@/lib/legal";
 import { restorePurchases } from "@/lib/purchases";
 
 import { PrivacyChoicesSheet } from "./PrivacyChoicesSheet";
-
-// Hosted by the `legal` Supabase edge function — swap for a branded
-// domain later without an app update being required for the store pages.
-export const TERMS_URL = "https://ykgswczatkspryetstor.supabase.co/functions/v1/legal/terms";
-export const PRIVACY_URL = "https://ykgswczatkspryetstor.supabase.co/functions/v1/legal/privacy";
 
 interface PaywallFooterProps {
   onRestored: () => void;
@@ -37,7 +33,10 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
 
   return (
     <View style={styles.row}>
-      <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+      <Pressable
+        onPress={() => Linking.openURL(LEGAL_URLS.privacy).catch(() => {})}
+        hitSlop={8}
+      >
         <AppText variant="label" tone="ink3">
           Privacy
         </AppText>
@@ -45,7 +44,10 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
       <AppText variant="label" tone="ink3">
         ·
       </AppText>
-      <Pressable onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
+      <Pressable
+        onPress={() => Linking.openURL(LEGAL_URLS.terms).catch(() => {})}
+        hitSlop={8}
+      >
         <AppText variant="label" tone="ink3">
           Terms
         </AppText>

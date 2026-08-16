@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInRight, ZoomIn } from "react-native-reanimated";
 
-import { AppText, Button } from "@/design-system/components";
+import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 
@@ -9,6 +9,8 @@ import { resolveLines, resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
 
 const WEEKDAYS = ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"];
+const DEFAULT_GOAL_DAYS = "21";
+const DAY_CHECK_SIZE = 14;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -17,9 +19,19 @@ interface StreakCommitStepProps {
 }
 
 /**
- * I Am-style 21-day commitment: day "1", weekday tracker, then three
- * education beats on how the habit actually forms. No goal picking —
- * the single CTA commits to 21 days.
+ * The goal the user picked on the preceding streak-goal step (3/7/21),
+ * or 21 when that step was skipped or the variant has no goal step.
+ */
+function chosenGoalDays(ctx: OnboardingContext): string {
+  const goal = ctx.answers["raw.streak_goal"];
+  return typeof goal === "string" && goal.length > 0 ? goal : DEFAULT_GOAL_DAYS;
+}
+
+/**
+ * I Am-style streak commitment: day "1", weekday tracker, then three
+ * education beats on how the habit actually forms. No goal picking
+ * here — the single CTA commits to the goal chosen one screen earlier
+ * ("I'm in for {N} days"), defaulting to 21 days.
  */
 export function StreakCommitStep({
   step,
@@ -28,6 +40,7 @@ export function StreakCommitStep({
 }: StreakCommitStepProps) {
   const colors = useColors();
   const lines = resolveLines(step, ctx);
+  const goalDays = chosenGoalDays(ctx);
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
@@ -71,7 +84,13 @@ export function StreakCommitStep({
                     },
                   ]}
                 >
-                  {i === 0 ? <AppText variant="label">✓</AppText> : null}
+                  {i === 0 ? (
+                    <Icon
+                      name="check"
+                      size={DAY_CHECK_SIZE}
+                      color={colors.ctaInk}
+                    />
+                  ) : null}
                 </View>
                 <AppText variant="label" tone="ink3">
                   {day}
@@ -119,8 +138,10 @@ export function StreakCommitStep({
       </ScrollView>
       <View style={styles.footer}>
         <Button
-          label={step.cta ?? "I'm in for 21 days"}
-          onPress={() => onAnswer("21")}
+          label={resolveText(step.cta, ctx) ?? `I'm in for ${goalDays} days`}
+          // Echo the chosen goal so raw.streak_goal holds one value
+          // whether the user picked 3/7/21 or skipped (→ 21).
+          onPress={() => onAnswer(goalDays)}
           testID="continue"
         />
       </View>

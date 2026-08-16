@@ -1,8 +1,6 @@
 import { useState } from "react";
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,12 +9,19 @@ import {
 } from "react-native";
 import Animated, { FadeInRight, FadeOut } from "react-native-reanimated";
 
-import { AppText, Button, SelectableRow } from "@/design-system/components";
+import {
+  AppText,
+  Button,
+  Icon,
+  SelectableRow,
+} from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
+import { KeyboardAvoider } from "../KeyboardAvoider";
 import { resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
+import { LegalFooter } from "./LegalFooter";
 
 interface IamStepProps {
   step: OnboardingStep;
@@ -25,11 +30,14 @@ interface IamStepProps {
   onSkip: () => void;
 }
 
+const LOGO_SIZE = 96;
+const BULLET_ICON_SIZE = 18;
+
 /**
  * I Am-family generic step: serif headline + sans sub on cream.
  * single -> auto-advancing pill rows; multi -> checkmarks + Continue;
  * chips -> tag grid + Continue; text -> field + Continue; info/welcome
- * -> centered interstitial.
+ * -> centered interstitial (optionally with `bullets` and a `footnote`).
  */
 export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
   const colors = useColors();
@@ -71,6 +79,22 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
         ? text.trim().length > 0
         : isInfo;
 
+  const submit = () => {
+    if (isText) {
+      onAnswer(text.trim());
+    } else if (isMulti || isChips) {
+      onAnswer(selected);
+    } else {
+      onAnswer(null);
+    }
+  };
+
+  // Single-line fields submit from the return key (one-thumb flow); the
+  // guard mirrors the disabled Continue so an empty return does nothing.
+  const submitFromKeyboard = () => {
+    if (canContinue) submit();
+  };
+
   return (
     <Animated.View
       entering={FadeInRight.duration(280)}
@@ -85,10 +109,7 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
         </Pressable>
       ) : null}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -98,10 +119,23 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
           keyboardShouldPersistTaps="handled"
         >
           {step.type === "welcome" ? (
-            <Image
-              source={require("../../../../../assets/images/splash-icon.png")}
-              style={styles.logo}
-            />
+            // Shadow lives on the wrapper (iOS clips shadows on a view that
+            // clips its content); the Image rounds itself, so the wrapper
+            // needs no overflow:hidden. Together they read as the app icon.
+            <View
+              style={[
+                styles.logoTile,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                shadows.sm,
+              ]}
+              testID="welcome-logo"
+            >
+              <Image
+                source={require("../../../../../assets/images/splash-icon.png")}
+                style={styles.logo}
+                resizeMode="cover"
+              />
+            </View>
           ) : null}
 
           <AppText variant={isInfo ? "h1" : "h2"} center={isInfo}>
@@ -115,6 +149,33 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
               style={styles.sub}
             >
               {sub}
+            </AppText>
+          ) : null}
+
+          {step.bullets?.length ? (
+            // Centered as a block, left-aligned within: the I Am benefits
+            // list. `maxWidth` keeps long lines from hugging the edges.
+            <View style={styles.bullets}>
+              {step.bullets.map((line) => (
+                <View key={line} style={styles.bulletRow}>
+                  <View style={styles.bulletIcon}>
+                    <Icon
+                      name="check"
+                      size={BULLET_ICON_SIZE}
+                      color={colors.ink}
+                    />
+                  </View>
+                  <AppText variant="lead" style={styles.bulletText}>
+                    {line}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {step.footnote ? (
+            <AppText variant="label" tone="ink3" center style={styles.footnote}>
+              {step.footnote}
             </AppText>
           ) : null}
 
@@ -193,10 +254,17 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
               placeholder={step.placeholder}
               placeholderTextColor={colors.ink3}
               multiline={step.multiline}
+              // Enforced silently — no visible counter (feedback #8).
               maxLength={step.maxLength}
               keyboardType={
                 step.keyboard === "number-pad" ? "number-pad" : "default"
               }
+              // Multiline keeps return = newline; single-line submits.
+              returnKeyType={step.multiline ? "default" : "done"}
+              // Keep focus on an empty "Done" so the keyboard doesn't drop and
+              // force a second tap; the input unmounts on advance anyway.
+              submitBehavior={step.multiline ? "newline" : "submit"}
+              onSubmitEditing={step.multiline ? undefined : submitFromKeyboard}
               autoFocus
               testID="text-input"
               style={[
@@ -210,13 +278,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
               ]}
             />
           ) : null}
-          {isText && step.maxLength && step.multiline ? (
-            <AppText variant="label" tone="ink3" style={styles.counter}>
-              {text.length}/{step.maxLength}
-            </AppText>
-          ) : null}
         </ScrollView>
 
+        {/* Outside the ScrollView so the CTA is the element directly above
+            the keyboard when the KeyboardAvoider pads the bottom. */}
         {!isSingle ? (
           <View style={styles.footer}>
             {step.trialCaption ? (
@@ -230,12 +295,8 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
               </AppText>
             ) : null}
             <Button
-              label={step.cta ?? "Continue"}
-              onPress={() =>
-                onAnswer(
-                  isText ? text.trim() : isMulti || isChips ? selected : null,
-                )
-              }
+              label={resolveText(step.cta, ctx) ?? "Continue"}
+              onPress={submit}
               disabled={!canContinue}
               testID="continue"
             />
@@ -247,13 +308,11 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
               </Pressable>
             ) : null}
             {step.type === "welcome" ? (
-              <AppText variant="label" tone="ink3" center style={styles.terms}>
-                By continuing you agree to our Terms and Privacy Policy
-              </AppText>
+              <LegalFooter style={styles.terms} />
             ) : null}
           </View>
         ) : null}
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Animated.View>
   );
 }
@@ -264,14 +323,37 @@ const styles = StyleSheet.create({
   skip: { position: "absolute", top: spacing.sm, right: spacing.xl, zIndex: 5 },
   content: { paddingTop: 84, paddingBottom: spacing.xl },
   contentCentered: { flexGrow: 1, justifyContent: "center", paddingTop: 0 },
-  logo: {
-    width: 96,
-    height: 96,
+  logoTile: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
     borderRadius: radii.xl,
+    borderWidth: StyleSheet.hairlineWidth,
     alignSelf: "center",
     marginBottom: spacing.xxl,
   },
+  // Fills the tile's content box (inside the hairline border).
+  logo: { width: "100%", height: "100%", borderRadius: radii.xl },
   sub: { marginTop: spacing.md },
+  bullets: {
+    alignSelf: "center",
+    maxWidth: "88%",
+    marginTop: spacing.xxl,
+    gap: spacing.lg,
+  },
+  bulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  // Sized to the lead line-height so the check centres on the first line.
+  bulletIcon: {
+    width: BULLET_ICON_SIZE + spacing.xs,
+    height: type.sizes.lead * type.lineHeights.relaxed,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bulletText: { flexShrink: 1 },
+  footnote: { marginTop: spacing.lg },
   options: { marginTop: spacing.xxl },
   chips: {
     flexDirection: "row",
@@ -295,7 +377,6 @@ const styles = StyleSheet.create({
     fontFamily: type.sans,
   },
   inputMultiline: { minHeight: 120, textAlignVertical: "top" },
-  counter: { marginTop: spacing.sm, textAlign: "right" },
   footer: { paddingBottom: spacing.sm },
   trialCaption: { marginBottom: spacing.sm },
   secondary: { marginTop: spacing.lg },

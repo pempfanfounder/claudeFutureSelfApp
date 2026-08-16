@@ -45,9 +45,20 @@ export interface OnboardingStep {
   lines?: (string | ((ctx: OnboardingContext) => string))[];
   /** Small supporting caption under the main content (streak-commit). */
   info?: string;
+  /**
+   * `info` steps: short benefit lines rendered as an icon-led list under
+   * the headline/sub (e.g. the benefits screen).
+   */
+  bullets?: string[];
+  /**
+   * `info` steps: small ink3 line under the sub, for a source/citation
+   * (e.g. the science screen). Never a marketing claim.
+   */
+  footnote?: string;
   options?: StepOption[];
   placeholder?: string;
-  cta?: string;
+  /** CTA label; functions receive the running context (e.g. "I'm in for {N} days"). */
+  cta?: string | ((ctx: OnboardingContext) => string);
   secondaryCta?: string;
   skippable?: boolean;
   minSelect?: number;
