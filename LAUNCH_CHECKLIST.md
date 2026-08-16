@@ -2,6 +2,18 @@
 
 Audit date: **2026-08-15** · Branch: `claude/app-store-launch-audit-787b06` · App version `1.0.0` (build `1`)
 
+---
+
+## ✅ Status update — 2026-08-16 (post-remediation)
+
+**Blockers:** 1 ✅ deletion+support reachable from paywall (PrivacyChoicesSheet) · 2 ✅ 3.1.2 disclosures + trial CTA on both paywalls · 3 ⏳ attach IAPs at version submission (unchanged, submission-time step) · 4 ✅ email sign-in gated behind `EXPO_PUBLIC_EMAIL_AUTH_ENABLED` until SMTP · 5 ✅ expo-secure-store removed, FaceID string gone (prebuild-verified) · 6 ✅ grants migration applied live + verified (`has_function_privilege`) · 7 ✅ legal docs complete **with real KVK 42039945 / BTW NL005448561B16 / address**; Netlify site in `website/` + zip delivered (deploy = drag-and-drop) · 8 ⏳ restore ASC `.p8` locally before `eas submit`.
+
+**Feedback round:** items 1 (21-day commitment), 2 (scroll drift — measured-viewport paging + float-height fix), 3 (icon system), 5 (widget customization tabs + tutorial animation), 6 (20/day, both DB caps raised live), 8 (deletion bypass — clears, RC logout, server reconcile + retry marker), 11 (Saved Quotes) — **all landed**; item 7 explained (separation decision pending owner); item 9 diagnosed: pipeline healthy, fires once a server entitlement exists (purchase → `sync-entitlement` → recalc, now wired client-side); items 4 + 10 **cancelled mid-build by owner** — relaunch on request.
+
+**Quality:** consolidated review round: 9 findings, all fixed (incl. critical `daily_sets` ≤10→≤20 constraint, applied live). Suite: 133 tests green, tsc/lint clean.
+
+**Business/ASC:** already enrolled as sole proprietorship ✅ · Small Business Program **submitted 2026-08-16** (await Apple's email) ✅ · W-8BEN + beneficial-owner cert already **Active** since 2026-04-27 ✅ · banking active ✅ · **DSA trader declaration still owner-pending** · SMTP key, Netlify deploy + domain, ASC metadata/screenshots owner-pending.
+
 **Not legal or tax advice.** Sections marked 🇳🇱 need confirmation from a Dutch
 accountant (boekhouder), the KVK, the Belastingdienst, or Apple Developer Support.
 
@@ -207,6 +219,14 @@ directory **does not exist** in the repo and `credentials/` is gitignored. Resto
 ## 📋 Non-code action items
 
 ### A. Apple Developer enrollment as a Dutch eenmanszaak 🇳🇱
+
+> **✅ DONE per owner (2026-08-15): already enrolled as a sole proprietorship.**
+> The enrollment/D-U-N-S/€99 items below are kept for reference only. Still
+> worth a 2-minute check in App Store Connect: (1) W-8 tax form on file under
+> Agreements, Tax, and Banking (avoids 30% US withholding); (2) the **DSA
+> trader declaration** in §B — separate from enrollment and still required;
+> (3) the **Small Business Program** application in §C — a separate opt-in,
+> not automatic with enrollment.
 
 Apple's enrollment types include **Individual**, **Sole Proprietor / Single Person
 Business**, and **Company / Organization**. The distinction matters because it decides

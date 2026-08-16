@@ -66,7 +66,13 @@ export default function ContentDeepLink() {
       {item ? (
         <View
           style={styles.cardHost}
-          onLayout={(e) => setCardH(Math.round(e.nativeEvent.layout.height))}
+          onLayout={(e) => {
+            // Exact float height, epsilon-deduped (see feed.tsx pageH).
+            const h = e.nativeEvent.layout.height;
+            setCardH((prev) =>
+              prev !== null && Math.abs(prev - h) < 0.5 ? prev : h,
+            );
+          }}
         >
           {cardH != null ? (
             <ContentCard

@@ -103,7 +103,16 @@ export default function FeedScreen() {
         // Render pages only once the list is measured; renderItem and
         // getItemLayout therefore never run with a null pageH.
         data={pageH == null ? UNMEASURED_ROWS : rows}
-        onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}
+        onLayout={(e) => {
+          // Keep the exact float: pagingEnabled snaps by the true bounds,
+          // and rounding the per-page length accumulates ~0.5dp of drift
+          // per page on fractional-density screens. Epsilon-dedupe only
+          // to avoid re-render loops from layout jitter.
+          const h = e.nativeEvent.layout.height;
+          setPageH((prev) =>
+            prev !== null && Math.abs(prev - h) < 0.5 ? prev : h,
+          );
+        }}
         keyExtractor={(row) => (row.kind === "item" ? row.item.id : "end")}
         renderItem={({ item: row }) =>
           row.kind === "item" ? (
