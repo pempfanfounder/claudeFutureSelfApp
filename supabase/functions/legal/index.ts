@@ -5,7 +5,7 @@
 // Deploy with --no-verify-jwt (public pages).
 
 const LAST_UPDATED = 'August 10, 2026';
-const CONTACT = 'denizsahinbusiness@gmail.com';
+const CONTACT = 'hello@joinfutureself.com';
 const COMPANY = 'Improvement Labs';
 
 // Business identity (Dutch trader disclosure). Placeholders MUST be
@@ -14,7 +14,7 @@ const OWNER = {
   tradeName: 'Improvement Labs',
   kvk: '42039945',
   btw: 'NL005448561B16',
-  address: 'Van der Poelstraat 57C, 3021 VT Rotterdam, Netherlands',
+  address: 'Netherlands (postal address available on request)',
 };
 
 // Runtime guard (review finding 7): if a habitual deploy ships this file

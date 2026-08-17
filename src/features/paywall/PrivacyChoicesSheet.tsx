@@ -15,7 +15,7 @@ import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { LEGAL_URLS } from "@/lib/legal";
 
-const SUPPORT_EMAIL = "denizsahinbusiness@gmail.com";
+const SUPPORT_EMAIL = "hello@joinfutureself.com";
 
 interface PrivacyChoicesSheetProps {
   visible: boolean;
