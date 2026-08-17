@@ -51,6 +51,91 @@
       "@sentry/react-native",
       "@react-native-google-signin/google-signin",
       [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "MinimalSand",
+            "ios": "./assets/icons/icon-minimal_sand.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#EDE0D6"
+            }
+          },
+          {
+            "name": "SoftBloom",
+            "ios": "./assets/icons/icon-soft_bloom.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#F1E5DC"
+            }
+          },
+          {
+            "name": "OceanClarity",
+            "ios": "./assets/icons/icon-ocean_clarity.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#DFE8EC"
+            }
+          },
+          {
+            "name": "MidnightFocus",
+            "ios": "./assets/icons/icon-midnight_focus.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#12161A"
+            }
+          },
+          {
+            "name": "InkWell",
+            "ios": "./assets/icons/icon-ink_well.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#1C140D"
+            }
+          },
+          {
+            "name": "SunriseMomentum",
+            "ios": "./assets/icons/icon-sunrise_momentum.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#F6D9B8"
+            }
+          },
+          {
+            "name": "GoldenSuccess",
+            "ios": "./assets/icons/icon-golden_success.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#F0DFB3"
+            }
+          },
+          {
+            "name": "Evergreen",
+            "ios": "./assets/icons/icon-evergreen.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#D7E3D2"
+            }
+          },
+          {
+            "name": "Terracotta",
+            "ios": "./assets/icons/icon-terracotta.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#E8C6B2"
+            }
+          },
+          {
+            "name": "Arctic",
+            "ios": "./assets/icons/icon-arctic.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#0F1920"
+            }
+          }
+        ]
+      ],
+      [
         "expo-build-properties",
         {
           "ios": {

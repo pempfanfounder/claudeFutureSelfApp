@@ -207,6 +207,17 @@ export const iamFounder: VariantConfig = {
       modelKey: "affirmation_interests",
     },
     {
+      // I Am screen 33: icon picker right before the theme picker.
+      // Recorded here, applied once at completion (iOS alerts on change).
+      id: "app-icon",
+      type: "app-icon",
+      headline: "Which icon should I wear on your Home Screen?",
+      sub: "You'll see it every day — change it whenever you like.",
+      trialCaption: true,
+      cta: "Continue",
+      modelKey: "raw.app_icon",
+    },
+    {
       id: "theme",
       type: "theme",
       headline: "Choose how your daily words should look.",

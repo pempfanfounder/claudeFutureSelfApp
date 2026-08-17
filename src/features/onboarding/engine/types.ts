@@ -16,6 +16,7 @@ export type StepType =
   | "text"
   | "notifications"
   | "streak-commit"
+  | "app-icon"
   | "theme"
   | "result"
   | "preparing"

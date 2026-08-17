@@ -377,6 +377,18 @@ export const iamClaude: VariantConfig = {
       modelKey: "raw.practice_modes",
     },
     {
+      // I Am screen 33: icon picker right before the theme picker. The
+      // choice is recorded here and applied once at completion — iOS
+      // shows a system alert on every icon change.
+      id: "app-icon",
+      type: "app-icon",
+      headline: "Pick the icon you want to see every day.",
+      sub: "This becomes Future Self's icon on your Home Screen — change it anytime.",
+      trialCaption: true,
+      cta: "Continue",
+      modelKey: "raw.app_icon",
+    },
+    {
       id: "theme",
       type: "theme",
       headline: "Choose how your words should look.",

@@ -1,3 +1,4 @@
+import { applyAppIcon } from "@/design-system/appIcons";
 import { analytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
 import type { OnboardingVariant } from "@/lib/experiments";
@@ -117,6 +118,11 @@ export async function completeOnboarding(
   useAppState.getState().setOnboardingComplete(true);
   if (name) useAppState.getState().setDisplayName(name);
   analytics.capture("onboarding_completed", { variant });
+
+  // The app-icon step only records the choice; apply it once here so
+  // the iOS "You have changed the icon" alert never interrupts the
+  // funnel. Fire-and-forget: the icon must never block completion.
+  applyAppIcon(stringOf("raw.app_icon")).catch(() => {});
 }
 
 /**

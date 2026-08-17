@@ -128,6 +128,28 @@ describe("onboarding variant configs", () => {
           }
         }
       });
+
+      it("asks for the app icon right before the theme, and only there", () => {
+        const themeIndex = config.steps.findIndex((s) => s.type === "theme");
+        const iconSteps = config.steps.filter((s) => s.type === "app-icon");
+        if (themeIndex === -1) {
+          // No theme picker → no icon picker (the pair travels together).
+          expect(iconSteps).toHaveLength(0);
+          return;
+        }
+        // I Am screens 33–34: icon picker, then theme picker.
+        expect(iconSteps).toHaveLength(1);
+        const iconIndex = config.steps.findIndex((s) => s.type === "app-icon");
+        expect(iconIndex).toBe(themeIndex - 1);
+        const icon = iconSteps[0]!;
+        expect(icon.id).toBe("app-icon");
+        expect(icon.modelKey).toBe("raw.app_icon");
+        expect(icon.trialCaption).toBe(true);
+        expect(icon.skippable).toBeFalsy();
+        expect(icon.cta).toBe("Continue");
+        expect(icon.headline).toBeTruthy();
+        expect(icon.sub).toBeTruthy();
+      });
     });
   }
 });
@@ -182,6 +204,7 @@ describe("iam-claude conversion refinements", () => {
       "quote-topics",
       "affirmation-topics",
       "practice-mode",
+      "app-icon",
       "theme",
       "life-goal",
       "achieve",
