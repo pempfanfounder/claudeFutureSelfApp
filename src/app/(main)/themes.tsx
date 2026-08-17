@@ -25,8 +25,18 @@ const ICON_TILE_RADIUS = 16;
 const ICON_RING_WIDTH = 2;
 const ICON_RING_GAP = 2;
 
-/** Theme browser — the same theme drives feed and widgets. */
-export default function ThemesScreen() {
+export interface ThemesScreenProps {
+  /** True when rendered inside the home-screen morph overlay. */
+  embedded?: boolean;
+  /** Header close; defaults to `router.back()` on the pushed route. */
+  onClose?: () => void;
+}
+
+/**
+ * Theme browser — the same theme drives feed and widgets. Works both as
+ * the `/themes` route and embedded in the palette-button morph.
+ */
+export default function ThemesScreen({ onClose }: ThemesScreenProps) {
   const colors = useColors();
   const { theme, setThemeId } = useTheme();
   // Applies immediately here (the iOS "changed the icon" alert is
@@ -36,7 +46,12 @@ export default function ThemesScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable
+          onPress={onClose ?? (() => router.back())}
+          hitSlop={12}
+          accessibilityLabel="Close"
+          testID="themes-close"
+        >
           <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">Themes</AppText>

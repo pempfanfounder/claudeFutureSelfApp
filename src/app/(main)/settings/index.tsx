@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import {
   Linking,
   Platform,
@@ -49,13 +49,34 @@ async function manageSubscription() {
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
-/** Profile hub: streak card + customize/account sections (I Am style). */
-export default function SettingsScreen() {
+export interface SettingsScreenProps {
+  /** True when rendered inside the home-screen morph overlay. */
+  embedded?: boolean;
+  /** Header close; defaults to `router.back()` on the pushed route. */
+  onClose?: () => void;
+  /**
+   * Row navigation; defaults to `router.push(href)`. The morph overlay
+   * supplies a handler that reverses the morph before pushing.
+   */
+  onNavigate?: (href: string) => void;
+}
+
+/**
+ * Profile hub: streak card + customize/account sections (I Am style). Works
+ * both as the `/settings` route and embedded in the avatar-button morph.
+ */
+export default function SettingsScreen({
+  onClose,
+  onNavigate,
+}: SettingsScreenProps) {
   const colors = useColors();
   const { displayName } = useAppState();
   const { currentStreak, longestStreak, completedToday } = useFeedStore();
   const { isAnonymous } = useAuth();
   const todayIndex = (new Date().getDay() + 6) % 7;
+
+  const go = (href: string) =>
+    onNavigate ? onNavigate(href) : router.push(href as Href);
 
   const row = (
     label: string,
@@ -83,7 +104,12 @@ export default function SettingsScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable
+          onPress={onClose ?? (() => router.back())}
+          hitSlop={12}
+          accessibilityLabel="Close"
+          testID="settings-close"
+        >
           <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">
@@ -148,24 +174,24 @@ export default function SettingsScreen() {
         </AppText>
         {row(
           "Notifications",
-          () => router.push("/(main)/settings/notifications"),
+          () => go("/(main)/settings/notifications"),
           undefined,
           "settings-notifications",
         )}
         {row(
           "Widgets",
-          () => router.push("/(main)/settings/widgets"),
+          () => go("/(main)/settings/widgets"),
           undefined,
           "settings-widgets",
         )}
-        {row("Themes", () => router.push("/(main)/themes"))}
+        {row("Themes", () => go("/(main)/themes"))}
 
         <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
           Account
         </AppText>
         {row(
           "Account & subscription",
-          () => router.push("/(main)/settings/account"),
+          () => go("/(main)/settings/account"),
           isAnonymous ? "Not saved yet" : "Signed in",
           "settings-account",
         )}

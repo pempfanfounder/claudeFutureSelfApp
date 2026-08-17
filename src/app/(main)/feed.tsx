@@ -1,5 +1,11 @@
-import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import {
   FlatList,
   Pressable,
@@ -18,6 +24,15 @@ import { ContentCard } from "@/features/content/ContentCard";
 import { useFeedStore } from "@/features/content/feedStore";
 import type { ContentItem, ContentType } from "@/features/content/types";
 import { STREAK_TARGET } from "@/features/content/types";
+import {
+  MorphProvider,
+  useMorph,
+  type MorphScreen,
+} from "@/features/nav/MorphOverlay";
+import {
+  MORPH_SCREENS,
+  preloadMorphScreens,
+} from "@/features/nav/morphScreens";
 import { StreakBanner } from "@/features/streaks/StreakBanner";
 import { syncWidgets } from "@/features/widgets/widgetSync";
 
@@ -36,11 +51,24 @@ export function pageLayout(pageHeight: number, index: number) {
 const UNMEASURED_ROWS: FeedRow[] = [];
 
 /**
+ * Home route. Hosts the container-morph overlay so the three floating
+ * launchers (avatar → Profile, heart → Saved Quotes, palette → Themes)
+ * expand out of their buttons instead of pushing a route.
+ */
+export default function FeedScreen() {
+  return (
+    <MorphProvider screens={MORPH_SCREENS}>
+      <FeedContent />
+    </MorphProvider>
+  );
+}
+
+/**
  * The I Am-inspired core: a chrome-less, full-bleed vertical feed with
  * floating controls. Separate Quotes and Affirmations destinations via
  * the segmented pill; both draw from today's stable daily sets.
  */
-export default function FeedScreen() {
+function FeedContent() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const userId = useAppState((s) => s.userId);
@@ -50,6 +78,27 @@ export default function FeedScreen() {
   const [pageH, setPageH] = useState<number | null>(null);
   const feed = useFeedStore();
   const listRef = useRef<FlatList<FeedRow>>(null);
+  const morph = useMorph();
+  const avatarRef = useRef<View>(null);
+  const heartRef = useRef<View>(null);
+  const paletteRef = useRef<View>(null);
+
+  // Capture the launcher's on-screen rect so the destination can grow out
+  // of exactly that button.
+  const launch = useCallback(
+    (ref: RefObject<View | null>, screen: MorphScreen, radius: number) => {
+      ref.current?.measureInWindow((x, y, width, height) => {
+        morph.open({ x, y, width, height, radius }, screen);
+      });
+    },
+    [morph],
+  );
+
+  // Warm the morph destinations once the feed has settled.
+  useEffect(() => {
+    const t = setTimeout(preloadMorphScreens, 1000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -142,9 +191,13 @@ export default function FeedScreen() {
       {/* Top chrome */}
       <View style={[styles.top, { top: insets.top + spacing.sm }]}>
         <Pressable
-          onPress={() => router.push("/(main)/settings")}
+          ref={avatarRef}
+          onPress={() =>
+            launch(avatarRef, "profile", styles.avatar.borderRadius)
+          }
           style={[styles.avatar, { backgroundColor: colors.card }, shadows.sm]}
           testID="open-settings"
+          accessibilityLabel="Profile"
         >
           <AppText variant="label">fs</AppText>
         </Pressable>
@@ -194,7 +247,8 @@ export default function FeedScreen() {
       {/* Bottom chrome */}
       <View style={[styles.bottom, { bottom: insets.bottom + spacing.lg }]}>
         <Pressable
-          onPress={() => router.push("/(main)/favorites")}
+          ref={heartRef}
+          onPress={() => launch(heartRef, "favorites", styles.fab.borderRadius)}
           style={[styles.fab, { backgroundColor: colors.card }, shadows.md]}
           testID="open-favorites"
           accessibilityLabel="Saved Quotes"
@@ -202,7 +256,8 @@ export default function FeedScreen() {
           <Icon name="heart" size={24} color={colors.ink} />
         </Pressable>
         <Pressable
-          onPress={() => router.push("/(main)/themes")}
+          ref={paletteRef}
+          onPress={() => launch(paletteRef, "themes", styles.fab.borderRadius)}
           style={[styles.fab, { backgroundColor: colors.card }, shadows.md]}
           testID="open-themes"
           accessibilityLabel="Themes"
