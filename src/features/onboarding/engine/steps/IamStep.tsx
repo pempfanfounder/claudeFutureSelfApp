@@ -34,6 +34,14 @@ const LOGO_SIZE = 96;
 const BULLET_ICON_SIZE = 18;
 
 /**
+ * From this many answer rows the list switches to compact rows (see
+ * `SelectableRow`). Seven compact rows plus a two-line headline and a
+ * sub still fit above the CTA on a 6.1" phone, so nothing is clipped and
+ * nothing has to be scrolled to.
+ */
+const COMPACT_ROWS_FROM = 6;
+
+/**
  * I Am-family generic step: serif headline + sans sub on cream.
  * single -> auto-advancing pill rows; multi -> checkmarks + Continue;
  * chips -> tag grid + Continue; text -> field + Continue; info/welcome
@@ -54,6 +62,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
   const isMulti = step.type === "multi";
   const isChips = step.type === "chips";
   const isText = step.type === "text";
+  // Single-select steps auto-advance and have no footer; everything else
+  // keeps the CTA below the list.
+  const hasFooter = !isSingle;
+  const compactRows = (step.options?.length ?? 0) >= COMPACT_ROWS_FROM;
 
   const toggle = (slug: string) => {
     if (isSingle) {
@@ -113,6 +125,7 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            hasFooter ? styles.contentWithFooter : styles.contentNoFooter,
             isInfo && styles.contentCentered,
           ]}
           showsVerticalScrollIndicator={false}
@@ -212,6 +225,7 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
                   emoji={option.emoji}
                   selected={selected.includes(option.slug)}
                   onPress={() => toggle(option.slug)}
+                  compact={compactRows}
                   testID={`option-${option.slug}`}
                 />
               ))}
@@ -281,8 +295,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
         </ScrollView>
 
         {/* Outside the ScrollView so the CTA is the element directly above
-            the keyboard when the KeyboardAvoider pads the bottom. */}
-        {!isSingle ? (
+            the keyboard when the KeyboardAvoider pads the bottom. Being a
+            sibling (not an overlay) it also reserves its own height, so
+            the list above only needs breathing room, not clearance. */}
+        {hasFooter ? (
           <View style={styles.footer}>
             {step.trialCaption ? (
               <AppText
@@ -321,7 +337,14 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
   skip: { position: "absolute", top: spacing.sm, right: spacing.xl, zIndex: 5 },
-  content: { paddingTop: 84, paddingBottom: spacing.xl },
+  // 56 clears the Skip control (8 + ~17) with room to breathe and pulls
+  // the question as high as the design allows, buying ~28 pt for options.
+  content: { paddingTop: 56 },
+  // Steps with a CTA: the footer is a sibling, so this is separation.
+  contentWithFooter: { paddingBottom: spacing.xl },
+  // Auto-advancing steps have no footer, so the last row needs its own
+  // clearance above the home indicator (the body already pads the inset).
+  contentNoFooter: { paddingBottom: spacing.xxl },
   contentCentered: { flexGrow: 1, justifyContent: "center", paddingTop: 0 },
   logoTile: {
     width: LOGO_SIZE,

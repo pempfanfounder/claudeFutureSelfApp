@@ -24,7 +24,7 @@ export const stellaFounder: VariantConfig = {
       type: "notifications",
       lines: [
         "There will be moments today when you drift. This app would like to catch a few of them.",
-        "Turn on notifications — a few of the right words, in the hours you choose.",
+        "Turn on notifications: a few of the right words, in the hours you choose.",
       ],
       cta: "Turn them on",
       secondaryCta: "Maybe later",
@@ -33,7 +33,7 @@ export const stellaFounder: VariantConfig = {
       id: "intro",
       type: "info",
       lines: [
-        "Hey. It's me — your future self.",
+        "Hey. It's me, your future self.",
         "I know how that sounds. Stay with me.",
         "I exist because of what you do today. So I have questions.",
       ],
@@ -83,7 +83,7 @@ export const stellaFounder: VariantConfig = {
         { slug: "waiting", label: "Yes. I've been waiting" },
         { slug: "think-so", label: "I think so" },
         { slug: "want-to", label: "I want to be" },
-        { slug: "not-sure", label: "Honestly — not sure" },
+        { slug: "not-sure", label: "Honestly, not sure" },
       ],
       modelKey: "raw.readiness",
     },
@@ -97,7 +97,7 @@ export const stellaFounder: VariantConfig = {
         { slug: "everything", label: "I'm ready to give it everything" },
         {
           slug: "inconsistent",
-          label: "I'm motivated — I just can't stay consistent",
+          label: "I'm motivated, I just can't stay consistent",
         },
         { slug: "stuck", label: "I want change, but I feel stuck" },
         { slug: "figuring-out", label: "I'm still figuring out what I want" },
@@ -145,7 +145,7 @@ export const stellaFounder: VariantConfig = {
         { slug: "overwhelm", label: "We get overwhelmed" },
         { slug: "self-doubt", label: "We doubt ourselves" },
         { slug: "no-plan", label: "We don't know where to start" },
-        { slug: "on-track", label: "We're moving — keep it that way" },
+        { slug: "on-track", label: "We're moving. Keep it that way" },
         { slug: "other", label: "Something else" },
       ],
       modelKey: "obstacles",
@@ -163,7 +163,7 @@ export const stellaFounder: VariantConfig = {
     {
       id: "traits",
       type: "chips",
-      lines: ["Describe me. Three words — the ones you're building toward."],
+      lines: ["Describe me. Three words, the ones you're building toward."],
       minSelect: 3,
       maxSelect: 3,
       options: [
@@ -187,7 +187,7 @@ export const stellaFounder: VariantConfig = {
       maxSelect: 1,
       options: [
         { slug: "self-belief", label: "Remind me why I started" },
-        { slug: "discipline", label: "Be hard on me — kindly" },
+        { slug: "discipline", label: "Be hard on me, kindly" },
         { slug: "calm", label: "Calm me down" },
         { slug: "gratitude", label: "Celebrate the small wins" },
       ],
@@ -207,7 +207,7 @@ export const stellaFounder: VariantConfig = {
           if (motivation === "everything" || motivation === "inconsistent") {
             return "That hunger you just admitted? It's exactly what this was built for.";
           }
-          return "You answered honestly. That's rarer than motivation — and it's enough.";
+          return "You answered honestly. That's rarer than motivation, and it's enough.";
         },
         (ctx) => {
           const traits =
@@ -242,7 +242,7 @@ export const stellaFounder: VariantConfig = {
       id: "post-auth",
       type: "auth-sheet",
       headline: "One tap so we're never lost.",
-      sub: "Our goal, our streak, our words — safe on any device.",
+      sub: "Our goal, our streak, our words, safe on any device.",
       secondaryCta: "Not now",
       condition: (ctx) => ctx.isAnonymous,
     },

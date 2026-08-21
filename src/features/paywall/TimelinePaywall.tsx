@@ -37,7 +37,7 @@ interface TimelinePaywallProps {
 }
 
 /**
- * I Am-style "How your free trial works" timeline paywall. Single
+ * Timeline trial paywall ("Your free trial, day by day"). Single
  * package, price straight from the store, delayed X, no bypass: the
  * only exits are purchase, restore, or (during onboarding) the X.
  */
@@ -91,20 +91,20 @@ export function TimelinePaywall({
   const steps = [
     {
       icon: "✓",
-      title: "Install the app",
+      title: "You showed up",
       body: "Set it up to match your goals",
       done: true,
     },
     hasTrial
       ? {
           icon: "🔓",
-          title: "Today — free trial starts",
+          title: "Today: free trial starts",
           body: `Everything unlocks: all your daily quotes and affirmations, streaks, widgets and every theme, free for ${data.trialLength}`,
           done: false,
         }
       : {
           icon: "🔓",
-          title: "Today — everything unlocks",
+          title: "Today: everything unlocks",
           body: "All your daily quotes and affirmations, streaks, widgets and every theme",
           done: false,
         },
@@ -112,14 +112,14 @@ export function TimelinePaywall({
       ? [
           {
             icon: "🔔",
-            title: `${reminderDay} — heads-up`,
+            title: `${reminderDay}: heads-up`,
             body: "One reminder, so nothing surprises you",
             done: false,
           },
           {
             icon: "💎",
-            title: `${startDay} — membership begins`,
-            body: "Unless you've cancelled — no hard feelings",
+            title: `${startDay}: membership begins`,
+            body: "Unless you've cancelled. No hard feelings",
             done: false,
           },
         ]
@@ -141,7 +141,7 @@ export function TimelinePaywall({
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="h2" center>
-          {hasTrial ? "How your free trial works" : "Unlock Future Self"}
+          {hasTrial ? "Your free trial, day by day" : "Unlock Future Self"}
         </AppText>
 
         <View style={styles.timeline}>
@@ -262,7 +262,7 @@ export function TimelinePaywall({
         {data.unavailable ? (
           <AppText variant="body" tone="ink2" center style={styles.unavailable}>
             {
-              "The store can't be reached right now. Your access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+              "The store can't be reached right now. Your access stays locked until a purchase completes. Try again shortly, or Restore if you've subscribed before."
             }
           </AppText>
         ) : null}

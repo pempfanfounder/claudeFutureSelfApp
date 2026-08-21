@@ -55,7 +55,7 @@ export default function FavoritesScreen({ onClose }: FavoritesScreenProps) {
             Nothing saved yet
           </AppText>
           <AppText variant="body" center tone="ink3" style={styles.emptySub}>
-            Double-tap any card — or tap the heart — and it lives here.
+            Double-tap any card, or tap the heart, and it lives here.
           </AppText>
         </View>
       ) : (

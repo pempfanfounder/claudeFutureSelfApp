@@ -2,9 +2,41 @@ import { resolveText } from "@/features/onboarding/engine/resolve";
 import type {
   OnboardingContext,
   OnboardingStep,
+  VariantConfig,
 } from "@/features/onboarding/engine/types";
 import { VARIANT_CONFIGS } from "@/features/onboarding/variants";
 import { ONBOARDING_VARIANTS } from "@/lib/experiments";
+
+const CTX: OnboardingContext = {
+  name: "Sam",
+  answers: {},
+  trialLength: "3 days",
+  priceLine: null,
+  isAnonymous: true,
+};
+
+/** Every string a user can read on a variant's screens. */
+function userFacingStrings(config: VariantConfig): string[] {
+  const strings: string[] = [];
+  for (const step of config.steps) {
+    strings.push(
+      resolveText(step.headline, CTX) ?? "",
+      resolveText(step.sub, CTX) ?? "",
+      resolveText(step.cta, CTX) ?? "",
+      step.info ?? "",
+      step.footnote ?? "",
+      step.placeholder ?? "",
+      step.mockLine ?? "",
+      step.secondaryCta ?? "",
+      ...(step.bullets ?? []),
+      ...(step.options ?? []).map((o) => o.label),
+      ...(step.lines ?? []).map((line) =>
+        typeof line === "function" ? line(CTX) : line,
+      ),
+    );
+  }
+  return strings.filter(Boolean);
+}
 
 const MODEL_KEYS = new Set([
   "name",
@@ -80,18 +112,27 @@ describe("onboarding variant configs", () => {
         }
       });
 
-      it("replaces streak goal choices with a 21-day commitment", () => {
+      it("replaces streak goal choices with a single commitment CTA", () => {
         for (const step of config.steps) {
           if (step.type !== "streak-commit") continue;
-          // Education beats + single commitment CTA, no 3/7/21 picker on
-          // this screen (iam-claude asks the goal one screen earlier and
-          // echoes it through a CTA function).
+          // No 3/7/21 picker on this screen (iam-claude asks the goal one
+          // screen earlier and echoes it through a CTA function). One
+          // headline, one sub, one small supporting line.
           expect(step.options).toBeUndefined();
-          expect(step.lines).toHaveLength(3);
+          expect(step.headline).toBeTruthy();
+          expect(step.sub).toBeTruthy();
           expect(step.info).toBeTruthy();
           expect(typeof step.cta === "function" || Boolean(step.cta)).toBe(
             true,
           );
+        }
+      });
+
+      it("writes no em or en dashes in user-facing copy", () => {
+        const strings = userFacingStrings(config);
+        expect(strings.length).toBeGreaterThan(30);
+        for (const text of strings) {
+          expect(text).not.toMatch(/[—–]/);
         }
       });
 
@@ -218,25 +259,8 @@ describe("iam-claude conversion refinements", () => {
   });
 
   it("retires 'mix', 'Running on empty' and 'starting pace' from every user-facing string", () => {
-    const strings: string[] = [];
-    for (const step of config.steps) {
-      strings.push(
-        resolveText(step.headline, dummyCtx) ?? "",
-        resolveText(step.sub, dummyCtx) ?? "",
-        resolveText(step.cta, dummyCtx) ?? "",
-        step.info ?? "",
-        step.footnote ?? "",
-        step.placeholder ?? "",
-        step.mockLine ?? "",
-        step.secondaryCta ?? "",
-        ...(step.bullets ?? []),
-        ...(step.options ?? []).map((o) => o.label),
-        ...(step.lines ?? []).map((line) =>
-          typeof line === "function" ? line(dummyCtx) : line,
-        ),
-      );
-    }
-    expect(strings.filter(Boolean).length).toBeGreaterThan(50);
+    const strings = userFacingStrings(config);
+    expect(strings.length).toBeGreaterThan(50);
     for (const text of strings) {
       expect(text).not.toMatch(/mix/i);
       expect(text).not.toContain("Running on empty");
@@ -276,11 +300,99 @@ describe("iam-claude conversion refinements", () => {
     const benefits = stepById("benefits");
     expect(benefits.type).toBe("info");
     expect(benefits.bullets).toEqual([
+      "Keep your goals in sight",
+      "Soften negative self-talk",
+      "Support your mental well-being",
+    ]);
+    expect(benefits.cta).toBe("Got it");
+  });
+
+  it("states the science within what the citations support", () => {
+    const science = stepById("science");
+    const headline = resolveText(science.headline, dummyCtx) ?? "";
+    const sub = resolveText(science.sub, dummyCtx) ?? "";
+    // "daily" self-affirmation and "most strongly ... future selves" both
+    // overstated the papers (docs/ONBOARDING_CLAIMS_AND_IP_REVIEW.md §A).
+    expect(headline).not.toMatch(/daily self-affirmation/i);
+    expect(headline).not.toMatch(/boosts self-confidence/i);
+    expect(sub).not.toMatch(/most strongly/i);
+    expect(sub).not.toMatch(/future selves/i);
+    // Every claim on the screen is carried by a named citation.
+    expect(science.footnote).toMatch(/Cohen & Sherman/);
+    expect(science.footnote).toMatch(/Zhang et al\./);
+    expect(science.footnote).toMatch(/Cascio et al\./);
+    // The clinical-sounding bullet the legal review flagged is gone.
+    const benefits = stepById("benefits");
+    for (const bullet of benefits.bullets ?? []) {
+      expect(bullet).not.toMatch(/improve mental health/i);
+    }
+  });
+
+  it("carries none of the reference app's verbatim strings", () => {
+    // Every string here was word-for-word I Am copy before the
+    // 2026-08-21 IP review; the flow may rhyme, the wording may not.
+    const borrowed = [
+      "Through daily repetition, you can change your beliefs and your mindset.",
+      "The benefits of daily personalized affirmations",
       "Focus on achieving your goals",
       "Shift negative thoughts",
       "Improve mental health",
+      "Do you have a clear vision of the life you want?",
+      "Do you believe in the power of manifestation?",
+      "Do you believe your thoughts help shape your reality?",
+      "How familiar are you with affirmations?",
+      "What would help make affirmations a daily habit?",
+      "What goal do you want to start with?",
+      "What do you want to achieve with Future Self?",
+      "Allow and Save",
+    ];
+    const strings = userFacingStrings(config);
+    for (const phrase of borrowed) {
+      expect(strings).not.toContain(phrase);
+    }
+  });
+
+  it("lets every goal be picked, and says what goals are for", () => {
+    const goals = stepById("goals");
+    expect(goals.type).toBe("multi");
+    expect(goals.maxSelect).toBeUndefined();
+    expect(goals.minSelect).toBe(1);
+    expect(goals.sub).toBe("They shape your daily quotes and affirmations.");
+    expect(goals.options?.length).toBe(7);
+    expect(goals.modelKey).toBe("primary_goals");
+  });
+
+  it("keeps the streak screen short: no education beats, one small line", () => {
+    const streak = stepById("streak");
+    expect(streak.lines).toBeUndefined();
+    const onScreen = [
+      resolveText(streak.headline, dummyCtx) ?? "",
+      resolveText(streak.sub, dummyCtx) ?? "",
+      streak.info ?? "",
+    ];
+    // Was 80 words across a headline, sub, three beats and a footnote.
+    const words = onScreen.join(" ").trim().split(/\s+/).length;
+    expect(words).toBeLessThanOrEqual(32);
+  });
+
+  it("frames the practice question around the words, not a person", () => {
+    const practice = stepById("practice-mode");
+    expect(resolveText(practice.headline, dummyCtx)).toBe(
+      "How will you use your quotes and affirmations?",
+    );
+    // Slugs are analytics: the labels may be reworded, the slugs may not.
+    expect(practice.options?.map((o) => o.slug)).toEqual([
+      "phone",
+      "widget",
+      "aloud",
+      "journal",
+      "post-it",
+      "unsure",
     ]);
-    expect(benefits.cta).toBe("Got it");
+    expect(practice.options?.[0]?.label).toBe("Reading them in the app");
+    for (const option of practice.options ?? []) {
+      expect(option.label).not.toMatch(/future self/i);
+    }
   });
 
   it("echoes the chosen streak goal in the commitment CTA (21 when skipped)", () => {
@@ -338,10 +450,10 @@ describe("iam-claude conversion refinements", () => {
     // The name personalizes the familiarity headline; falls back cleanly.
     const familiarity = stepById("familiarity");
     expect(resolveText(familiarity.headline, dummyCtx)).toBe(
-      "How familiar are you with affirmations, Sam?",
+      "Where are you with affirmations, Sam?",
     );
     expect(resolveText(familiarity.headline, { ...dummyCtx, name: null })).toBe(
-      "How familiar are you with affirmations?",
+      "Where are you with affirmations?",
     );
   });
 });

@@ -39,7 +39,7 @@ export function StreakBanner({ streak, onDismiss }: StreakBannerProps) {
       <AppText variant="h3" center>
         {streak === 1
           ? "New daily streak started"
-          : `Day ${streak} — streak alive`}
+          : `Day ${streak}, streak alive`}
       </AppText>
       <View style={styles.circleWrap}>
         <View style={[styles.circle, { borderColor: colors.accent }]}>

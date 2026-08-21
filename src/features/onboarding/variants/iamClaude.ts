@@ -54,7 +54,7 @@ export const iamClaude: VariantConfig = {
       id: "motivation",
       type: "single",
       headline: "Where's your motivation right now?",
-      sub: "Be honest — we'll meet you where you are",
+      sub: "Be honest. We'll meet you where you are",
       options: [
         { slug: "all-in", label: "Ready to change everything", emoji: "🔥" },
         {
@@ -79,13 +79,13 @@ export const iamClaude: VariantConfig = {
       type: "single",
       headline: (ctx) =>
         ctx.name
-          ? `How familiar are you with affirmations, ${ctx.name}?`
-          : "How familiar are you with affirmations?",
+          ? `Where are you with affirmations, ${ctx.name}?`
+          : "Where are you with affirmations?",
       sub: "Your answer shapes how we introduce them",
       options: [
-        { slug: "new", label: "This is new for me" },
-        { slug: "occasionally", label: "I've used them occasionally" },
-        { slug: "regularly", label: "I use them regularly" },
+        { slug: "new", label: "Never really tried them" },
+        { slug: "occasionally", label: "On and off" },
+        { slug: "regularly", label: "They're part of my routine" },
       ],
       skippable: true,
       modelKey: "raw.affirmation_familiarity",
@@ -94,7 +94,7 @@ export const iamClaude: VariantConfig = {
       id: "affirmations-intro",
       type: "info",
       headline:
-        "Affirmations are short, positive statements you repeat to yourself — until they become how you think.",
+        "Affirmations are short, positive statements you repeat to yourself, until they become how you think.",
       cta: "Continue",
       // Only newcomers get the primer — that is what makes the
       // familiarity sub ("shapes how we introduce them") honest.
@@ -103,15 +103,15 @@ export const iamClaude: VariantConfig = {
     {
       id: "habit-helper",
       type: "multi",
-      headline: "What would help make affirmations a daily habit?",
+      headline: "What would keep this going day after day?",
       sub: "Choose all that apply",
       minSelect: 1,
       // Every option maps to a real Future Self feature.
       options: [
-        { slug: "reminders", label: "Getting regular reminders" },
-        { slug: "progress", label: "Tracking my progress" },
-        { slug: "widget", label: "A Home or Lock Screen widget" },
-        { slug: "fit", label: "Quotes that fit my goals" },
+        { slug: "reminders", label: "Nudges at the right moments" },
+        { slug: "progress", label: "Watching my streak build" },
+        { slug: "widget", label: "A widget on my Home or Lock Screen" },
+        { slug: "fit", label: "Words that match my goals" },
         { slug: "unsure", label: "I don't know yet" },
       ],
       skippable: true,
@@ -121,7 +121,7 @@ export const iamClaude: VariantConfig = {
       id: "repetition",
       type: "info",
       headline:
-        "Through daily repetition, you can change your beliefs and your mindset.",
+        "Repetition is how a thought stops being an idea and becomes a belief.",
       cta: "Continue",
     },
     {
@@ -129,15 +129,16 @@ export const iamClaude: VariantConfig = {
       type: "notifications",
       headline: "This is how you won't drift.",
       sub: "Future Self finds you through the day with the quotes you need to hear. You choose how often, and when.",
-      cta: "Allow and Save",
+      cta: "Turn on reminders",
       mockLine: "Discipline is remembering what you want.",
     },
     {
       id: "goals",
       type: "multi",
       headline: "What matters most to you right now?",
-      sub: "Choose up to three — they shape your daily quotes and affirmations",
-      maxSelect: 3,
+      sub: "They shape your daily quotes and affirmations.",
+      // No maxSelect: every goal the user actually has should be
+      // selectable (feedback round 2026-08-21).
       minSelect: 1,
       options: [
         { slug: "discipline", label: "Discipline & consistency", emoji: "💪" },
@@ -172,7 +173,7 @@ export const iamClaude: VariantConfig = {
       id: "system-interstitial",
       type: "info",
       headline:
-        "Consistency isn't a personality trait. It's a system — and you're about to build one.",
+        "Consistency isn't a personality trait. It's a system, and you're about to build one.",
       cta: "Continue",
     },
     {
@@ -188,9 +189,9 @@ export const iamClaude: VariantConfig = {
       headline: "How much time will you give your future self each day?",
       sub: "Small and daily beats big and rare",
       options: [
-        { slug: "1", label: "1 minute a day" },
-        { slug: "3", label: "3 minutes a day" },
-        { slug: "10", label: "10 minutes a day" },
+        { slug: "1", label: "One quiet minute" },
+        { slug: "3", label: "Three focused minutes" },
+        { slug: "10", label: "Ten unhurried minutes" },
       ],
       skippable: true,
       modelKey: "raw.daily_minutes",
@@ -198,12 +199,12 @@ export const iamClaude: VariantConfig = {
     {
       id: "streak-goal",
       type: "single",
-      headline: "What goal do you want to start with?",
-      sub: "Pick what feels doable — your streak keeps counting either way",
+      headline: "How long a streak do you want to chase first?",
+      sub: "Pick what feels doable. Your streak keeps counting either way",
       options: [
-        { slug: "3", label: "3 days in a row" },
-        { slug: "7", label: "7 days in a row" },
-        { slug: "21", label: "21 days in a row" },
+        { slug: "3", label: "3 days straight" },
+        { slug: "7", label: "7 days straight" },
+        { slug: "21", label: "21 days straight" },
       ],
       skippable: true,
       modelKey: "raw.streak_goal",
@@ -211,14 +212,9 @@ export const iamClaude: VariantConfig = {
     {
       id: "streak",
       type: "streak-commit",
-      headline: "Three small readings a day. That's the whole ask.",
-      sub: "Read any 3 quotes or affirmations and the day counts. Miss a day, the chain breaks.",
-      lines: [
-        "Days 1–3 · Novelty carries you. Everyone survives this part.",
-        "Days 4–14 · The dip. Motivation fades before results show — this is where most people quit.",
-        "Days 15–21 · It stops being effort. The reading finds you, not the other way around.",
-      ],
-      info: "Most habit research puts the first real foothold around three weeks of daily reps.",
+      headline: "Three readings a day. That's the whole ask.",
+      sub: "Read 3 quotes or affirmations and the day counts.",
+      info: "Miss a day and the chain breaks.",
       // Echoes the goal picked one screen earlier; 21 when it was skipped.
       cta: (ctx) => `I'm in for ${ctx.answers["raw.streak_goal"] ?? "21"} days`,
       modelKey: "raw.streak_goal",
@@ -246,13 +242,13 @@ export const iamClaude: VariantConfig = {
     {
       id: "vision",
       type: "single",
-      headline: "Do you have a clear vision of the life you want?",
+      headline: "How clear is the life you're aiming at?",
       sub: "Pick the one that feels true",
       options: [
-        { slug: "yes", label: "Yes, I do" },
-        { slug: "working", label: "I'm working on it" },
-        { slug: "day-by-day", label: "I take it one day at a time" },
-        { slug: "no", label: "Not really" },
+        { slug: "yes", label: "Sharp. I can picture it" },
+        { slug: "working", label: "Getting clearer" },
+        { slug: "day-by-day", label: "I mostly take it day by day" },
+        { slug: "no", label: "Honestly, still blurry" },
       ],
       skippable: true,
       modelKey: "raw.vision",
@@ -260,12 +256,12 @@ export const iamClaude: VariantConfig = {
     {
       id: "belief-manifestation",
       type: "single",
-      headline: "Do you believe in the power of manifestation?",
-      sub: "Pick the one that feels true",
+      headline: "Where do you stand on manifestation?",
+      sub: "No right answer here",
       options: [
-        { slug: "yes", label: "Yes, absolutely" },
-        { slug: "curious", label: "Not sure, but I'm curious" },
-        { slug: "no", label: "It's not my thing" },
+        { slug: "yes", label: "I'm a believer" },
+        { slug: "curious", label: "Curious, not convinced" },
+        { slug: "no", label: "It's not for me" },
       ],
       skippable: true,
       modelKey: "raw.belief_manifestation",
@@ -273,12 +269,12 @@ export const iamClaude: VariantConfig = {
     {
       id: "belief-thoughts",
       type: "single",
-      headline: "Do you believe your thoughts help shape your reality?",
+      headline: "Can the way you think change how your life goes?",
       sub: "Pick the one that feels true",
       options: [
-        { slug: "yes", label: "Yes, I've seen it happen" },
-        { slug: "open", label: "I'm open to it" },
-        { slug: "no", label: "Not really" },
+        { slug: "yes", label: "I've watched it happen" },
+        { slug: "open", label: "Maybe. I'm open" },
+        { slug: "no", label: "I don't think so" },
       ],
       skippable: true,
       modelKey: "raw.belief_thoughts",
@@ -286,13 +282,15 @@ export const iamClaude: VariantConfig = {
     {
       id: "belief-rewire",
       type: "single",
-      headline: "Did you know affirmations can rewire your brain?",
-      sub: "Pick the one that feels true",
+      // Kept as a question, not a statement: the app never asserts a
+      // neuroscience claim it cannot cite.
+      headline: "Have you heard that affirmations can reshape how you think?",
+      sub: "Whatever you answer is fine",
       options: [
-        { slug: "yes", label: "Yes, I believe that" },
-        { slug: "unsure", label: "I've heard of it, but I'm not sure" },
-        { slug: "tell-me", label: "I didn't know — tell me more" },
-        { slug: "skeptical", label: "I'm skeptical, but open" },
+        { slug: "yes", label: "Yes, and I buy it" },
+        { slug: "unsure", label: "Heard of it, still unsure" },
+        { slug: "tell-me", label: "News to me. Go on" },
+        { slug: "skeptical", label: "Skeptical, but listening" },
       ],
       skippable: true,
       modelKey: "raw.belief_rewire",
@@ -300,22 +298,25 @@ export const iamClaude: VariantConfig = {
     {
       id: "science",
       type: "info",
-      // Claim wording stays inside what the cited papers support.
+      // Claim wording stays inside what the cited papers support: the
+      // meta-analytic effects are small, the future-orientation result is
+      // a brain-activation contrast, not a proven outcome difference.
+      // See docs/ONBOARDING_CLAIMS_AND_IP_REVIEW.md section A.
       headline:
-        "Studies show daily self-affirmation boosts self-confidence, resilience and overall well-being.",
-      sub: "In brain-imaging studies it activates the brain's reward and self-processing centers — most strongly when people focus on their future selves.",
+        "Research links self-affirmation to greater well-being, less stress and more follow-through on goals.",
+      sub: "Brain-imaging research shows it engages the brain's reward and self-processing centers, especially when people imagine their future.",
       footnote:
-        "Cohen & Sherman, Annual Review of Psychology (2014) · Cascio et al., Social Cognitive and Affective Neuroscience (2016)",
+        "Cohen & Sherman, Annual Review of Psychology (2014) · Zhang et al., American Psychologist (2025) · Cascio et al., Social Cognitive and Affective Neuroscience (2016)",
       cta: "Continue",
     },
     {
       id: "benefits",
       type: "info",
-      headline: "The benefits of daily personalized affirmations",
+      headline: "What a daily practice can do",
       bullets: [
-        "Focus on achieving your goals",
-        "Shift negative thoughts",
-        "Improve mental health",
+        "Keep your goals in sight",
+        "Soften negative self-talk",
+        "Support your mental well-being",
       ],
       cta: "Got it",
     },
@@ -361,12 +362,13 @@ export const iamClaude: VariantConfig = {
     {
       id: "practice-mode",
       type: "multi",
-      headline: "How would you like to practice with Future Self?",
+      // The subject is the words, not "your future self" as a person.
+      headline: "How will you use your quotes and affirmations?",
       sub: "Choose at least one",
       minSelect: 1,
       // No "listening" option: the app has no audio.
       options: [
-        { slug: "phone", label: "Reading them on my phone" },
+        { slug: "phone", label: "Reading them in the app" },
         { slug: "widget", label: "Seeing them on my Home or Lock Screen" },
         { slug: "aloud", label: "Saying them out loud" },
         { slug: "journal", label: "Writing them in a journal" },
@@ -383,7 +385,7 @@ export const iamClaude: VariantConfig = {
       id: "app-icon",
       type: "app-icon",
       headline: "Pick the icon you want to see every day.",
-      sub: "This becomes Future Self's icon on your Home Screen — change it anytime.",
+      sub: "This becomes Future Self's icon on your Home Screen. Change it anytime.",
       trialCaption: true,
       cta: "Continue",
       modelKey: "raw.app_icon",
@@ -392,7 +394,7 @@ export const iamClaude: VariantConfig = {
       id: "theme",
       type: "theme",
       headline: "Choose how your words should look.",
-      sub: "You can change this anytime — or build your own",
+      sub: "You can change this anytime, or build your own",
       trialCaption: true,
       cta: "Continue",
     },
@@ -400,7 +402,7 @@ export const iamClaude: VariantConfig = {
       id: "life-goal",
       type: "text",
       headline: "Finish the sentence: a year from now, I want to be…",
-      sub: "Your words. They'll follow you through the app — and onto your Home Screen if you want.",
+      sub: "Your words. They'll follow you through the app, and onto your Home Screen if you want.",
       placeholder: "…someone who shows up every single day",
       multiline: true,
       maxLength: 280,
@@ -411,16 +413,17 @@ export const iamClaude: VariantConfig = {
     {
       id: "achieve",
       type: "multi",
-      headline: "What do you want to achieve with Future Self?",
+      headline: "A year in, what should have changed?",
       sub: "Choose at least one",
       minSelect: 1,
       options: [
-        { slug: "best-self", label: "Become the best version of myself" },
-        { slug: "discipline", label: "Build discipline that lasts" },
-        { slug: "confidence", label: "Feel more self-confident" },
-        { slug: "mindset", label: "Develop a positive mindset" },
-        { slug: "presence", label: "Be more present and enjoy life" },
-        { slug: "mental-health", label: "Improve my mental health" },
+        // Kept short so each answer stays a single row on a 6.1" phone.
+        { slug: "best-self", label: "I'm the person I imagined" },
+        { slug: "discipline", label: "Discipline that holds" },
+        { slug: "confidence", label: "I trust myself more" },
+        { slug: "mindset", label: "My thinking got lighter" },
+        { slug: "presence", label: "I'm present, not rushing" },
+        { slug: "mental-health", label: "I care for my mental well-being" },
       ],
       skippable: true,
       // Last question before the result/paywall.
@@ -435,7 +438,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "source",
       type: "single",
-      headline: "One last thing — how did you find us?",
+      headline: "One last thing: how did you find us?",
       sub: "It helps a small team keep showing up there",
       options: [
         { slug: "web", label: "Web search" },

@@ -179,7 +179,7 @@ export default function NotificationSettingsScreen() {
           >
             <AppText variant="body">
               {permission === "denied"
-                ? "Notifications are off in system settings. Tap to re-request — or enable them in Settings."
+                ? "Notifications are off in system settings. Tap to re-request, or enable them in Settings."
                 : "Notifications aren't on yet. Tap to allow them."}
             </AppText>
           </Pressable>
@@ -231,7 +231,7 @@ export default function NotificationSettingsScreen() {
           60,
         )}
         <AppText variant="label" tone="ink3" style={styles.hint}>
-          Times are targets, not guarantees — delivery adapts to your day and
+          Times are targets, not guarantees. Delivery adapts to your day and
           timezone.
         </AppText>
 

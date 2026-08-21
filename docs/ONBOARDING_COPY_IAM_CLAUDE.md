@@ -119,3 +119,35 @@ this variant defers identity to the main app.
 `notification_permission{granted}`, `paywall_viewed{placement:"onboarding"}`,
 `trial_started`, `purchase_completed`, `purchase_cancelled`,
 `onboarding_completed`.
+
+## 2026-08-21 feedback round
+
+Founder feedback plus the claims/IP review (`docs/ONBOARDING_CLAIMS_AND_IP_REVIEW.md`)
+changed the copy below; `src/features/onboarding/variants/iamClaude.ts` is the
+source of truth, this spec's earlier sections are not re-transcribed.
+
+- **`goals`**: `maxSelect: 3` removed (every goal is selectable); sub is now
+  "They shape your daily quotes and affirmations."
+- **`streak`**: the three "Days 1-3 / 4-14 / 15-21" beats and the habit
+  footnote are gone (80 words on screen down to 24). The screen is now the
+  day "1", the week tracker, one sub and one small line. The tracker starts on
+  the device's real weekday (`weekStrip.ts`) instead of a hardcoded "Sa".
+- **`practice-mode`**: reframed around the words, not a person ("How will you
+  use your quotes and affirmations?"); "Reading them on my phone" is now
+  "Reading them in the app". Slugs unchanged.
+- **`science`**: headline and sub rewritten to stay inside the cited
+  literature (no "daily self-affirmation boosts...", no "most strongly when
+  people focus on their future selves"); Zhang et al. 2025 added to the
+  footnote as the source for the well-being claim.
+- **`benefits`**: headline and all three bullets rewritten; "Improve mental
+  health" is now "Support your mental well-being" (legal review 2026-08-17 F.8).
+- **De-duplicated from the reference app** (verbatim strings, not structure):
+  `repetition`, `vision`, `belief-manifestation`, `belief-thoughts`,
+  `belief-rewire`, `familiarity`, `habit-helper`, `streak-goal`,
+  `time-devotion` options, `achieve`, the notifications CTA (now "Turn on
+  reminders"), the streak card caption (removed), and the timeline paywall's
+  title and first step.
+- **No em dashes** anywhere in user-facing copy (guarded by a test in
+  `src/__tests__/variants.test.ts`).
+- **Result screen** is a swipeable card carousel instead of one tall card;
+  every card is still composed only from real answers.

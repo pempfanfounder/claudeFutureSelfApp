@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInRight, ZoomIn } from "react-native-reanimated";
 
@@ -7,8 +8,8 @@ import { radii, spacing } from "@/design-system/tokens";
 
 import { resolveLines, resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
+import { weekStrip } from "./weekStrip";
 
-const WEEKDAYS = ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"];
 const DEFAULT_GOAL_DAYS = "21";
 const DAY_CHECK_SIZE = 14;
 
@@ -16,6 +17,8 @@ interface StreakCommitStepProps {
   step: OnboardingStep;
   ctx: OnboardingContext;
   onAnswer: (value: string) => void;
+  /** Injectable clock for tests; production uses the device date. */
+  now?: Date;
 }
 
 /**
@@ -28,22 +31,26 @@ function chosenGoalDays(ctx: OnboardingContext): string {
 }
 
 /**
- * I Am-style streak commitment: day "1", weekday tracker, then three
- * education beats on how the habit actually forms. No goal picking
- * here — the single CTA commits to the goal chosen one screen earlier
- * ("I'm in for {N} days"), defaulting to 21 days.
+ * I Am-style streak commitment: the day "1", a week tracker that starts
+ * on today, one line of what counts and one small line of what breaks
+ * it. Variants that still want education beats can pass `lines`. No goal
+ * picking here; the single CTA commits to the goal chosen one screen
+ * earlier ("I'm in for {N} days"), defaulting to 21 days.
  */
 export function StreakCommitStep({
   step,
   ctx,
   onAnswer,
+  now,
 }: StreakCommitStepProps) {
   const colors = useColors();
   const lines = resolveLines(step, ctx);
   const goalDays = chosenGoalDays(ctx);
+  const days = useMemo(() => weekStrip(now ?? new Date()), [now]);
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
+      {/* Short content centres itself; longer variants still scroll. */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -70,14 +77,19 @@ export function StreakCommitStep({
           {resolveText(step.sub, ctx)}
         </AppText>
 
-        <View style={[styles.weekCard, { backgroundColor: colors.card }]}>
+        <View
+          style={[styles.weekCard, { backgroundColor: colors.card }]}
+          testID="week-strip"
+        >
           <View style={styles.weekRow}>
-            {WEEKDAYS.map((day, i) => (
-              <View key={day} style={styles.weekDay}>
+            {days.map((day, i) => (
+              // Labels can repeat in some locales, so key by position.
+              <View key={i} style={styles.weekDay}>
                 <View
                   style={[
                     styles.weekDot,
                     { borderColor: colors.borderStrong },
+                    // The strip starts on today, so index 0 is today.
                     i === 0 && {
                       backgroundColor: colors.accent,
                       borderColor: colors.accent,
@@ -92,43 +104,37 @@ export function StreakCommitStep({
                     />
                   ) : null}
                 </View>
-                <AppText variant="label" tone="ink3">
+                <AppText variant="label" tone={i === 0 ? "ink" : "ink3"}>
                   {day}
                 </AppText>
               </View>
             ))}
           </View>
-          <AppText
-            variant="label"
-            tone="ink3"
-            center
-            style={styles.weekCaption}
-          >
-            Build a streak, one day at a time
-          </AppText>
         </View>
 
-        <View style={styles.lines}>
-          {lines.map((line, i) => {
-            const sep = line.indexOf(" · ");
-            const prefix = sep >= 0 ? line.slice(0, sep) : null;
-            const body = sep >= 0 ? line.slice(sep + 3) : line;
-            return (
-              <Animated.View
-                key={line}
-                entering={FadeInRight.duration(280).delay(150 + i * 120)}
-                style={styles.lineRow}
-              >
-                {prefix ? (
-                  <AppText variant="label" tone="ink3">
-                    {prefix}
-                  </AppText>
-                ) : null}
-                <AppText variant="body">{body}</AppText>
-              </Animated.View>
-            );
-          })}
-        </View>
+        {lines.length > 0 ? (
+          <View style={styles.lines}>
+            {lines.map((line, i) => {
+              const sep = line.indexOf(" · ");
+              const prefix = sep >= 0 ? line.slice(0, sep) : null;
+              const body = sep >= 0 ? line.slice(sep + 3) : line;
+              return (
+                <Animated.View
+                  key={line}
+                  entering={FadeInRight.duration(280).delay(150 + i * 120)}
+                  style={styles.lineRow}
+                >
+                  {prefix ? (
+                    <AppText variant="label" tone="ink3">
+                      {prefix}
+                    </AppText>
+                  ) : null}
+                  <AppText variant="body">{body}</AppText>
+                </Animated.View>
+              );
+            })}
+          </View>
+        ) : null}
 
         {step.info ? (
           <AppText variant="label" tone="ink3" center style={styles.info}>
@@ -151,14 +157,19 @@ export function StreakCommitStep({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingTop: 64, paddingBottom: spacing.xl },
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
   dayWrap: { alignItems: "center", marginBottom: spacing.xl },
   groundLine: { width: 72, height: 2, borderRadius: 1, marginTop: spacing.xs },
   sub: { marginTop: spacing.md },
   weekCard: {
     borderRadius: radii.lg,
     padding: spacing.lg,
-    marginTop: spacing.xl,
+    marginTop: spacing.xxl,
     marginBottom: spacing.xl,
   },
   weekRow: { flexDirection: "row", justifyContent: "space-between" },
@@ -171,9 +182,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  weekCaption: { marginTop: spacing.md },
   lines: { gap: spacing.lg, marginBottom: spacing.xl },
   lineRow: { gap: spacing.xs },
-  info: { marginBottom: spacing.md, paddingHorizontal: spacing.lg },
+  info: { paddingHorizontal: spacing.lg },
   footer: { paddingBottom: spacing.sm },
 });

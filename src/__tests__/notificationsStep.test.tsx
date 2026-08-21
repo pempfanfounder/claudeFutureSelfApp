@@ -5,7 +5,10 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
 import { DAILY_LIMIT } from "@/features/content/types";
-import { requestNotificationPermission } from "@/features/notifications/push";
+import {
+  getPermissionStatus,
+  requestNotificationPermission,
+} from "@/features/notifications/push";
 import {
   applyWindowChange,
   dateToMinutes,
@@ -22,7 +25,12 @@ import type {
 
 jest.mock("@/features/notifications/push", () => ({
   requestNotificationPermission: jest.fn().mockResolvedValue("granted"),
+  getPermissionStatus: jest.fn().mockResolvedValue("undetermined"),
 }));
+
+const mockPermissionStatus = getPermissionStatus as jest.MockedFunction<
+  typeof getPermissionStatus
+>;
 
 const ctx: OnboardingContext = {
   name: "Sam",
@@ -38,7 +46,7 @@ const STEP: OnboardingStep = {
   headline: "Get the right words through the day.",
   sub: "You choose how often, and when.",
   mockLine: "Discipline is remembering what you want.",
-  cta: "Allow and Save",
+  cta: "Turn on reminders",
 };
 
 /** A fixed day at h:m local — what the native pickers hand back. */
@@ -251,8 +259,33 @@ describe("NotificationsStep (iam)", () => {
     expect(prefs().windowStartMinutes).toBe(7 * 60 + 30);
   });
 
-  it("Allow and Save asks the OS, stores the status and advances", async () => {
+  it("Turn on reminders asks the OS, stores the status and advances", async () => {
     const { screen, onDone } = renderStep();
+    fireEvent.press(screen.getByTestId("notif-allow"));
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(requestNotificationPermission).toHaveBeenCalledTimes(1);
+    expect(useOnboardingStore.getState().permissionStatus).toBe("granted");
+  });
+
+  it("keeps the configured CTA while permission is still undetermined", async () => {
+    const { screen } = renderStep();
+    await waitFor(() => expect(mockPermissionStatus).toHaveBeenCalled());
+    expect(screen.getByTestId("notif-allow")).toHaveTextContent(
+      "Turn on reminders",
+    );
+  });
+
+  it("says just 'Save' when the OS already granted permission", async () => {
+    // Reinstall / update over a build that had permission: iOS returns
+    // the carried-over status and shows no dialog, so promising one would
+    // be a lie. The button still saves the counts and window.
+    mockPermissionStatus.mockResolvedValueOnce("granted");
+    const { screen, onDone } = renderStep();
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-allow")).toHaveTextContent("Save"),
+    );
+    expect(screen.queryByText("Turn on reminders")).toBeNull();
+
     fireEvent.press(screen.getByTestId("notif-allow"));
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
     expect(requestNotificationPermission).toHaveBeenCalledTimes(1);

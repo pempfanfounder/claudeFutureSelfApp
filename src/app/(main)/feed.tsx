@@ -292,7 +292,7 @@ function EndCard({
       </AppText>
       <AppText variant="lead" tone="ink2" center style={styles.endSub}>
         {completed
-          ? "Streak's safe. Come back tomorrow — same rhythm, new words."
+          ? "Streak's safe. Come back tomorrow: same rhythm, new words."
           : tab === "quote"
             ? "Read three in total and today counts. Your affirmations are waiting too."
             : "Read three in total and today counts. Your quotes are waiting too."}

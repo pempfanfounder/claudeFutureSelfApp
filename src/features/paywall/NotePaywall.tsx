@@ -72,12 +72,12 @@ export function NotePaywall({
   const body =
     voice === "team"
       ? [
-          "Future Self is a small team. There are no ads here, and nothing about your attention is for sale — the app works for you, not on you.",
+          "Future Self is a small team. There are no ads here, and nothing about your attention is for sale. The app works for you, not on you.",
           `That's only possible because it's paid.${trial ? ` Start with ${trial} free, on us. If it doesn't move you, cancel anytime and pay nothing.` : ""}`,
         ]
       : [
           `You just told me who you want to become${userName ? `, ${userName}` : ""}. I'm not letting that be another tab you close.`,
-          "Future Self has no ads and sells nothing about you — the app works for you, which is why it's paid.",
+          "Future Self has no ads and sells nothing about you. The app works for you, which is why it's paid.",
           trial
             ? `Take ${trial} free. If it doesn't move you, cancel anytime and pay nothing. But you didn't come this far to only come this far.`
             : "If it doesn't move you, cancel anytime. But you didn't come this far to only come this far.",
@@ -116,7 +116,7 @@ export function NotePaywall({
                 return (
                   <View key={p.identifier} style={styles.planWrapper}>
                     <Button
-                      label={`${p.product.title || p.packageType} — ${formatPriceLine(p)}${pTrial ? ` (${pTrial.label} free)` : ""}`}
+                      label={`${p.product.title || p.packageType} · ${formatPriceLine(p)}${pTrial ? ` (${pTrial.label} free)` : ""}`}
                       variant={isSelected ? "primary" : "secondary"}
                       onPress={() => data.selectPackage(p)}
                       style={styles.planButton}
@@ -131,7 +131,7 @@ export function NotePaywall({
           {data.unavailable ? (
             <AppText variant="body" tone="ink2" center style={styles.paragraph}>
               {
-                "The store can't be reached right now. Access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+                "The store can't be reached right now. Access stays locked until a purchase completes. Try again shortly, or Restore if you've subscribed before."
               }
             </AppText>
           ) : null}

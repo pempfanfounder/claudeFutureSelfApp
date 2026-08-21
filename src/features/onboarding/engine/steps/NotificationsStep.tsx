@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 
@@ -6,7 +6,10 @@ import { AppText, Button } from "@/design-system/components";
 import { spacing } from "@/design-system/tokens";
 
 import { DAILY_LIMIT } from "@/features/content/types";
-import { requestNotificationPermission } from "@/features/notifications/push";
+import {
+  getPermissionStatus,
+  requestNotificationPermission,
+} from "@/features/notifications/push";
 import {
   applyWindowChange,
   formatMinutes,
@@ -30,10 +33,10 @@ interface NotificationsStepProps {
 
 /**
  * Notification education before the OS dialog.
- * iam family: the I Am config screen — mock notification banner, one
+ * iam family: the config screen. A mock notification banner, one
  * count pill per type (Quotes / Affirmations, 0..DAILY_LIMIT; the server
  * enforces the cap too), a Start at / End at card with the native time
- * pickers, then "Allow and Save".
+ * pickers, then "Turn on reminders".
  * stella family: streamed voice + a single contextual ask.
  */
 export function NotificationsStep({
@@ -46,6 +49,22 @@ export function NotificationsStep({
     useOnboardingStore();
   const [requesting, setRequesting] = useState(false);
   const [streamed, setStreamed] = useState(false);
+  // Reinstalls and updates carry the OS permission over, so iOS shows no
+  // dialog on the next request. Saying "Allow" then would promise a
+  // prompt that never appears; the button only saves the counts.
+  const [alreadyGranted, setAlreadyGranted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPermissionStatus()
+      .then((status) => {
+        if (!cancelled) setAlreadyGranted(status === "granted");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const ask = async () => {
     setRequesting(true);
@@ -135,7 +154,11 @@ export function NotificationsStep({
       </ScrollView>
       <View style={styles.footer}>
         <Button
-          label={resolveText(step.cta, ctx) ?? "Allow and Save"}
+          label={
+            alreadyGranted
+              ? "Save"
+              : (resolveText(step.cta, ctx) ?? "Turn on reminders")
+          }
           onPress={ask}
           loading={requesting}
           testID="notif-allow"

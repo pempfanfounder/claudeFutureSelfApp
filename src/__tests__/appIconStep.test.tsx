@@ -76,7 +76,7 @@ const STEP: OnboardingStep = {
   id: "app-icon",
   type: "app-icon",
   headline: "Pick the icon you want to see every day.",
-  sub: "This becomes Future Self's icon on your Home Screen — change it anytime.",
+  sub: "This becomes Future Self's icon on your Home Screen. Change it anytime.",
   trialCaption: true,
   cta: "Continue",
   modelKey: "raw.app_icon",
@@ -114,7 +114,7 @@ describe("AppIconStep", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "This becomes Future Self's icon on your Home Screen — change it anytime.",
+        "This becomes Future Self's icon on your Home Screen. Change it anytime.",
       ),
     ).toBeTruthy();
     expect(screen.getByText("Try everything free")).toBeTruthy();

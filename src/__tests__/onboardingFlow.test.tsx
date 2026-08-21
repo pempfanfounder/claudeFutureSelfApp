@@ -204,7 +204,7 @@ describe("OnboardingFlow smoke render", () => {
     const screen = renderVariant("iam-claude", introIndex, answers);
     expect(
       screen.getByText(
-        "Affirmations are short, positive statements you repeat to yourself — until they become how you think.",
+        "Affirmations are short, positive statements you repeat to yourself, until they become how you think.",
       ),
     ).toBeTruthy();
     screen.unmount();
@@ -215,12 +215,12 @@ describe("OnboardingFlow smoke render", () => {
     const screen = renderVariant("iam-claude", scienceIndex);
     expect(
       screen.getByText(
-        "Studies show daily self-affirmation boosts self-confidence, resilience and overall well-being.",
+        "Research links self-affirmation to greater well-being, less stress and more follow-through on goals.",
       ),
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "Cohen & Sherman, Annual Review of Psychology (2014) · Cascio et al., Social Cognitive and Affective Neuroscience (2016)",
+        "Cohen & Sherman, Annual Review of Psychology (2014) · Zhang et al., American Psychologist (2025) · Cascio et al., Social Cognitive and Affective Neuroscience (2016)",
       ),
     ).toBeTruthy();
     screen.unmount();
@@ -229,13 +229,11 @@ describe("OnboardingFlow smoke render", () => {
   it("renders the benefits screen with its three bullets", async () => {
     const benefitsIndex = indexOfStep("iam-claude", (s) => s.id === "benefits");
     const screen = renderVariant("iam-claude", benefitsIndex);
-    expect(
-      screen.getByText("The benefits of daily personalized affirmations"),
-    ).toBeTruthy();
+    expect(screen.getByText("What a daily practice can do")).toBeTruthy();
     for (const line of [
-      "Focus on achieving your goals",
-      "Shift negative thoughts",
-      "Improve mental health",
+      "Keep your goals in sight",
+      "Soften negative self-talk",
+      "Support your mental well-being",
     ]) {
       expect(screen.getByText(line)).toBeTruthy();
     }
@@ -268,10 +266,15 @@ describe("OnboardingFlow smoke render", () => {
     expect(screen.getByText("About 1 minute a day.")).toBeTruthy();
     expect(
       screen.getByText(
-        "You'll practice by reading them on your phone and saying them out loud.",
+        "You'll practice by reading them in the app and saying them out loud.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/\bmix\b/i)).toBeNull();
+    // The plan and the commitments are separate swipeable pages, so the
+    // dots appear and every page is mounted.
+    expect(screen.getByText("Your daily plan")).toBeTruthy();
+    expect(screen.getByText("What you committed to")).toBeTruthy();
+    expect(screen.getByTestId("result-dots")).toBeTruthy();
     screen.unmount();
   });
 
@@ -282,6 +285,12 @@ describe("OnboardingFlow smoke render", () => {
     expect(screen.queryByText(/a day\.$/)).toBeNull();
     expect(screen.queryByText(/You'll practice by/)).toBeNull();
     expect(screen.queryByText(/\bmix\b/i)).toBeNull();
+    // One page of real content (no library in tests, so no preview page):
+    // the carousel still renders and the dots stay hidden.
+    expect(screen.getByText("Your daily plan")).toBeTruthy();
+    expect(screen.queryByText("What you committed to")).toBeNull();
+    expect(screen.getByTestId("result-carousel")).toBeTruthy();
+    expect(screen.queryByTestId("result-dots")).toBeNull();
     screen.unmount();
   });
 
