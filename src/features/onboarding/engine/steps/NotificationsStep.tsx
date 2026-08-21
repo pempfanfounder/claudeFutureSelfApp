@@ -1,18 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 
-import { AppText, Button, Icon } from "@/design-system/components";
-import { useColors } from "@/design-system/ThemeProvider";
-import { radii, shadows, spacing } from "@/design-system/tokens";
+import { AppText, Button } from "@/design-system/components";
+import { spacing } from "@/design-system/tokens";
 
 import { DAILY_LIMIT } from "@/features/content/types";
-import { requestNotificationPermission } from "@/features/notifications/push";
+import {
+  getPermissionStatus,
+  requestNotificationPermission,
+} from "@/features/notifications/push";
+import {
+  applyWindowChange,
+  formatMinutes,
+  type WindowKey,
+} from "@/features/notifications/time";
 
 import { resolveLines, resolveText } from "../resolve";
 import { useOnboardingStore } from "../store";
 import { StreamedLines } from "../StreamedLines";
 import type { OnboardingContext, OnboardingStep } from "../types";
+import { CountRow } from "./notifications/CountRow";
+import { MockNotification } from "./notifications/MockNotification";
+import { TimeWindowCard } from "./notifications/TimeWindowCard";
 
 interface NotificationsStepProps {
   step: OnboardingStep;
@@ -23,8 +33,10 @@ interface NotificationsStepProps {
 
 /**
  * Notification education before the OS dialog.
- * iam family: I Am-style config screen — mock notification, per-type
- * frequency steppers (0-20, server-enforced cap), window steppers.
+ * iam family: the config screen. A mock notification banner, one
+ * count pill per type (Quotes / Affirmations, 0..DAILY_LIMIT; the server
+ * enforces the cap too), a Start at / End at card with the native time
+ * pickers, then "Turn on reminders".
  * stella family: streamed voice + a single contextual ask.
  */
 export function NotificationsStep({
@@ -33,11 +45,26 @@ export function NotificationsStep({
   family,
   onDone,
 }: NotificationsStepProps) {
-  const colors = useColors();
   const { notificationPrefs, setNotificationPrefs, setPermissionStatus } =
     useOnboardingStore();
   const [requesting, setRequesting] = useState(false);
   const [streamed, setStreamed] = useState(false);
+  // Reinstalls and updates carry the OS permission over, so iOS shows no
+  // dialog on the next request. Saying "Allow" then would promise a
+  // prompt that never appears; the button only saves the counts.
+  const [alreadyGranted, setAlreadyGranted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPermissionStatus()
+      .then((status) => {
+        if (!cancelled) setAlreadyGranted(status === "granted");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const ask = async () => {
     setRequesting(true);
@@ -57,7 +84,7 @@ export function NotificationsStep({
         {streamed ? (
           <Animated.View entering={FadeIn.duration(300)}>
             <Button
-              label={step.cta ?? "Turn them on"}
+              label={resolveText(step.cta, ctx) ?? "Turn them on"}
               onPress={ask}
               loading={requesting}
               testID="notif-allow"
@@ -73,51 +100,10 @@ export function NotificationsStep({
     );
   }
 
-  const stepper = (
-    label: string,
-    value: number,
-    onChange: (next: number) => void,
-    max: number,
-    suffix: string,
-  ) => (
-    <View
-      style={[
-        styles.row,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <AppText variant="lead" style={styles.rowLabel}>
-        {label}
-      </AppText>
-      <View style={styles.stepper}>
-        <Pressable
-          onPress={() => onChange(Math.max(0, value - 1))}
-          style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
-          hitSlop={6}
-        >
-          <Icon name="minus" size={18} color={colors.ink} />
-        </Pressable>
-        <AppText variant="lead" style={styles.stepValue}>
-          {value}
-          {suffix}
-        </AppText>
-        <Pressable
-          onPress={() => onChange(Math.min(max, value + 1))}
-          style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
-          hitSlop={6}
-        >
-          <Icon name="plus" size={18} color={colors.ink} />
-        </Pressable>
-      </View>
-    </View>
-  );
-
-  const hourLabel = (minutes: number) => {
-    const h = Math.floor(minutes / 60) % 24;
-    const suffix = h < 12 ? "AM" : "PM";
-    const display = h % 12 === 0 ? 12 : h % 12;
-    return `${display}:00 ${suffix}`;
-  };
+  // The picker hands back raw minutes; the pure rule snaps them to the
+  // 30-minute grid and moves the other bound so start ≤ end − 60.
+  const changeWindow = (key: WindowKey, minutes: number) =>
+    setNotificationPrefs(applyWindowChange(notificationPrefs, key, minutes));
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
@@ -130,83 +116,60 @@ export function NotificationsStep({
           {resolveText(step.sub, ctx)}
         </AppText>
 
-        <View
-          style={[
-            styles.mockCard,
-            { backgroundColor: colors.card },
-            shadows.md,
-          ]}
-        >
-          <View style={styles.mockHeader}>
-            <View style={[styles.mockIcon, { backgroundColor: colors.bg }]}>
-              <AppText variant="label">fs</AppText>
-            </View>
-            <AppText variant="label" tone="ink2">
-              Future Self
-            </AppText>
-            <AppText variant="label" tone="ink3" style={styles.mockNow}>
-              Now
-            </AppText>
-          </View>
-          <AppText variant="body" style={styles.mockBody}>
-            {step.mockLine ?? "Discipline is remembering what you want."}
-          </AppText>
+        <View style={styles.mock}>
+          <MockNotification
+            body={step.mockLine ?? "Discipline is remembering what you want."}
+          />
         </View>
 
-        {stepper(
-          "Quotes",
-          notificationPrefs.quotesPerDay,
-          (v) => setNotificationPrefs({ quotesPerDay: v }),
-          DAILY_LIMIT,
-          "x a day",
-        )}
-        {stepper(
-          "Affirmations",
-          notificationPrefs.affirmationsPerDay,
-          (v) => setNotificationPrefs({ affirmationsPerDay: v }),
-          DAILY_LIMIT,
-          "x a day",
-        )}
-        {stepper(
-          "Start at",
-          notificationPrefs.windowStartMinutes / 60,
-          (v) =>
-            setNotificationPrefs({
-              windowStartMinutes: Math.min(
-                v * 60,
-                notificationPrefs.windowEndMinutes - 60,
-              ),
-            }),
-          23,
-          `:00`,
-        )}
-        {stepper(
-          "End at",
-          notificationPrefs.windowEndMinutes / 60,
-          (v) =>
-            setNotificationPrefs({
-              windowEndMinutes: Math.max(
-                v * 60,
-                notificationPrefs.windowStartMinutes + 60,
-              ),
-            }),
-          23,
-          ":00",
-        )}
-        <AppText variant="label" tone="ink3" center style={styles.windowHint}>
-          {`Between ${hourLabel(notificationPrefs.windowStartMinutes)} and ${hourLabel(
+        <View style={styles.rows}>
+          <CountRow
+            id="quotes"
+            label="Quotes"
+            value={notificationPrefs.quotesPerDay}
+            max={DAILY_LIMIT}
+            onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
+          />
+          <CountRow
+            id="affirmations"
+            label="Affirmations"
+            value={notificationPrefs.affirmationsPerDay}
+            max={DAILY_LIMIT}
+            onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
+          />
+          <TimeWindowCard range={notificationPrefs} onChange={changeWindow} />
+        </View>
+
+        <AppText
+          variant="label"
+          tone="ink3"
+          center
+          style={styles.windowHint}
+          testID="window-hint"
+        >
+          {`Between ${formatMinutes(notificationPrefs.windowStartMinutes)} and ${formatMinutes(
             notificationPrefs.windowEndMinutes,
           )} · your future self won't wake you`}
         </AppText>
       </ScrollView>
       <View style={styles.footer}>
         <Button
-          label={step.cta ?? "Allow and Save"}
+          label={
+            alreadyGranted
+              ? "Save"
+              : (resolveText(step.cta, ctx) ?? "Turn on reminders")
+          }
           onPress={ask}
           loading={requesting}
           testID="notif-allow"
         />
-        <Pressable onPress={onDone} style={styles.maybeLater} hitSlop={8}>
+        <Pressable
+          onPress={onDone}
+          style={styles.maybeLater}
+          hitSlop={8}
+          accessibilityRole="button"
+          testID="notif-not-now"
+        >
           <AppText variant="body" tone="ink3" center>
             Not now
           </AppText>
@@ -220,43 +183,10 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   stellaRoot: { flex: 1, justifyContent: "center" },
   content: { paddingTop: 72, paddingBottom: spacing.xl },
-  sub: { marginTop: spacing.md, marginBottom: spacing.xl },
-  mockCard: {
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  mockHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  mockIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mockNow: { marginLeft: "auto" },
-  mockBody: { marginTop: spacing.sm },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
-  },
-  rowLabel: { flex: 1 },
-  stepper: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  stepBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepValue: { minWidth: 76, textAlign: "center" },
-  windowHint: { marginTop: spacing.sm },
+  sub: { marginTop: spacing.md },
+  mock: { marginTop: spacing.xl },
+  rows: { marginTop: spacing.xxl, gap: spacing.md },
+  windowHint: { marginTop: spacing.md },
   footer: { paddingBottom: spacing.sm },
   maybeLater: { marginTop: spacing.lg },
 });

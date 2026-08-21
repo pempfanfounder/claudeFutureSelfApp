@@ -21,6 +21,7 @@ import { getVariantConfig } from "../variants";
 import { completeOnboarding } from "./completeOnboarding";
 import { resolveText } from "./resolve";
 import { markOnboardingComplete, useOnboardingStore } from "./store";
+import { AppIconStep } from "./steps/AppIconStep";
 import { IamStep } from "./steps/IamStep";
 import { NotificationsStep } from "./steps/NotificationsStep";
 import { PreparingStep } from "./steps/PreparingStep";
@@ -191,6 +192,10 @@ export function OnboardingFlow() {
         return (
           <StreakCommitStep step={step} ctx={ctx} onAnswer={handleAnswer} />
         );
+      case "app-icon":
+        // Records raw.app_icon only; completeOnboarding applies it once
+        // (iOS alerts on every icon change).
+        return <AppIconStep step={step} ctx={ctx} onAnswer={handleAnswer} />;
       case "theme":
         return <ThemeStep step={step} ctx={ctx} onDone={advance} />;
       case "result":

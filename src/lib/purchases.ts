@@ -35,6 +35,35 @@ export function isConfigured() {
   return configured || config.devMockPurchases;
 }
 
+/**
+ * Why a RevenueCat key must not be handed to the SDK. `null` = usable.
+ *
+ * - `test_…` (RevenueCat Test Store) keys are virtual: they never touch
+ *   StoreKit/Play, so a sandbox purchase is impossible with them, and the
+ *   SDK itself refuses to run one in a non-debug build — it shows a
+ *   "Wrong API Key" alert and terminates the app. Refusing here keeps a
+ *   misconfigured build alive (paywall shows the store-unavailable state)
+ *   instead of quitting on launch.
+ * - `appl_` on Android / `goog_` on iOS can never resolve products.
+ * Exported for tests.
+ */
+export function rejectApiKey(
+  apiKey: string,
+  platform: string = Platform.OS,
+  isDev: boolean = __DEV__,
+): string | null {
+  if (apiKey.startsWith("test_") && !isDev) {
+    return "RevenueCat Test Store key in a non-development build; use the appl_/goog_ key for this platform.";
+  }
+  if (platform === "ios" && apiKey.startsWith("goog_")) {
+    return "Android (goog_) RevenueCat key configured for iOS.";
+  }
+  if (platform === "android" && apiKey.startsWith("appl_")) {
+    return "iOS (appl_) RevenueCat key configured for Android.";
+  }
+  return null;
+}
+
 export async function initPurchases(appUserId?: string) {
   if (config.devMockPurchases) return;
   const apiKey =
@@ -45,6 +74,14 @@ export async function initPurchases(appUserId?: string) {
     console.warn(
       `[purchases] No RevenueCat API key found for platform "${Platform.OS}". Check environment configuration.`,
     );
+    return;
+  }
+  const rejection = rejectApiKey(apiKey);
+  if (rejection) {
+    console.warn(`[purchases] ${rejection}`);
+    monitoring.captureError(new Error(rejection), {
+      area: "purchases.configure",
+    });
     return;
   }
   if (configured) return;
@@ -134,7 +171,6 @@ export async function getCurrentOffering(): Promise<PurchasesOffering | null> {
     return null;
   }
 }
-
 
 export type PurchaseOutcome =
   | { status: "purchased" }

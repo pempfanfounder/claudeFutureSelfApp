@@ -16,6 +16,7 @@ import {
   registerDevice,
   requestNotificationPermission,
 } from "@/features/notifications/push";
+import { formatMinutes } from "@/features/notifications/time";
 
 interface Prefs {
   quotes_per_day: number;
@@ -37,13 +38,6 @@ const DEFAULT_PREFS: Prefs = {
   window_end_minutes: 1260,
   quiet_start_minutes: null,
   quiet_end_minutes: null,
-};
-
-const hourLabel = (minutes: number) => {
-  const h = Math.floor(minutes / 60) % 24;
-  const suffix = h < 12 ? "AM" : "PM";
-  const display = h % 12 === 0 ? 12 : h % 12;
-  return `${display}:00 ${suffix}`;
 };
 
 /**
@@ -185,7 +179,7 @@ export default function NotificationSettingsScreen() {
           >
             <AppText variant="body">
               {permission === "denied"
-                ? "Notifications are off in system settings. Tap to re-request — or enable them in Settings."
+                ? "Notifications are off in system settings. Tap to re-request, or enable them in Settings."
                 : "Notifications aren't on yet. Tap to allow them."}
             </AppText>
           </Pressable>
@@ -219,7 +213,7 @@ export default function NotificationSettingsScreen() {
               window_start_minutes: Math.min(v, prefs.window_end_minutes - 60),
             }),
           23 * 60,
-          hourLabel,
+          formatMinutes,
           0,
           60,
         )}
@@ -232,12 +226,12 @@ export default function NotificationSettingsScreen() {
               window_end_minutes: Math.max(v, prefs.window_start_minutes + 60),
             }),
           23 * 60,
-          hourLabel,
+          formatMinutes,
           60,
           60,
         )}
         <AppText variant="label" tone="ink3" style={styles.hint}>
-          Times are targets, not guarantees — delivery adapts to your day and
+          Times are targets, not guarantees. Delivery adapts to your day and
           timezone.
         </AppText>
 
@@ -263,7 +257,7 @@ export default function NotificationSettingsScreen() {
               prefs.quiet_start_minutes ?? 1320,
               (v) => save({ ...prefs, quiet_start_minutes: v }),
               23 * 60,
-              hourLabel,
+              formatMinutes,
               0,
               60,
             )
@@ -274,7 +268,7 @@ export default function NotificationSettingsScreen() {
               prefs.quiet_end_minutes ?? 480,
               (v) => save({ ...prefs, quiet_end_minutes: v }),
               23 * 60,
-              hourLabel,
+              formatMinutes,
               0,
               60,
             )

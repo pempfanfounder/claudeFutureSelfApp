@@ -13,10 +13,9 @@ import { AppText } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { LEGAL_URLS } from "@/lib/legal";
 
-import { PRIVACY_URL, TERMS_URL } from "./PaywallFooter";
-
-const SUPPORT_EMAIL = "denizsahinbusiness@gmail.com";
+const SUPPORT_EMAIL = "hello@joinfutureself.com";
 
 interface PrivacyChoicesSheetProps {
   visible: boolean;
@@ -69,12 +68,12 @@ export function PrivacyChoicesSheet({
     {
       key: "privacy",
       label: "Privacy Policy",
-      onPress: () => Linking.openURL(PRIVACY_URL),
+      onPress: () => Linking.openURL(LEGAL_URLS.privacy),
     },
     {
       key: "terms",
       label: "Terms of Service",
-      onPress: () => Linking.openURL(TERMS_URL),
+      onPress: () => Linking.openURL(LEGAL_URLS.terms),
     },
     {
       key: "support",

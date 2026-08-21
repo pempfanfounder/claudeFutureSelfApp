@@ -11,8 +11,18 @@ import { useFeedStore } from "@/features/content/feedStore";
 import { loadLibrary } from "@/features/content/repository";
 import type { ContentItem } from "@/features/content/types";
 
-/** Saved quotes & affirmations. Tap a row to open it full-screen. */
-export default function FavoritesScreen() {
+export interface FavoritesScreenProps {
+  /** True when rendered inside the home-screen morph overlay. */
+  embedded?: boolean;
+  /** Header close; defaults to `router.back()` on the pushed route. */
+  onClose?: () => void;
+}
+
+/**
+ * Saved quotes & affirmations. Tap a row to open it full-screen. Works both
+ * as the `/favorites` route and embedded in the heart-button morph.
+ */
+export default function FavoritesScreen({ onClose }: FavoritesScreenProps) {
   const colors = useColors();
   const userId = useAppState((s) => s.userId);
   const { favoriteIds, toggleFavorite } = useFeedStore();
@@ -27,7 +37,12 @@ export default function FavoritesScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable
+          onPress={onClose ?? (() => router.back())}
+          hitSlop={12}
+          accessibilityLabel="Close"
+          testID="favorites-close"
+        >
           <Icon name="close" size={22} color={colors.ink3} />
         </Pressable>
         <AppText variant="h3">Saved Quotes</AppText>
@@ -40,7 +55,7 @@ export default function FavoritesScreen() {
             Nothing saved yet
           </AppText>
           <AppText variant="body" center tone="ink3" style={styles.emptySub}>
-            Double-tap any card — or tap the heart — and it lives here.
+            Double-tap any card, or tap the heart, and it lives here.
           </AppText>
         </View>
       ) : (

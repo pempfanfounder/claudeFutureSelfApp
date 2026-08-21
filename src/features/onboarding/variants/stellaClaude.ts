@@ -22,7 +22,7 @@ export const stellaClaude: VariantConfig = {
       id: "notifications",
       type: "notifications",
       lines: [
-        "Future Self works by finding you during your day — a few of the right words, spread through the hours you choose.",
+        "Future Self works by finding you during your day: a few of the right words, spread through the hours you choose.",
         "Turn on notifications so today-you can hear from us.",
       ],
       cta: "Turn them on",
@@ -33,15 +33,15 @@ export const stellaClaude: VariantConfig = {
       type: "info",
       lines: [
         "Hi. I'm Future Self.",
-        "I have a few questions — the kind people rarely stop to answer.",
-        "Answer honestly. What you write is for you — never for ads, never for analytics.",
+        "I have a few questions. The kind people rarely stop to answer.",
+        "Answer honestly. What you write is for you, never for ads, never for analytics.",
       ],
       cta: "Continue",
     },
     {
       id: "name",
       type: "text",
-      lines: ["First — what should I call you?"],
+      lines: ["First, what should I call you?"],
       placeholder: "Your name",
       maxLength: 40,
       modelKey: "name",
@@ -100,7 +100,7 @@ export const stellaClaude: VariantConfig = {
     {
       id: "frequency",
       type: "chips",
-      lines: ["Honestly — how often does the second kind win?"],
+      lines: ["Honestly, how often does the second kind win?"],
       minSelect: 1,
       maxSelect: 1,
       options: [
@@ -154,7 +154,7 @@ export const stellaClaude: VariantConfig = {
         { slug: "terrifying", label: "Honestly? Terrifying" },
         { slug: "sad", label: "Sad, but familiar" },
         { slug: "refuse", label: "I refuse to find out" },
-        { slug: "want-more", label: "I'd survive it — but I want more" },
+        { slug: "want-more", label: "I'd survive it, but I want more" },
       ],
       modelKey: "raw.projection",
     },
@@ -163,7 +163,7 @@ export const stellaClaude: VariantConfig = {
       type: "info",
       lines: [
         "Then let's not find out.",
-        "Picture the version of you who followed through. They exist — they're just further down the road you keep stepping off.",
+        "Picture the version of you who followed through. They exist. They're just further down the road you keep stepping off.",
       ],
       cta: "Continue",
     },
@@ -216,7 +216,7 @@ export const stellaClaude: VariantConfig = {
       type: "info",
       lines: [
         "That's everything I need.",
-        "I'm putting together your daily direction — the quotes, the affirmations, and the moments in your day they should arrive.",
+        "I'm putting together your daily direction: the quotes, the affirmations, and the moments in your day they should arrive.",
       ],
       autoAdvanceMs: 3600,
     },
@@ -230,7 +230,7 @@ export const stellaClaude: VariantConfig = {
       type: "auth-sheet",
       headline: (ctx) =>
         ctx.name ? `Keep it safe, ${ctx.name}.` : "Keep it safe.",
-      sub: "Sign in so your goal, your streak and your saved quotes survive a lost phone — and follow you to a new one.",
+      sub: "Sign in so your goal, your streak and your saved quotes survive a lost phone, and follow you to a new one.",
       secondaryCta: "Not now",
     },
     {
@@ -241,7 +241,7 @@ export const stellaClaude: VariantConfig = {
       id: "post-auth",
       type: "auth-sheet",
       headline: "One tap so this is never lost.",
-      sub: "Your goal, your streak and your saved quotes — safe on any device.",
+      sub: "Your goal, your streak and your saved quotes, safe on any device.",
       secondaryCta: "Not now",
       condition: (ctx) => ctx.isAnonymous,
     },

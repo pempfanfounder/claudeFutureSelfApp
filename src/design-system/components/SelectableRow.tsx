@@ -10,6 +10,12 @@ interface SelectableRowProps {
   emoji?: string;
   selected: boolean;
   onPress: () => void;
+  /**
+   * Tighter vertical rhythm for long option lists (6+), so every answer
+   * fits on one screen. Still a 53 pt row: comfortably above the 44 pt
+   * minimum touch target.
+   */
+  compact?: boolean;
   testID?: string;
 }
 
@@ -19,6 +25,7 @@ export function SelectableRow({
   emoji,
   selected,
   onPress,
+  compact,
   testID,
 }: SelectableRowProps) {
   const colors = useColors();
@@ -34,6 +41,7 @@ export function SelectableRow({
       onPress={handlePress}
       style={({ pressed }) => [
         styles.row,
+        compact && styles.rowCompact,
         {
           backgroundColor: selected ? colors.bgAlt : colors.card,
           borderColor: selected ? colors.ink : colors.border,
@@ -67,6 +75,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
+  // 12 + 12 padding + a 26 pt lead line + 3 pt of border = ~53 pt.
+  rowCompact: { paddingVertical: spacing.md, marginBottom: spacing.sm },
   label: { flex: 1 },
   dot: {
     width: 20,

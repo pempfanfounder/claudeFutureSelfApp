@@ -215,6 +215,7 @@ mark.todo {
   background: var(--card);
 }
 table { border-collapse: collapse; width: 100%; font-size: .95rem; min-width: 36rem; }
+.table-wide table { min-width: 60rem; }   /* six-column data table on the Privacy page */
 th, td {
   text-align: left;
   vertical-align: top;

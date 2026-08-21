@@ -14,7 +14,7 @@ export const iamFounder: VariantConfig = {
     {
       id: "welcome",
       type: "welcome",
-      headline: "Hey — it's me. Your future self.",
+      headline: "Hey, it's me. Your future self.",
       sub: "Everything I become starts with what you do today. Keep going.",
       cta: "Keep going",
     },
@@ -29,9 +29,9 @@ export const iamFounder: VariantConfig = {
       id: "readiness",
       type: "single",
       headline: "Are you ready to change the direction of your life?",
-      sub: "There's no wrong answer — only a starting point",
+      sub: "There's no wrong answer, only a starting point",
       options: [
-        { slug: "waiting", label: "Yes — I've been waiting for this" },
+        { slug: "waiting", label: "Yes, I've been waiting for this" },
         { slug: "think-so", label: "I think so" },
         { slug: "want-to", label: "I want to be" },
         { slug: "not-sure", label: "I'm not sure yet" },
@@ -94,7 +94,7 @@ export const iamFounder: VariantConfig = {
       id: "areas",
       type: "multi",
       headline: "What should Future Self help you with most?",
-      sub: "Choose up to three — they shape your daily quotes",
+      sub: "Choose up to three. They shape your daily quotes",
       minSelect: 1,
       maxSelect: 3,
       options: [
@@ -132,7 +132,7 @@ export const iamFounder: VariantConfig = {
         { slug: "no-plan", label: "I don't know where to start" },
         {
           slug: "on-track",
-          label: "I'm making progress — I want help staying on track",
+          label: "I'm making progress, I want help staying on track",
         },
       ],
       skippable: true,
@@ -142,7 +142,7 @@ export const iamFounder: VariantConfig = {
       id: "mechanism",
       type: "info",
       headline: "Future Self was built for exactly that.",
-      sub: "The right words, arriving at the right moments, until showing up becomes who you are. Small pushes, every day — that's the whole method, and it's why the app exists.",
+      sub: "The right words, arriving at the right moments, until showing up becomes who you are. Small pushes, every day: that's the whole method, and it's why the app exists.",
       cta: "Show me",
     },
     {
@@ -169,7 +169,7 @@ export const iamFounder: VariantConfig = {
       type: "notifications",
       headline: "Your future self will check in during the day.",
       sub: "A few of the right words, spread through your day. You decide how often, and when.",
-      cta: "Allow and Save",
+      cta: "Turn on reminders",
       mockLine: "You said you were ready. Prove it for five minutes.",
     },
     {
@@ -178,11 +178,11 @@ export const iamFounder: VariantConfig = {
       headline: "Show up for three words a day.",
       sub: "Read any 3 quotes or affirmations and the day counts. Your future self keeps score.",
       lines: [
-        "Days 1–3 · Momentum does the lifting. Enjoy it.",
-        "Days 4–14 · The dip. This is where the old you argues back — and where most people fold.",
-        "Days 15–21 · The reps take over. Showing up stops being a decision.",
+        "Days 1 to 3 · Momentum does the lifting. Enjoy it.",
+        "Days 4 to 14 · The dip. This is where the old you argues back, and where most people fold.",
+        "Days 15 to 21 · The reps take over. Showing up stops being a decision.",
       ],
-      info: "Most habit research puts the first real foothold around three weeks of daily reps.",
+      info: "Habit research says the early weeks are the hardest part. Keep the reps small and daily.",
       cta: "I'm in for 21 days",
       modelKey: "raw.streak_goal",
     },
@@ -207,6 +207,17 @@ export const iamFounder: VariantConfig = {
       modelKey: "affirmation_interests",
     },
     {
+      // I Am screen 33: icon picker right before the theme picker.
+      // Recorded here, applied once at completion (iOS alerts on change).
+      id: "app-icon",
+      type: "app-icon",
+      headline: "Which icon should I wear on your Home Screen?",
+      sub: "You'll see it every day. Change it whenever you like.",
+      trialCaption: true,
+      cta: "Continue",
+      modelKey: "raw.app_icon",
+    },
+    {
       id: "theme",
       type: "theme",
       headline: "Choose how your daily words should look.",
@@ -226,7 +237,7 @@ export const iamFounder: VariantConfig = {
         ctx.trialLength
           ? `Everything unlocked, free for ${ctx.trialLength}.`
           : "Everything unlocked from day one.",
-      sub: "We'll remind you before it ends. No surprises, no pressure — cancel anytime.",
+      sub: "We'll remind you before it ends. No surprises, no pressure. Cancel anytime.",
       cta: "How it works",
       condition: (ctx) => ctx.trialLength !== null,
     },

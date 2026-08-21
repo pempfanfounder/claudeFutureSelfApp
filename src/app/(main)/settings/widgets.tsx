@@ -128,7 +128,7 @@ export default function WidgetSettingsScreen() {
       "Add the widget",
       `Head to your ${
         tab === "home" ? "Home" : "Lock"
-      } Screen and follow the steps above — Future Self appears in the widget list.`,
+      } Screen and follow the steps above. Future Self appears in the widget list.`,
       [{ text: "OK" }],
     );
   };
@@ -323,8 +323,8 @@ function TabContent({
         Your pinned line
       </AppText>
       <AppText variant="body" tone="ink2">
-        Shown when a widget uses “My pinned line” — and always on the Future
-        Self widget. It stays exactly as written until you change it.
+        Shown when a widget uses “My pinned line”, and always on the Future Self
+        widget. It stays exactly as written until you change it.
       </AppText>
       <TextInput
         value={pinned}
