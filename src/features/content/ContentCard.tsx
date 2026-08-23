@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
 import { useCallback, useRef, useState } from "react";
 import { Pressable, Share, StyleSheet, View } from "react-native";
 import Animated, {
@@ -9,12 +10,14 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import { captureRef } from "react-native-view-shot";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { spacing, type } from "@/design-system/tokens";
+import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 
+import { QuoteShareCard, quoteFontSize } from "./QuoteShareCard";
 import type { ContentItem } from "./types";
 
 interface ContentCardProps {
@@ -43,13 +46,10 @@ export function ContentCard({
   const burstScale = useSharedValue(0);
   const burstOpacity = useSharedValue(0);
   const lastTap = useRef(0);
-  const [textSize] = useState(() =>
-    item.body.length > 180
-      ? type.sizes.h3
-      : item.body.length > 90
-        ? type.sizes.h2
-        : type.sizes.h1,
-  );
+  const shareCardRef = useRef<View>(null);
+  const sharingRef = useRef(false);
+  const [renderShareCard, setRenderShareCard] = useState(false);
+  const [textSize] = useState(() => quoteFontSize(item.body));
 
   const burst = useCallback(() => {
     burstScale.set(0.4);
@@ -81,16 +81,47 @@ export function ContentCard({
     }
   };
 
-  const share = async () => {
-    analytics.capture("content_shared", {
-      content_id: item.id,
-      content_type: item.type,
-    });
+  const shareAsText = useCallback(async () => {
     const suffix = item.author ? ` — ${item.author}` : "";
     await Share.share({
       message: `${item.body}${suffix}\n\nvia Future Self`,
     }).catch(() => {});
+  }, [item]);
+
+  const share = () => {
+    if (sharingRef.current) return;
+    sharingRef.current = true;
+    analytics.capture("content_shared", {
+      content_id: item.id,
+      content_type: item.type,
+      share_format: "card",
+    });
+    // Mount the off-screen card; capture happens once it has laid out.
+    setRenderShareCard(true);
   };
+
+  const captureAndShare = useCallback(async () => {
+    try {
+      // Give the freshly mounted card one frame to paint before capture.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const uri = await captureRef(shareCardRef, {
+        format: "png",
+        quality: 1,
+        width: 1080,
+        height: 1350,
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: "image/png" });
+      } else {
+        await shareAsText();
+      }
+    } catch {
+      await shareAsText();
+    } finally {
+      setRenderShareCard(false);
+      sharingRef.current = false;
+    }
+  }, [shareAsText]);
 
   const burstStyle = useAnimatedStyle(() => ({
     transform: [{ scale: burstScale.get() }],
@@ -119,8 +150,13 @@ export function ContentCard({
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={share} hitSlop={12} testID={`share-${item.id}`}>
-          <Icon name="share" size={24} color={colors.ink2} />
+        <Pressable
+          onPress={share}
+          hitSlop={12}
+          style={styles.actionBtn}
+          testID={`share-${item.id}`}
+        >
+          <Icon name="share" size={32} color={colors.ink2} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -129,15 +165,26 @@ export function ContentCard({
             onToggleFavorite();
           }}
           hitSlop={12}
+          style={styles.actionBtn}
           testID={`favorite-${item.id}`}
         >
           <Icon
             name={isFavorite ? "heartFill" : "heart"}
-            size={24}
+            size={32}
             color={isFavorite ? colors.accent : colors.ink2}
           />
         </Pressable>
       </View>
+
+      {renderShareCard ? (
+        <View style={styles.shareCardHost} pointerEvents="none">
+          <QuoteShareCard
+            ref={shareCardRef}
+            item={item}
+            onReady={captureAndShare}
+          />
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -157,9 +204,20 @@ const styles = StyleSheet.create({
   },
   actions: {
     position: "absolute",
-    bottom: 140,
+    bottom: 128,
     alignSelf: "center",
     flexDirection: "row",
     gap: spacing.xxxl,
+  },
+  actionBtn: {
+    width: 64,
+    height: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareCardHost: {
+    position: "absolute",
+    top: 0,
+    left: -9999,
   },
 });

@@ -13,6 +13,18 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          }
+        ]
       }
     },
     "android": {
@@ -48,7 +60,12 @@
         }
       ],
       "@sentry/react-native",
-      "@react-native-google-signin/google-signin",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.983503541251-f4srakcc70oii0og65ai2hajgfq497be"
+        }
+      ],
       [
         "expo-alternate-app-icons",
         [
@@ -141,7 +158,9 @@
             "deploymentTarget": "16.4"
           },
           "android": {
-            "minSdkVersion": 31
+            "minSdkVersion": 31,
+            "targetSdkVersion": 36,
+            "compileSdkVersion": 36
           }
         }
       ],
@@ -203,7 +222,8 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
