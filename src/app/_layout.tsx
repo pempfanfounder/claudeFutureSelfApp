@@ -16,6 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
+import { motion } from "@/design-system/tokens";
 import { initAnalytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
 import { initMonitoring, withMonitoring } from "@/lib/monitoring";
@@ -92,7 +93,13 @@ function RootLayout() {
     <ThemeProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, animation: "fade" }} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "fade",
+            animationDuration: motion.fast,
+          }}
+        />
       </AuthProvider>
     </ThemeProvider>
   );

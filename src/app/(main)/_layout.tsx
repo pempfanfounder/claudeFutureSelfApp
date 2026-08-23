@@ -1,6 +1,7 @@
 import { Redirect, Stack } from "expo-router";
 import { useEffect } from "react";
 
+import { motion } from "@/design-system/tokens";
 import { useAppState } from "@/lib/appState";
 
 import { registerDevice } from "@/features/notifications/push";
@@ -20,11 +21,16 @@ export default function MainLayout() {
   if (!onboardingComplete) return <Redirect href="/onboarding" />;
   if (!isPremium) return <Redirect href="/paywall" />;
 
+  // A fast crossfade everywhere: no sliding "page" rectangle, and
+  // pushes between sibling screens (settings → notifications) blend
+  // instead of visibly dismissing one card to present the next.
   return (
     <Stack
-      screenOptions={{ headerShown: false, animation: "slide_from_bottom" }}
-    >
-      <Stack.Screen name="feed" options={{ animation: "fade" }} />
-    </Stack>
+      screenOptions={{
+        headerShown: false,
+        animation: "fade",
+        animationDuration: motion.fast,
+      }}
+    />
   );
 }

@@ -121,10 +121,10 @@ export default function FeedScreen() {
       <View style={[styles.top, { top: insets.top + spacing.sm }]}>
         <Pressable
           onPress={() => router.push("/(main)/settings")}
-          style={[styles.avatar, { backgroundColor: colors.card }, shadows.sm]}
+          style={[styles.avatar, { backgroundColor: colors.card }, shadows.md]}
           testID="open-settings"
         >
-          <AppText variant="label">fs</AppText>
+          <AppText variant="h3">fs</AppText>
         </Pressable>
 
         <View
@@ -228,10 +228,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  // Matches the bottom fab size so all three chrome buttons read equal.
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
