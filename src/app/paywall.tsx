@@ -95,8 +95,6 @@ export default function PaywallRoute() {
     <TimelinePaywall
       data={offering}
       closeDelayMs={null}
-      trialReminder
-      onTrialReminderChange={() => {}}
       placement="gate"
       onPurchased={onPurchased}
     />

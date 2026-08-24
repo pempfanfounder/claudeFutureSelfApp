@@ -30,8 +30,11 @@ interface TimelinePaywallProps {
   data: PaywallData;
   /** null = not closable (standalone hard gate) */
   closeDelayMs: number | null;
-  trialReminder: boolean;
-  onTrialReminderChange: (value: boolean) => void;
+  /** Omit both to hide the row entirely — the gate paywall re-presents
+   *  to users whose preference already lives in notification_prefs, and
+   *  a switch that writes nowhere is worse than no switch. */
+  trialReminder?: boolean;
+  onTrialReminderChange?: (value: boolean) => void;
   onPurchased: () => void;
   onClose?: () => void;
   placement: string;
@@ -197,7 +200,7 @@ export function TimelinePaywall({
           ))}
         </View>
 
-        {hasTrial ? (
+        {hasTrial && onTrialReminderChange ? (
           <View
             style={[
               styles.reminderRow,
@@ -211,7 +214,7 @@ export function TimelinePaywall({
                 : "Reminder before trial ends"}
             </AppText>
             <Switch
-              value={trialReminder}
+              value={trialReminder ?? true}
               onValueChange={onTrialReminderChange}
               trackColor={{ true: colors.success }}
               testID="trial-reminder-toggle"

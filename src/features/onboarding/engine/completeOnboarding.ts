@@ -93,6 +93,7 @@ export async function completeOnboarding(
             affirmations_per_day: notificationPrefs.affirmationsPerDay,
             window_start_minutes: notificationPrefs.windowStartMinutes,
             window_end_minutes: notificationPrefs.windowEndMinutes,
+            trial_reminder: notificationPrefs.trialReminder,
           });
         if (nErr) throw nErr;
 

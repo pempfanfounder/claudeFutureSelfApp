@@ -18,6 +18,10 @@ interface OnboardingState {
     affirmationsPerDay: number;
     windowStartMinutes: number;
     windowEndMinutes: number;
+    /** Mirrors notification_prefs.trial_reminder, which defaults to
+     *  true server-side — so an "off" choice has to be persisted
+     *  explicitly or the reminder still sends. */
+    trialReminder: boolean;
   };
   permissionStatus: "undetermined" | "granted" | "denied";
   setVariant: (variant: OnboardingVariant) => void;
@@ -36,6 +40,7 @@ const DEFAULT_NOTIFICATION_PREFS: OnboardingState["notificationPrefs"] = {
   affirmationsPerDay: 3,
   windowStartMinutes: 9 * 60,
   windowEndMinutes: 21 * 60,
+  trialReminder: true,
 };
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({

@@ -135,6 +135,8 @@ describe("clearOnboardingState", () => {
       affirmationsPerDay: 3,
       windowStartMinutes: 540,
       windowEndMinutes: 1260,
+      // Matches the notification_prefs.trial_reminder column default.
+      trialReminder: true,
     });
   });
 

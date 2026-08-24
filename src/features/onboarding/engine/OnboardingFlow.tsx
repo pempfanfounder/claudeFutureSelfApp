@@ -46,6 +46,7 @@ export function OnboardingFlow() {
     name,
     setAnswer,
     setName,
+    setNotificationPrefs,
   } = useOnboardingStore();
   const setPremium = useAppState((s) => s.setPremium);
   const { isAnonymous } = useAuth();
@@ -256,6 +257,9 @@ export function OnboardingFlow() {
             trialReminder={trialReminder}
             onTrialReminderChange={(v) => {
               setTrialReminder(v);
+              // The DB column defaults to true, so "off" only sticks if
+              // completeOnboarding actually writes it.
+              setNotificationPrefs({ trialReminder: v });
               setAnswer("raw.trial_reminder", v ? "yes" : "no");
             }}
             placement="onboarding"
