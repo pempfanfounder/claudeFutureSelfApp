@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -78,11 +78,22 @@ export function OnboardingFlow() {
 
   const step: OnboardingStep | undefined = steps[stepIndex];
 
+  // completeOnboarding is idempotent at the database level, but it also
+  // fires `onboarding_completed` — and this funnel IS the A/B test, so a
+  // second call would inflate the completion rate for whichever variant
+  // happened to run it twice. Every caller goes through this guard.
+  const persistedRef = useRef(false);
+  const persistCompletion = useCallback(async () => {
+    if (!variant || persistedRef.current) return;
+    persistedRef.current = true;
+    await completeOnboarding(variant);
+  }, [variant]);
+
   const finish = useCallback(async () => {
     if (!variant) return;
-    await completeOnboarding(variant);
+    await persistCompletion();
     router.replace("/");
-  }, [variant]);
+  }, [variant, persistCompletion]);
 
   const advance = useCallback(() => {
     if (stepIndex + 1 >= steps.length) {
@@ -204,7 +215,7 @@ export function OnboardingFlow() {
         return (
           <PreparingStep
             headline={resolveText(step.headline, ctx) ?? "Preparing…"}
-            work={() => completeOnboarding(variant)}
+            work={persistCompletion}
             onDone={advance}
           />
         );
@@ -229,6 +240,10 @@ export function OnboardingFlow() {
               placement="onboarding"
               onPurchased={() => {
                 setPremium(true);
+                // Persist now: the iam variants keep going through the
+                // widget promos, so a user who pays and then kills the
+                // app would otherwise relaunch into onboarding again.
+                void persistCompletion();
                 advance();
               }}
             />
@@ -246,6 +261,7 @@ export function OnboardingFlow() {
             placement="onboarding"
             onPurchased={() => {
               setPremium(true);
+              void persistCompletion();
               advance();
             }}
             onClose={() => {

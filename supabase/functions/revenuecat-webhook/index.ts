@@ -8,6 +8,16 @@ import { createAdminClient } from '../_shared/admin.ts';
 import { json } from '../_shared/http.ts';
 
 // Event types that (re)grant access — subject to the expiration check.
+//
+// NON_RENEWING_PURCHASE is how the `lifetime` non-consumable arrives.
+// Without it the webhook never wrote a row for a lifetime buyer, leaving
+// that purchase dependent on a single un-retried `sync-entitlement` call
+// from the client — and a user with no entitlements row gets no push
+// notifications at all.
+//
+// REFUND_REVERSED restores access after a reversed refund; the
+// expiration check below still applies, so it cannot resurrect an
+// entitlement that has since lapsed.
 const ACTIVE_EVENT_TYPES = new Set([
   'INITIAL_PURCHASE',
   'RENEWAL',
@@ -15,6 +25,8 @@ const ACTIVE_EVENT_TYPES = new Set([
   'PRODUCT_CHANGE',
   'SUBSCRIPTION_EXTENDED',
   'TRANSFER',
+  'NON_RENEWING_PURCHASE',
+  'REFUND_REVERSED',
 ]);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -60,8 +72,12 @@ Deno.serve(async (req) => {
       isPremium = false;
     }
     if (isPremium === null) {
-      // CANCELLATION (auto-renew off, still paid up), BILLING_ISSUE, TEST,
-      // etc. do not change access; EXPIRATION arrives when access ends.
+      // CANCELLATION, BILLING_ISSUE, SUBSCRIPTION_PAUSED, TEST etc. do
+      // not change access. RevenueCat is explicit that CANCELLATION must
+      // NOT revoke immediately — it covers both "auto-renew off, still
+      // paid up" and refunds, and in every case an EXPIRATION follows
+      // (carrying expiration_reason CUSTOMER_SUPPORT for a refund) when
+      // access should actually end.
       return json({ ok: true, ignored: type });
     }
 
