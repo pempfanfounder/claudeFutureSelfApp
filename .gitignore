@@ -61,3 +61,6 @@ credentials/
 
 # Standalone UI preview builds (ignored by git and AI scanners)
 .onboarding-preview/
+
+# Supabase CLI scratch
+supabase/.temp/
