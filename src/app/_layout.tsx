@@ -10,16 +10,17 @@ import {
 import { useFonts } from "expo-font";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
-import { router, Stack } from "expo-router";
+import { router, Stack, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
-import { motion } from "@/design-system/tokens";
+import { motion, radii, spacing } from "@/design-system/tokens";
 import { initAnalytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
-import { initMonitoring, withMonitoring } from "@/lib/monitoring";
+import { initMonitoring, monitoring, withMonitoring } from "@/lib/monitoring";
 import { getIsPremium, initPurchases, subscribePremium } from "@/lib/purchases";
 
 import { AuthProvider } from "@/features/auth/AuthProvider";
@@ -104,5 +105,73 @@ function RootLayout() {
     </ThemeProvider>
   );
 }
+
+/**
+ * expo-router picks this up by name and renders it instead of a white
+ * screen when any route below the root throws during render. It cannot
+ * use ThemeProvider/useColors — the failure may be the provider itself —
+ * so it paints the default Minimal Sand palette directly.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    // The splash may still be up if the throw happened during boot.
+    SplashScreen.hideAsync().catch(() => {});
+    monitoring.captureError(error, { boundary: "root" });
+  }, [error]);
+
+  return (
+    <View style={errorStyles.root}>
+      <Text style={errorStyles.title}>Something went wrong</Text>
+      <Text style={errorStyles.body}>
+        Future Self ran into an unexpected problem. Your saved quotes and
+        subscription are safe.
+      </Text>
+      <Pressable
+        onPress={() => {
+          retry().catch(() => {});
+        }}
+        style={errorStyles.cta}
+        testID="error-boundary-retry"
+      >
+        <Text style={errorStyles.ctaLabel}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const errorStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#EDE0D6",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xxl,
+    gap: spacing.lg,
+  },
+  title: {
+    fontSize: 24,
+    lineHeight: 30,
+    color: "#4B3A35",
+    textAlign: "center",
+  },
+  body: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#6B5750",
+    textAlign: "center",
+  },
+  cta: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.pill,
+    backgroundColor: "#4B3A35",
+  },
+  ctaLabel: {
+    fontSize: 16,
+    color: "#FBF4EC",
+    textAlign: "center",
+  },
+});
 
 export default withMonitoring(RootLayout);

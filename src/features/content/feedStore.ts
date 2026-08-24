@@ -20,6 +20,9 @@ const EMPTY_WEIGHTS: PersonalizationWeights = {
 
 interface FeedState {
   loading: boolean;
+  /** True when the last `load` threw — the feed is empty because it
+   *  failed, not because the day's set is finished. */
+  loadFailed: boolean;
   quotes: ContentItem[];
   affirmations: ContentItem[];
   weights: PersonalizationWeights;
@@ -42,6 +45,7 @@ const viewedKey = (userId: string) => `fs.viewed.${userId}.${getLocalDate()}`;
 
 export const useFeedStore = create<FeedState>((set, get) => ({
   loading: true,
+  loadFailed: false,
   quotes: [],
   affirmations: [],
   weights: EMPTY_WEIGHTS,
@@ -55,7 +59,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   celebrating: false,
 
   load: async (userId) => {
-    set({ loading: true });
+    set({ loading: true, loadFailed: false });
     const supabase = getSupabase();
     let weights = EMPTY_WEIGHTS;
     let lifeGoal: string | null = null;
@@ -131,10 +135,11 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         lifeGoal,
         pinnedAffirmation,
         loading: false,
+        loadFailed: false,
       });
     } catch (error) {
       monitoring.captureError(error, { area: "feed.load" });
-      set({ loading: false });
+      set({ loading: false, loadFailed: true });
     }
   },
 

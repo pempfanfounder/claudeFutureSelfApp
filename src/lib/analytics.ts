@@ -54,6 +54,16 @@ const FORBIDDEN_KEY_PATTERN =
   /(email|token|password|goal|affirmation|answer|name|text)/i;
 
 /**
+ * Keys that match FORBIDDEN_KEY_PATTERN but carry enum-like option
+ * slugs, not free text — the onboarding experiment is unreadable
+ * without them. Values on these keys must still look like slugs.
+ */
+const SLUG_KEYS = new Set(["answer", "answered"]);
+
+/** Option slugs and comma-joined multi-selects, e.g. `calm,focus`, `55+`. */
+const SLUG_VALUE_PATTERN = /^[a-z0-9_+,-]+$/i;
+
+/**
  * Defense in depth: strip properties whose keys suggest sensitive
  * content. The primary control is that call sites never pass free text,
  * but a misnamed property should fail closed, not leak.
@@ -63,7 +73,13 @@ function sanitize(properties?: Properties): CleanProperties | undefined {
   const out: CleanProperties = {};
   for (const [key, value] of Object.entries(properties)) {
     if (value === undefined) continue;
-    if (FORBIDDEN_KEY_PATTERN.test(key)) continue;
+    if (FORBIDDEN_KEY_PATTERN.test(key)) {
+      // Slug keys survive only while their value still looks like a slug,
+      // so a future free-text step can never leak through them.
+      if (!SLUG_KEYS.has(key)) continue;
+      if (typeof value === "string" && !SLUG_VALUE_PATTERN.test(value))
+        continue;
+    }
     if (typeof value === "string" && value.length > 120) continue;
     out[key] = value;
   }

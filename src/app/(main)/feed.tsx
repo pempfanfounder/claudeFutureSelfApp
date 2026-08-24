@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -178,6 +179,10 @@ function FeedContent() {
               height={pageH ?? 0}
               tab={tab}
               completed={feed.completedToday}
+              empty={items.length === 0}
+              loading={feed.loading}
+              failed={feed.loadFailed}
+              onRetry={() => userId && feed.load(userId)}
             />
           )
         }
@@ -280,11 +285,54 @@ function EndCard({
   height,
   tab,
   completed,
+  empty,
+  loading,
+  failed,
+  onRetry,
 }: {
   height: number;
   tab: ContentType;
   completed: boolean;
+  /** No items at all — so this card is the entire screen, not a footer. */
+  empty: boolean;
+  loading: boolean;
+  failed: boolean;
+  onRetry: () => void;
 }) {
+  // An empty feed is never "the whole set for today": it is either still
+  // loading or it failed. Saying otherwise reads as a finished day.
+  if (empty && loading) {
+    return (
+      <View style={[styles.endCard, { height }]}>
+        <ActivityIndicator />
+        <AppText variant="lead" tone="ink2" center style={styles.endSub}>
+          Gathering today&apos;s words…
+        </AppText>
+      </View>
+    );
+  }
+
+  if (empty) {
+    return (
+      <View style={[styles.endCard, { height }]}>
+        <AppText variant="h2" center>
+          {failed ? "Couldn't load today's set." : "Nothing here yet."}
+        </AppText>
+        <AppText variant="lead" tone="ink2" center style={styles.endSub}>
+          Check your connection and try again.
+        </AppText>
+        <Pressable
+          onPress={onRetry}
+          style={styles.retry}
+          testID="feed-retry"
+          hitSlop={12}
+        >
+          <AppText variant="lead">Try again</AppText>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.endCard, { height }]}>
       <AppText variant="h2" center>
@@ -355,6 +403,13 @@ const styles = StyleSheet.create({
   endCard: {
     justifyContent: "center",
     paddingHorizontal: spacing.xxl,
+  },
+  retry: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
   endSub: { marginTop: spacing.lg },
 });

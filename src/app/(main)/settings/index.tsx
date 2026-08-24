@@ -14,6 +14,7 @@ import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { useAppState } from "@/lib/appState";
 import { config } from "@/lib/config";
+import { LEGAL_URLS } from "@/lib/legal";
 import { monitoring } from "@/lib/monitoring";
 import { isConfigured } from "@/lib/purchases";
 
@@ -45,6 +46,17 @@ async function manageSubscription() {
     monitoring.captureError(error, { area: "settings.customerCenter" });
     await openStoreSubscriptionsUrl();
   }
+}
+
+/**
+ * Guideline 3.1.2 wants Terms and Privacy reachable from inside the
+ * binary. The paywall carries them for non-subscribers; once someone is
+ * past it, Profile is the only place left, so they live here too.
+ */
+function openLegal(url: string, area: string) {
+  Linking.openURL(url).catch((error) => {
+    monitoring.captureError(error, { area });
+  });
 }
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -196,6 +208,28 @@ export default function SettingsScreen({
           "settings-account",
         )}
         {row("Manage subscription", manageSubscription)}
+
+        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+          Legal
+        </AppText>
+        {row(
+          "Terms of Service",
+          () => openLegal(LEGAL_URLS.terms, "settings.terms"),
+          undefined,
+          "settings-terms",
+        )}
+        {row(
+          "Privacy Policy",
+          () => openLegal(LEGAL_URLS.privacy, "settings.privacy"),
+          undefined,
+          "settings-privacy",
+        )}
+        {row(
+          "Support",
+          () => openLegal(LEGAL_URLS.support, "settings.support"),
+          undefined,
+          "settings-support",
+        )}
       </ScrollView>
     </Screen>
   );
