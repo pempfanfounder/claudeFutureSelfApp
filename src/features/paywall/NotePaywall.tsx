@@ -140,7 +140,12 @@ export function NotePaywall({
               Development mode: purchases are mocked
             </AppText>
           ) : null}
+        </ScrollView>
 
+        {/* Pinned outside the ScrollView, as on TimelinePaywall: Restore
+            and the auto-renew disclosure must be readable without
+            scrolling, and the card is capped at 86% of the screen. */}
+        <View style={styles.footer}>
           <Button
             label={cta}
             onPress={buy}
@@ -165,7 +170,7 @@ export function NotePaywall({
             </AppText>
           ) : null}
           <PaywallFooter onRestored={onPurchased} />
-        </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -183,6 +188,7 @@ const styles = StyleSheet.create({
     padding: spacing.xxl,
     maxHeight: "86%",
   },
+  footer: { marginTop: spacing.lg },
   header: { marginBottom: spacing.lg, fontStyle: "italic" },
   paragraph: { marginBottom: spacing.lg },
   signature: {

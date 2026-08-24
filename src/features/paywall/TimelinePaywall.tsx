@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
@@ -51,6 +52,7 @@ export function TimelinePaywall({
   placement,
 }: TimelinePaywallProps) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [purchasing, setPurchasing] = useState(false);
   const [showClose, setShowClose] = useState(false);
 
@@ -129,7 +131,10 @@ export function TimelinePaywall({
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       {showClose && onClose ? (
-        <Animated.View entering={FadeIn.duration(400)} style={styles.close}>
+        <Animated.View
+          entering={FadeIn.duration(400)}
+          style={[styles.close, { top: insets.top + spacing.sm }]}
+        >
           <Pressable onPress={onClose} hitSlop={12} testID="paywall-close">
             <Icon name="close" size={22} color={colors.ink3} />
           </Pressable>
@@ -137,7 +142,11 @@ export function TimelinePaywall({
       ) : null}
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          // Clear the status bar plus the close button that sits in it.
+          { paddingTop: insets.top + 44 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="h2" center>
@@ -279,7 +288,12 @@ export function TimelinePaywall({
         ) : null}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md },
+        ]}
+      >
         <Button
           label={hasTrial ? ctaLabel(data.trialLength) : "Continue"}
           onPress={buy}
@@ -305,9 +319,8 @@ export function TimelinePaywall({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  close: { position: "absolute", top: 64, left: spacing.xl, zIndex: 10 },
+  close: { position: "absolute", left: spacing.xl, zIndex: 10 },
   content: {
-    paddingTop: 108,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xl,
   },
@@ -353,7 +366,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
-  footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
+  footer: { paddingHorizontal: spacing.xl },
   price: { marginTop: spacing.md },
   disclosure: { marginTop: spacing.sm },
 });
