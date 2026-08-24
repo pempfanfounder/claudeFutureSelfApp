@@ -7,7 +7,7 @@ import { requireDispatchSecret } from '../_shared/auth.ts';
 import { formatTicketError, getExpoReceipts } from '../_shared/expo.ts';
 import { json } from '../_shared/http.ts';
 
-const BATCH_LIMIT = 300;
+const BATCH_LIMIT = 1000;
 const MIN_TICKET_AGE_MS = 15 * 60 * 1000;
 // Expo keeps receipts ~24h; after that an absent receipt will never appear.
 const RECEIPT_EXPIRY_MS = 24 * 60 * 60 * 1000;
@@ -49,19 +49,21 @@ Deno.serve(async (req) => {
 
   const stats = { checked: deliveries.length, receipt_ok: 0, receipt_error: 0, pending: 0, expired: 0 };
 
+  // Bucket first, write once per bucket. The ok case is uniform so it
+  // collapses to a single UPDATE regardless of batch size; error rows carry
+  // per-row detail and stay individual, which is fine because they are rare.
+  const okIds: string[] = [];
+  const expiredIds: string[] = [];
+  const errored: Array<{ id: string; detail: string }> = [];
+  const deadDeviceIds: string[] = [];
+
   for (const delivery of deliveries) {
     const receipt = receipts[delivery.expo_ticket_id];
 
     if (!receipt) {
       if (Date.now() - new Date(delivery.sent_at).getTime() > RECEIPT_EXPIRY_MS) {
         // Never resolvable; close it out so it stops occupying the batch.
-        await admin
-          .from('notification_deliveries')
-          .update({
-            status: 'receipt_error',
-            error_detail: 'receipt not available from Expo (expired unfetched)',
-          })
-          .eq('id', delivery.id);
+        expiredIds.push(delivery.id);
         stats.expired++;
       } else {
         stats.pending++; // Expo has not processed it yet; retry next run
@@ -70,26 +72,52 @@ Deno.serve(async (req) => {
     }
 
     if (receipt.status === 'ok') {
-      await admin
-        .from('notification_deliveries')
-        .update({ status: 'receipt_ok' })
-        .eq('id', delivery.id);
+      okIds.push(delivery.id);
       stats.receipt_ok++;
       continue;
     }
 
-    await admin
-      .from('notification_deliveries')
-      .update({ status: 'receipt_error', error_detail: formatTicketError(receipt) })
-      .eq('id', delivery.id);
+    errored.push({ id: delivery.id, detail: formatTicketError(receipt) });
     stats.receipt_error++;
 
     if (receipt.details?.error === 'DeviceNotRegistered' && delivery.device_id) {
-      await admin
-        .from('devices')
-        .update({ active: false, push_token: null })
-        .eq('id', delivery.device_id);
+      deadDeviceIds.push(delivery.device_id);
     }
+  }
+
+  if (okIds.length > 0) {
+    const { error: okError } = await admin
+      .from('notification_deliveries')
+      .update({ status: 'receipt_ok' })
+      .in('id', okIds);
+    if (okError) console.error('push-receipts: receipt_ok update failed:', okError);
+  }
+
+  if (expiredIds.length > 0) {
+    const { error: expiredError } = await admin
+      .from('notification_deliveries')
+      .update({
+        status: 'receipt_error',
+        error_detail: 'receipt not available from Expo (expired unfetched)',
+      })
+      .in('id', expiredIds);
+    if (expiredError) console.error('push-receipts: expired update failed:', expiredError);
+  }
+
+  for (const row of errored) {
+    const { error: errUpdate } = await admin
+      .from('notification_deliveries')
+      .update({ status: 'receipt_error', error_detail: row.detail })
+      .eq('id', row.id);
+    if (errUpdate) console.error('push-receipts: receipt_error update failed:', errUpdate);
+  }
+
+  if (deadDeviceIds.length > 0) {
+    const { error: deviceError } = await admin
+      .from('devices')
+      .update({ active: false, push_token: null })
+      .in('id', deadDeviceIds);
+    if (deviceError) console.error('push-receipts: device deactivation failed:', deviceError);
   }
 
   return json(stats);
