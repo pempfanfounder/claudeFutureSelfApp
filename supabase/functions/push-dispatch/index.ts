@@ -7,6 +7,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { createAdminClient } from '../_shared/admin.ts';
 import { requireDispatchSecret } from '../_shared/auth.ts';
 import { json } from '../_shared/http.ts';
+import { mapWithConcurrency } from '../_shared/concurrency.ts';
 import {
   EXPO_SEND_CHUNK,
   type ExpoPushMessage,
@@ -25,10 +26,13 @@ import {
   type QueueMessage,
 } from '../_shared/types.ts';
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 400;
+// How many messages may be in preparation (and later, finalization) at once.
+// Each one holds a PostgREST connection; the instance allows 60 in total.
+const PREPARE_CONCURRENCY = 10;
 // Longer than the runtime budget so in-flight messages are never redelivered
 // to a concurrent invocation mid-run.
-const VISIBILITY_TIMEOUT_S = 90;
+const VISIBILITY_TIMEOUT_S = 120;
 const RUNTIME_BUDGET_MS = 50_000;
 const MAX_READS = 5;
 const RECENT_CONTENT_DAYS = 14;
@@ -93,25 +97,35 @@ Deno.serve(async (req) => {
   };
 
   // Phase 1: resolve each job to a claimed delivery + Expo messages.
+  // Bounded concurrency: the work is round-trip bound, not CPU bound, so
+  // overlapping it is what lets one invocation clear a 400-message batch.
+  // Each message re-checks the deadline, so a slow run sheds the tail
+  // rather than blowing through the budget.
+  const outcomes = await mapWithConcurrency(
+    queueMessages,
+    PREPARE_CONCURRENCY,
+    (msg) =>
+      Date.now() > deadline
+        ? Promise.resolve('deferred' as const)
+        : prepareMessage(admin, msg),
+  );
+
   const prepared: PreparedSend[] = [];
-  for (const msg of queueMessages) {
-    if (Date.now() > deadline) {
-      stats.deferred += queueMessages.length - stats.archived - stats.deferred - prepared.length;
-      break;
+  for (let i = 0; i < outcomes.length; i++) {
+    const outcome = outcomes[i];
+    if (outcome.ok) {
+      if (outcome.value === 'archived') stats.archived++;
+      else if (outcome.value === 'deferred') stats.deferred++;
+      else prepared.push(outcome.value);
+      continue;
     }
-    try {
-      const result = await prepareMessage(admin, msg);
-      if (result === 'archived') stats.archived++;
-      else if (result === 'deferred') stats.deferred++;
-      else prepared.push(result);
-    } catch (err) {
-      console.error(`push-dispatch: msg ${msg.msg_id} failed to prepare:`, err);
-      if (msg.read_ct > MAX_READS) {
-        await exhaustMessage(admin, msg);
-        stats.archived++;
-      } else {
-        stats.deferred++; // visibility timeout redelivers it
-      }
+    const msg = queueMessages[i];
+    console.error(`push-dispatch: msg ${msg.msg_id} failed to prepare:`, outcome.error);
+    if (msg.read_ct > MAX_READS) {
+      await exhaustMessage(admin, msg);
+      stats.archived++;
+    } else {
+      stats.deferred++; // visibility timeout redelivers it
     }
   }
 
@@ -132,18 +146,33 @@ Deno.serve(async (req) => {
       stats.deferred += batch.length;
       continue;
     }
+    // Slice tickets back onto their jobs before finalizing, so the
+    // concurrent finalizers each own a disjoint set.
     let offset = 0;
-    for (const p of batch) {
+    const withTickets = batch.map((p) => {
       const jobTickets = tickets.slice(offset, offset + p.messages.length);
       offset += p.messages.length;
-      try {
-        const ok = await finalizeSend(admin, p, jobTickets);
-        if (ok) stats.sent++;
-        else stats.ticket_error++;
-      } catch (err) {
-        console.error(`push-dispatch: msg ${p.msgId} failed to finalize:`, err);
+      return { p, jobTickets };
+    });
+
+    const finalized = await mapWithConcurrency(
+      withTickets,
+      PREPARE_CONCURRENCY,
+      ({ p, jobTickets }) => finalizeSend(admin, p, jobTickets),
+    );
+
+    for (let i = 0; i < finalized.length; i++) {
+      const result = finalized[i];
+      if (!result.ok) {
+        console.error(
+          `push-dispatch: msg ${withTickets[i].p.msgId} failed to finalize:`,
+          result.error,
+        );
         stats.deferred++;
+        continue;
       }
+      if (result.value) stats.sent++;
+      else stats.ticket_error++;
     }
   }
 
