@@ -61,3 +61,10 @@ credentials/
 
 # Standalone UI preview builds (ignored by git and AI scanners)
 .onboarding-preview/
+
+# BEGIN FUTURE SELF WORKFLOW LOCAL DATA v2
+# Local checkpoints/evidence/backups are not public repository material.
+/.future-self/local/
+/Future_Self_Codex_Workflow*.zip
+/Future_Self_Codex_Workflow/
+# END FUTURE SELF WORKFLOW LOCAL DATA v2

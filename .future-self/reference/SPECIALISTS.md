@@ -1,0 +1,18 @@
+# Delegation without founder-managed agents
+
+Under APP-AUTONOMY-003, subsequent sessions use new visible execution tasks and fresh QA tasks; do not spawn in-chat subagents. The following older specialist defaults apply only outside that recorded arrangement. The Codex lead chooses when actual subagents add independence/parallelism. This document explicitly requests their use for meaningful independent audit/review when tools support it. At most TWO concurrent read-only specialists by default; no nested delegation. More concurrency/expensive tooling is a cost choice, not a necessity. Do not create version-dependent global/custom-agent settings during setup.
+
+Pass each specialist: precise question, root and candidate, allowed files, evidence/claim conventions, stage authority, prohibited actions, test envelope and expected result. Do not pass secrets or irrelevant private records. Require it to say what it could not inspect. All return the common finding format in ARTIFACT_RULES. The lead waits for actual results, deduplicates, validates material findings and writes live records. Specialists never independently mark a gate complete.
+
+| Perspective | Mission and concrete focus | Boundary |
+|---|---|---|
+| Native reliability | Expo Router/state/loading, generated iOS targets/Voltra, dependency constraints, accessibility/motion/performance, tests vs actual native paths | No founder aesthetic choice or unapproved rewrite |
+| Backend/security/cost/notifications | All applied migrations/grants/RLS/RPCs, auth proliferation, Edge Functions, data cardinality, direct-API abuse, fan-out/retries/retention, queue/cron/receipt behavior, actual billed units and hard limits | No production load, real-user changes or independent console mutation |
+| Identity/subscriptions | Supabase ↔ RevenueCat identity, anonymous/link/recovery, key/environment class, product eligibility, lifetime/transfer/restore, webhook order/idempotency/reconciliation, deletion/revocation | No pricing/commercial changes, no charge without consent |
+| Privacy/release | Actual data flows/payloads, consent/privacy claims, legal endpoint, required manifests/APIs, deletion accessibility, metadata/age/storefront applicability and candidate readiness | No invented owner facts, legal certification or submission |
+
+Implementation parallelism is optional: use only nonoverlapping, specifically assigned files/worktrees and one integrator. Never allow multiple simultaneous console operators. A dirty checkout needs an explicit integration plan; a worktree does not contain uncommitted changes by magic.
+
+Local workflow records are authoritative only in the primary checkout. For a worktree/cloud specialist, the lead supplies a minimal redacted task brief/candidate snapshot via its actual tools and collects output back. No generic copy of .env, local evidence, signing files or entire home directory. No symlink escape created during setup. If a handoff cannot be made safely, do the task sequentially in the primary context.
+
+In approved autonomous mode follow reference/AUTONOMOUS_CONTINUATION.md. Under APP-AUTONOMY-003 the coordinator creates a new visible task for every session, including each implementation and independent QA cycle, and waits for results before routing onward. Fresh QA tasks receive a minimal candidate/requirements/authority brief, not an implementation transcript; never reuse the implementer or source reviewer for that candidate's independent QA. Execution tasks return artifacts; the coordinator alone writes checkpoints. One explicitly assigned console operator and all shared request/time/cost caps remain. If required fresh-task creation or independence is unavailable, save the concrete access blocker; do not substitute self-certification.

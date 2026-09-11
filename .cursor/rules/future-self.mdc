@@ -1,0 +1,38 @@
+---
+description: Future Self saved-stage coordination, only when explicitly requested
+alwaysApply: true
+---
+Do not start Future Self because this rule exists. When the founder requests it,
+read `.cursor/FUTURE_SELF_SETUP.md` and
+`.future-self/local/platform-handoff/CURSOR_HANDOFF.md` explicitly, then current
+workflow.json/NEXT and only the saved stage's context. The setup's Cursor-native
+subagent/continuation protocol supersedes historical Codex-only dispatch mechanics.
+Preserve all gates, actual budgets, paused native recovery and dirty/ignored work.
+Never use a new platform/session/model as permission to reset or rerun tests.
+One coordinator alone checkpoints; workers return results. At most one writer;
+parallel read-only investigation is allowed. Use fresh `future-self-reviewer`
+without implementation reasoning for independent review. Source review is not
+runtime QA. No subagent may create successor workers or claim a gate passed.
+Perform every eligible task through local files, terminal, CLI, APIs or MCP.
+Reserve for Codex only work genuinely needing graphical computer use or physical
+devices; record why a headless route cannot serve. A GUI access workaround is not
+itself a requirement. Continue independent admitted work; never bypass a dependency.
+Hook continuation admits a task only against the actual approved scope, target and
+remaining canonical budget. APP-S5-OVERNIGHT-001 preserves historical used counts
+and adds remaining cap: SQL 42/120 (78 remaining, recovery_floor 10 while SQL
+work is active), local checks 6/46, aggregate 2/22, Sentry sends 2/2 still
+exhausted with zero new events. SQL authority remains APP-S4-SERVICES-001.
+A remaining cap is a ceiling, not an assignment: the hook admits executable
+budget only against an open finite allocation. The coordinator may create finite
+allocations from remaining already-approved budget without a new founder grant
+each time; overnight may raise remaining caps without resetting used. Count every
+actual attempt, including failures. Read-only inspection of already-sent Sentry
+events is allowed with zero new sends. Native iOS recovery stays PAUSED. Work
+authorized without execution allowance remains unverified; never mark Stage4
+verified or G5 passed on that basis. Automatic follow-ups: 40 or eight hours from
+overnight adoption, whichever first.
+Connecting a service or changing transport grants no approval, replenishes no
+budget and bypasses no access restriction. Never request or print credential
+values. No production/release/credential/configuration changes or budget reset.
+Do not modify the five-minute automation. Do not install dependencies or change
+Cursor/global permissions automatically. Stop if platform ownership disagrees.
