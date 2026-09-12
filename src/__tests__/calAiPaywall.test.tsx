@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { LOCAL_CATALOG } from "@/features/content/localCatalog";
 import {
   CALAI_HEADLINES,
   CalAiPaywall,
@@ -148,8 +149,13 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       expect(screen.getAllByText("Future Self").length).toBeGreaterThanOrEqual(
         3,
       );
+      // Front card is catalog item local:q11; the owner's quote list owns
+      // its wording, so assert the lookup rather than the copy.
+      const frontQuote = LOCAL_CATALOG.find((c) => c.id === "local:q11");
+      expect(frontQuote).toBeDefined();
+      const escaped = frontQuote!.body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       expect(screen.getByTestId("notification-card-0")).toHaveTextContent(
-        /^Future SelfNowMake yourself the kind of person you promised you would become\.$/,
+        new RegExp(`^Future SelfNow${escaped}$`),
       );
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
         "3 days free, then $59.99 per year. Renews automatically unless cancelled in the App Store.",
