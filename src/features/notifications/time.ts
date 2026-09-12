@@ -59,24 +59,6 @@ export function formatMinutes(minutes: number, locale?: string): string {
   }
 }
 
-/**
- * Hour-only label for axis ticks ("6 AM" / "12 PM", or "06" / "12" on a
- * 24-hour device). Same locale rules as `formatMinutes`.
- */
-export function formatHour(minutes: number, locale?: string): string {
-  const total = normalizeMinutes(minutes);
-  const h24 = Math.floor(total / 60);
-  try {
-    return new Intl.DateTimeFormat(locale, { hour: "numeric" }).format(
-      new Date(ANCHOR.year, ANCHOR.month, ANCHOR.day, h24, 0),
-    );
-  } catch {
-    const suffix = h24 < 12 ? "AM" : "PM";
-    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    return `${h12} ${suffix}`;
-  }
-}
-
 /** The anchor day at h:m local — the value the native pickers expect. */
 export function minutesToDate(minutes: number): Date {
   const clamped = clamp(Math.round(minutes), 0, MAX_MINUTES);

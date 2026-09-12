@@ -12,7 +12,6 @@ import {
 import {
   applyWindowChange,
   dateToMinutes,
-  formatHour,
   formatMinutes,
   minutesToDate,
   roundToInterval,
@@ -95,15 +94,16 @@ afterEach(() => {
 });
 
 describe("NotificationsStep (iam)", () => {
-  it("shows the store defaults: 3 / 3 a day and the 9 AM – 9 PM tiles", () => {
+  it("shows the store defaults: 3 / 3 a day and 9 AM – 9 PM", () => {
     const { screen } = renderStep();
+    // Plain numerals, not the reference app's "3x".
     expect(screen.getByTestId("quotes-value")).toHaveTextContent(/^3$/);
     expect(screen.getByTestId("affirmations-value")).toHaveTextContent(/^3$/);
-    expect(screen.getByTestId("start-picker-time")).toHaveTextContent(
-      formatMinutes(540),
+    expect(dateToMinutes(screen.getByTestId("start-picker").props.value)).toBe(
+      540,
     );
-    expect(screen.getByTestId("end-picker-time")).toHaveTextContent(
-      formatMinutes(1260),
+    expect(dateToMinutes(screen.getByTestId("end-picker").props.value)).toBe(
+      1260,
     );
     expect(screen.getByText(STEP.mockLine!)).toBeTruthy();
     expect(screen.getByText("Future Self")).toBeTruthy();
@@ -171,61 +171,42 @@ describe("NotificationsStep (iam)", () => {
     );
   });
 
-  it("unfolds an iOS wheel under the tapped tile and applies picked times", () => {
+  it("renders the iOS compact pickers and applies picked times", () => {
     const { screen } = renderStep();
-    // Nothing is unfolded until a tile is tapped.
-    expect(screen.queryByTestId("start-picker-wheel")).toBeNull();
-    expect(screen.queryByTestId("end-picker-wheel")).toBeNull();
-
-    fireEvent.press(screen.getByTestId("start-picker"));
-    const start = screen.getByTestId("start-picker-wheel");
+    const start = screen.getByTestId("start-picker");
+    const end = screen.getByTestId("end-picker");
     expect(start.props.mode).toBe("time");
-    expect(start.props.display).toBe("spinner");
+    expect(start.props.display).toBe("compact");
     expect(start.props.minuteInterval).toBe(30);
     expect(dateToMinutes(start.props.value)).toBe(9 * 60);
-    // The picker is never shown as the iOS compact capsule (the look the
-    // reference app uses).
-    expect(screen.queryByTestId("end-picker-wheel")).toBeNull();
+    expect(dateToMinutes(end.props.value)).toBe(21 * 60);
 
     fireEvent(start, "valueChange", pickerEvent(at(10, 30)), at(10, 30));
     expect(prefs().windowStartMinutes).toBe(630);
     expect(prefs().windowEndMinutes).toBe(21 * 60);
-    expect(screen.getByTestId("start-picker-time")).toHaveTextContent(
-      "10:30 AM",
-    );
-    expect(screen.getByTestId("end-picker-time")).toHaveTextContent("9:00 PM");
 
-    // Tapping the other tile swaps the wheel over.
-    fireEvent.press(screen.getByTestId("end-picker"));
-    expect(screen.queryByTestId("start-picker-wheel")).toBeNull();
-    const end = screen.getByTestId("end-picker-wheel");
-    expect(dateToMinutes(end.props.value)).toBe(21 * 60);
     fireEvent(end, "valueChange", pickerEvent(at(18, 0)), at(18, 0));
     expect(prefs().windowEndMinutes).toBe(18 * 60);
     expect(prefs().windowStartMinutes).toBe(630);
-    expect(screen.getByTestId("end-picker-time")).toHaveTextContent("6:00 PM");
-
-    // Tapping the open tile again folds the wheel away.
-    fireEvent.press(screen.getByTestId("end-picker"));
-    expect(screen.queryByTestId("end-picker-wheel")).toBeNull();
+    expect(dateToMinutes(screen.getByTestId("end-picker").props.value)).toBe(
+      18 * 60,
+    );
   });
 
   it("keeps a 60-minute gap by moving the other bound", () => {
     const { screen } = renderStep();
-    const wheel = (key: "start" | "end") => {
-      fireEvent.press(screen.getByTestId(`${key}-picker`));
-      return screen.getByTestId(`${key}-picker-wheel`);
-    };
+    const start = screen.getByTestId("start-picker");
+    const end = screen.getByTestId("end-picker");
 
     // Start pushed up to the end → end moves out of the way.
-    fireEvent(wheel("start"), "valueChange", pickerEvent(at(21, 0)), at(21, 0));
+    fireEvent(start, "valueChange", pickerEvent(at(21, 0)), at(21, 0));
     expect(prefs()).toMatchObject({
       windowStartMinutes: 21 * 60,
       windowEndMinutes: 22 * 60,
     });
 
     // End dragged below the start → start moves down.
-    fireEvent(wheel("end"), "valueChange", pickerEvent(at(8, 0)), at(8, 0));
+    fireEvent(end, "valueChange", pickerEvent(at(8, 0)), at(8, 0));
     expect(prefs()).toMatchObject({
       windowStartMinutes: 7 * 60,
       windowEndMinutes: 8 * 60,
@@ -233,44 +214,35 @@ describe("NotificationsStep (iam)", () => {
 
     // Start at the last slot of the day: end can't follow past 23:30,
     // so the start is pulled back instead.
-    fireEvent(
-      wheel("start"),
-      "valueChange",
-      pickerEvent(at(23, 30)),
-      at(23, 30),
-    );
+    fireEvent(start, "valueChange", pickerEvent(at(23, 30)), at(23, 30));
     expect(prefs()).toMatchObject({
       windowStartMinutes: 22 * 60 + 30,
       windowEndMinutes: 23 * 60 + 30,
     });
 
-    // The wheel and both tiles re-render from the store.
-    expect(
-      dateToMinutes(screen.getByTestId("start-picker-wheel").props.value),
-    ).toBe(22 * 60 + 30);
-    expect(screen.getByTestId("start-picker-time")).toHaveTextContent(
-      "10:30 PM",
+    // The picker values re-render from the store.
+    expect(dateToMinutes(screen.getByTestId("start-picker").props.value)).toBe(
+      22 * 60 + 30,
     );
-    expect(screen.getByTestId("end-picker-time")).toHaveTextContent("11:30 PM");
+    expect(dateToMinutes(screen.getByTestId("end-picker").props.value)).toBe(
+      23 * 60 + 30,
+    );
   });
 
-  it("renders the Android tiles and opens the native time dialog", () => {
+  it("renders the Android capsule and opens the native time dialog", () => {
     jest.replaceProperty(Platform, "OS", "android");
     const open = DateTimePickerAndroid.open as jest.Mock;
     const { screen } = renderStep();
 
     const start = screen.getByTestId("start-picker");
-    expect(screen.getByTestId("start-picker-time")).toHaveTextContent(
-      formatMinutes(540),
-    );
-    expect(screen.getByTestId("end-picker-time")).toHaveTextContent(
+    expect(start).toHaveTextContent(formatMinutes(540));
+    expect(screen.getByTestId("end-picker")).toHaveTextContent(
       formatMinutes(1260),
     );
     // No inline picker on Android — the dialog is imperative.
     expect(start.props.mode).toBeUndefined();
 
     fireEvent.press(start);
-    expect(screen.queryByTestId("start-picker-wheel")).toBeNull();
     expect(open).toHaveBeenCalledTimes(1);
     const params = open.mock.calls[0]![0];
     expect(params).toMatchObject({
@@ -286,9 +258,7 @@ describe("NotificationsStep (iam)", () => {
       params.onValueChange(pickerEvent(at(7, 30)), at(7, 30));
     });
     expect(prefs().windowStartMinutes).toBe(7 * 60 + 30);
-    expect(screen.getByTestId("start-picker-time")).toHaveTextContent(
-      "7:30 AM",
-    );
+    expect(screen.getByTestId("start-picker")).toHaveTextContent("7:30 AM");
 
     // Cancel leaves everything as it was.
     act(() => {
@@ -340,13 +310,6 @@ describe("NotificationsStep (iam)", () => {
 });
 
 describe("notification time helpers", () => {
-  it("formats axis hours in the device hour cycle", () => {
-    expect(formatHour(6 * 60, "en-US")).toBe("6 AM");
-    expect(formatHour(12 * 60, "en-US")).toBe("12 PM");
-    expect(formatHour(18 * 60, "en-US")).toBe("6 PM");
-    expect(formatHour(18 * 60, "nl-NL")).toBe("18");
-  });
-
   it("formats minutes on a 12-hour clock", () => {
     expect(formatMinutes(0, "en-US")).toBe("12:00 AM");
     expect(formatMinutes(30, "en-US")).toBe("12:30 AM");

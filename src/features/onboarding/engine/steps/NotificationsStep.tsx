@@ -19,9 +19,10 @@ import { resolveLines, resolveText } from "../resolve";
 import { useOnboardingStore } from "../store";
 import { StreamedLines } from "../StreamedLines";
 import type { OnboardingContext, OnboardingStep } from "../types";
-import { ActiveHoursPicker } from "./notifications/ActiveHoursPicker";
-import { CountTile } from "./notifications/CountTile";
+import { CountRow } from "./notifications/CountRow";
+import { GroupCard } from "./notifications/GroupCard";
 import { MockNotification } from "./notifications/MockNotification";
+import { TimeWindowCard } from "./notifications/TimeWindowCard";
 
 interface NotificationsStepProps {
   step: OnboardingStep;
@@ -32,11 +33,12 @@ interface NotificationsStepProps {
 
 /**
  * Notification education before the OS dialog.
- * iam family: the config screen. A mock notification banner, two
- * side-by-side count tiles (Quotes / Affirmations, 0..DAILY_LIMIT; the
- * server enforces the cap too), an "Active hours" card with a 24-hour
- * band and From / Until tiles over the native time pickers, then "Turn on
- * reminders". No sentence restates the window (feedback 2026-09-12).
+ * iam family: the config screen. A mock notification banner, then two
+ * grouped cards on shared chrome: Quotes / Affirmations count rows
+ * (0..DAILY_LIMIT; the server enforces the cap too) and Start at / End at
+ * rows with the native time pickers, then "Turn on reminders". No
+ * sentence restates the window (feedback 2026-09-12). The whole screen
+ * fits a 6.1" phone without scrolling: keep the card rows at 52 pt.
  * stella family: streamed voice + a single contextual ask.
  */
 export function NotificationsStep({
@@ -123,26 +125,23 @@ export function NotificationsStep({
         </View>
 
         <View style={styles.rows}>
-          <View style={styles.tiles}>
-            <CountTile
+          <GroupCard testID="count-card">
+            <CountRow
               id="quotes"
               label="Quotes"
               value={notificationPrefs.quotesPerDay}
               max={DAILY_LIMIT}
               onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
             />
-            <CountTile
+            <CountRow
               id="affirmations"
               label="Affirmations"
               value={notificationPrefs.affirmationsPerDay}
               max={DAILY_LIMIT}
               onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
             />
-          </View>
-          <ActiveHoursPicker
-            range={notificationPrefs}
-            onChange={changeWindow}
-          />
+          </GroupCard>
+          <TimeWindowCard range={notificationPrefs} onChange={changeWindow} />
         </View>
       </ScrollView>
       <View style={styles.footer}>
@@ -179,7 +178,6 @@ const styles = StyleSheet.create({
   sub: { marginTop: spacing.md },
   mock: { marginTop: spacing.xl },
   rows: { marginTop: spacing.xxl, gap: spacing.md },
-  tiles: { flexDirection: "row", gap: spacing.md },
   footer: { paddingBottom: spacing.sm },
   maybeLater: { marginTop: spacing.lg },
 });
