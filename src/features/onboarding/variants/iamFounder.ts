@@ -244,7 +244,7 @@ export const iamFounder: VariantConfig = {
     {
       id: "save-account",
       type: "auth-sheet",
-      headline: "Create your account",
+      headline: "Save your progress",
       sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
       condition: (ctx) => ctx.isAnonymous,
     },
