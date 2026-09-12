@@ -1,102 +1,93 @@
+import { saveNotificationPreferences } from "@/features/notifications/preferences";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
-
-import { useAppState } from "@/lib/appState";
-import { config } from "@/lib/config";
+import { Alert } from "react-native";
+import {
+  captureIdentity,
+  isCurrentIdentity,
+  useAppState,
+} from "@/lib/appState";
 import type { OnboardingVariant } from "@/lib/experiments";
-import { monitoring } from "@/lib/monitoring";
-import { isConfigured, PREMIUM_ENTITLEMENT_ID } from "@/lib/purchases";
-
+import { getIdentitySupabase } from "@/lib/supabase";
 import { NotePaywall } from "@/features/paywall/NotePaywall";
 import { TimelinePaywall } from "@/features/paywall/TimelinePaywall";
 import { useOffering } from "@/features/paywall/useOffering";
 import { getCompletedOnboardingVariant } from "@/features/onboarding/engine/store";
 
-/**
- * Standalone hard gate: shown whenever onboarding is complete but no
- * premium entitlement is active (e.g. the user killed the app at the
- * onboarding paywall, or their subscription lapsed). Not closable —
- * the only ways forward are purchase or restore.
- *
- * When EXPO_PUBLIC_USE_RC_PAYWALL_GATE is on and purchases are really
- * configured (not the dev mock), this route tries RevenueCat's remote
- * Paywall first. Any outcome other than a completed purchase/restore
- * falls back to rendering the same custom gate paywall used otherwise.
- * This opt-in only ever applies to this standalone gate — never to the
- * in-onboarding TimelinePaywall/NotePaywall variants, which are an A/B
- * experiment and must keep their own selling logic.
- */
+/** Local package selection enforces the approved monthly/yearly offer boundary.
+ * An unverified remote paywall cannot enforce the same package guard. */
 export default function PaywallRoute() {
-  const { setPremium, displayName } = useAppState();
+  const displayName = useAppState((s) => s.displayName);
   const [variant, setVariant] = useState<OnboardingVariant | null>(null);
-  const useRcGate =
-    config.useRcPaywallGate && isConfigured() && !config.devMockPurchases;
-  const [showCustomGate, setShowCustomGate] = useState(!useRcGate);
-
-  const onPurchased = () => {
-    setPremium(true);
-    router.replace("/");
-  };
-
-  useEffect(() => {
-    getCompletedOnboardingVariant().then((v) =>
-      setVariant((v as OnboardingVariant) ?? "iam-claude"),
-    );
-  }, []);
-
-  useEffect(() => {
-    if (!useRcGate) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await RevenueCatUI.presentPaywallIfNeeded({
-          requiredEntitlementIdentifier: PREMIUM_ENTITLEMENT_ID,
-        });
-        if (cancelled) return;
-        if (
-          result === PAYWALL_RESULT.PURCHASED ||
-          result === PAYWALL_RESULT.RESTORED
-        ) {
-          onPurchased();
-        } else {
-          setShowCustomGate(true);
-        }
-      } catch (error) {
-        if (cancelled) return;
-        monitoring.captureError(error, { area: "paywall.rcGate" });
-        setShowCustomGate(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useRcGate]);
-
+  const [trialReminder, setTrialReminder] = useState(false);
+  const [savingReminder, setSavingReminder] = useState(false);
   const isNote = variant === "stella-founder" || variant === "stella-claude";
-  const offering = useOffering(isNote ? "weekly" : "annual");
-
-  if (!variant || !showCustomGate) return null;
-
-  if (isNote) {
-    return (
-      <NotePaywall
-        data={offering}
-        voice={variant === "stella-founder" ? "future-self" : "team"}
-        userName={displayName}
-        placement="gate"
-        onPurchased={onPurchased}
-      />
-    );
-  }
-
-  return (
+  const offering = useOffering(isNote ? "monthly" : "annual");
+  useEffect(() => {
+    let active = true;
+    const identity = captureIdentity();
+    getCompletedOnboardingVariant()
+      .then((v) => {
+        if (active && isCurrentIdentity(identity))
+          setVariant((v as OnboardingVariant) ?? "iam-claude");
+      })
+      .catch(() => {
+        if (active) setVariant("iam-claude");
+      });
+    void getIdentitySupabase(identity)
+      .then(async (client) => {
+        if (!client) return;
+        const { data, error } = await client
+          .from("notification_prefs")
+          .select("trial_reminder")
+          .eq("user_id", identity.userId!)
+          .maybeSingle();
+        if (!error && data && active && isCurrentIdentity(identity))
+          setTrialReminder(data.trial_reminder);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  const saveReminder = async (value: boolean) => {
+    if (savingReminder) return;
+    const identity = captureIdentity();
+    setSavingReminder(true);
+    try {
+      const client = await getIdentitySupabase(identity);
+      if (!client) throw new Error("Unavailable");
+      await saveNotificationPreferences(identity, { trial_reminder: value });
+      if (isCurrentIdentity(identity)) setTrialReminder(value);
+    } catch {
+      if (isCurrentIdentity(identity))
+        Alert.alert(
+          "Reminder not saved",
+          "Please retry when connected. Your previous setting is still selected.",
+        );
+    } finally {
+      if (isCurrentIdentity(identity)) setSavingReminder(false);
+    }
+  };
+  const onPurchased = () => {
+    if (useAppState.getState().isPremium) router.replace("/");
+  };
+  if (!variant) return null;
+  const data = { ...offering, loading: offering.loading || savingReminder };
+  return isNote ? (
+    <NotePaywall
+      data={data}
+      voice={variant === "stella-founder" ? "future-self" : "team"}
+      userName={displayName}
+      placement="gate"
+      onPurchased={onPurchased}
+    />
+  ) : (
     <TimelinePaywall
-      data={offering}
+      data={data}
       closeDelayMs={null}
-      trialReminder
-      onTrialReminderChange={() => {}}
+      trialReminder={trialReminder}
+      onTrialReminderChange={saveReminder}
       placement="gate"
       onPurchased={onPurchased}
     />

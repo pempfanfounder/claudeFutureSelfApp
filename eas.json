@@ -21,6 +21,7 @@
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "FutureSelffffff Pro",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "983503541251-cp67doucqnag7i5sgo2ahh9bv28g15kg.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "983503541251-f4srakcc70oii0og65ai2hajgfq497be.apps.googleusercontent.com",
+        "EXPO_PUBLIC_EMAIL_AUTH_ENABLED": "true",
         "SENTRY_ORG": "future-self-i2",
         "SENTRY_PROJECT": "futureself"
       }
@@ -38,6 +39,7 @@
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "FutureSelffffff Pro",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "983503541251-cp67doucqnag7i5sgo2ahh9bv28g15kg.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "983503541251-f4srakcc70oii0og65ai2hajgfq497be.apps.googleusercontent.com",
+        "EXPO_PUBLIC_EMAIL_AUTH_ENABLED": "true",
         "EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE": "iam-claude",
         "SENTRY_ORG": "future-self-i2",
         "SENTRY_PROJECT": "futureself"
@@ -56,6 +58,7 @@
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "FutureSelffffff Pro",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "983503541251-cp67doucqnag7i5sgo2ahh9bv28g15kg.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "983503541251-f4srakcc70oii0og65ai2hajgfq497be.apps.googleusercontent.com",
+        "EXPO_PUBLIC_EMAIL_AUTH_ENABLED": "true",
         "EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE": "stella-claude",
         "SENTRY_ORG": "future-self-i2",
         "SENTRY_PROJECT": "futureself"
@@ -74,6 +77,7 @@
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "FutureSelffffff Pro",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "983503541251-cp67doucqnag7i5sgo2ahh9bv28g15kg.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "983503541251-f4srakcc70oii0og65ai2hajgfq497be.apps.googleusercontent.com",
+        "EXPO_PUBLIC_EMAIL_AUTH_ENABLED": "true",
         "SENTRY_ORG": "future-self-i2",
         "SENTRY_PROJECT": "futureself"
       }

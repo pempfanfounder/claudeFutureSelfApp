@@ -1,10 +1,44 @@
+// Identity block filled 2026-08-15 — safe to deploy.
+//
 // legal: serves the Terms of Service and Privacy Policy as public HTML
 // pages, so the app has working legal links without external hosting.
 // Deploy with --no-verify-jwt (public pages).
 
 const LAST_UPDATED = 'August 10, 2026';
-const CONTACT = 'denizsahinbusiness@gmail.com';
+const CONTACT = 'hello@joinfutureself.com';
 const COMPANY = 'Improvement Labs';
+
+// Business identity (Dutch trader disclosure). Placeholders MUST be
+// replaced with the real KVK/BTW/address values before deploying.
+const OWNER = {
+  tradeName: 'Improvement Labs',
+  kvk: '42039945',
+  btw: 'NL005448561B16',
+  address: 'Netherlands (postal address available on request)',
+};
+
+// Runtime guard (review finding 7): if a habitual deploy ships this file
+// with the placeholders still in place, render the pages WITHOUT the
+// identity block rather than publishing "[… INVULLEN …]" to reviewers.
+const OWNER_READY = ![OWNER.kvk, OWNER.btw, OWNER.address].some((v) =>
+  v.includes('INVULLEN'),
+);
+if (!OWNER_READY) {
+  console.error(
+    'legal: OWNER placeholders not filled in — serving pages without the identity block',
+  );
+}
+
+const OWNER_BLOCK = OWNER_READY
+  ? `
+<p>${OWNER.tradeName}<br>
+KVK: ${OWNER.kvk}<br>
+BTW-id: ${OWNER.btw}<br>
+${OWNER.address}<br>
+<a href="mailto:${CONTACT}">${CONTACT}</a></p>`
+  : `
+<p>${OWNER.tradeName}<br>
+<a href="mailto:${CONTACT}">${CONTACT}</a></p>`;
 
 function page(title: string, body: string): string {
   return `<!doctype html>
@@ -50,7 +84,11 @@ one-time lifetime purchase. Payment is charged to your Apple or Google
 account. Subscriptions renew automatically unless cancelled at least 24 hours
 before the end of the current period; manage or cancel anytime in your App
 Store or Google Play account settings. Prices are shown in the app before
-purchase. Refunds are handled by Apple/Google under their store policies.</p>
+purchase. Refunds are handled by Apple/Google under their store policies.
+By starting the subscription or trial you request immediate access to
+digital content and acknowledge that, once delivery has begun, the EU
+14-day right of withdrawal no longer applies; you can still cancel future
+renewals anytime.</p>
 
 <h2>3. Your account</h2>
 <p>The app works with an anonymous account created on first launch; you may
@@ -84,6 +122,22 @@ violate these Terms. You can stop using the app at any time.</p>
 
 <h2>8. Contact</h2>
 <p>Questions about these Terms: <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
+${OWNER_BLOCK}
+
+<h2>9. Apple</h2>
+<p>These Terms are an agreement between you and ${COMPANY} only — not with
+Apple Inc. ("Apple"). Apple has no obligation whatsoever to furnish any
+maintenance or support services for the app, and Apple provides no warranty
+for the app of any kind. Apple is not responsible for addressing any claims
+relating to the app or your use of it, including product liability claims,
+claims that the app fails to conform to any applicable legal or regulatory
+requirement, and claims arising under consumer protection or similar
+legislation; nor is Apple responsible for the investigation, defence,
+settlement or discharge of any third-party claim that the app infringes
+intellectual property rights. Apple and Apple's subsidiaries are third-party
+beneficiaries of these Terms, and upon your acceptance Apple has the right
+(and is deemed to have accepted the right) to enforce these Terms against
+you.</p>
 `,
 );
 
@@ -124,7 +178,9 @@ reporting and abuse prevention.</p>
 PostHog (analytics, EU region), Sentry (crash reporting, EU region), and
 RevenueCat (subscription management, US — receives your account id and
 purchase state only), plus Apple/Google push services for notifications.
-Each processor is bound by data-processing agreements.</p>
+Each processor is bound by data-processing agreements. RevenueCat
+processes data in the United States under the European Commission's
+Standard Contractual Clauses.</p>
 
 <h2>5. Retention and deletion</h2>
 <p>Data is kept while your account exists. Settings → Account → Delete
@@ -137,7 +193,8 @@ with Apple/Google/RevenueCat as required for billing.</p>
 right to access, correct, export, restrict or delete your personal data, and
 to object to processing. Use the in-app deletion, or contact us at
 <a href="mailto:${CONTACT}">${CONTACT}</a>. You may also complain to your
-local data-protection authority.</p>
+local data-protection authority. The data controller is:</p>
+${OWNER_BLOCK}
 
 <h2>7. Children</h2>
 <p>The app is not directed at children under 13 (or the higher minimum age

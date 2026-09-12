@@ -538,6 +538,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      save_notification_prefs: {
+        Args: { p_changes: Json; p_initial: boolean };
+        Returns: Json;
+      };
+      save_daily_set: {
+        Args: { p_local_date: string; p_type: string; p_content_ids: string[] };
+        Returns: string[];
+      };
       compute_next_due: {
         Args: {
           p_local_now: string;

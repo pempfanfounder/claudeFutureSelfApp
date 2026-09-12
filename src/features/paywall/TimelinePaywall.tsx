@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-import { AppText, Button } from "@/design-system/components";
+import { AppText, Button, Icon, type IconName } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -17,8 +17,10 @@ import { purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
 import {
+  ctaLabel,
   formatPriceLine,
   shortDateInDays,
+  subscriptionDisclosure,
   trialInfo,
   type PaywallData,
 } from "./useOffering";
@@ -35,7 +37,7 @@ interface TimelinePaywallProps {
 }
 
 /**
- * I Am-style "How your free trial works" timeline paywall. Single
+ * Timeline trial paywall ("Your free trial, day by day"). Single
  * package, price straight from the store, delayed X, no bypass: the
  * only exits are purchase, restore, or (during onboarding) the X.
  */
@@ -61,6 +63,7 @@ export function TimelinePaywall({
   }, []);
 
   const buy = async () => {
+    if (purchasing || data.loading) return;
     if (data.unavailable) {
       Alert.alert(
         "Purchases unavailable",
@@ -68,7 +71,7 @@ export function TimelinePaywall({
       );
       return;
     }
-    if (!data.pkg && !data.devMock) return;
+    if (!data.pkg) return;
     setPurchasing(true);
     const result = await purchasePackage(data.pkg!);
     setPurchasing(false);
@@ -80,43 +83,52 @@ export function TimelinePaywall({
   };
 
   const hasTrial = data.trialLength !== null && data.trialDays !== null;
+  const disclosure = subscriptionDisclosure(
+    data.pkg,
+    data.pkg ? data.eligibility?.[data.pkg.product.identifier] : "unknown",
+  );
   const reminderDay = hasTrial
     ? shortDateInDays(Math.max(0, data.trialDays! - 1))
     : null;
   const startDay = hasTrial ? shortDateInDays(data.trialDays!) : null;
 
-  const steps = [
+  const steps: {
+    icon: IconName;
+    title: string;
+    body: string;
+    done: boolean;
+  }[] = [
     {
-      icon: "✓",
-      title: "Install the app",
+      icon: "check",
+      title: "You showed up",
       body: "Set it up to match your goals",
       done: true,
     },
     hasTrial
       ? {
-          icon: "🔓",
-          title: "Today — free trial starts",
-          body: `Everything unlocks: your full daily mix, streaks, widgets and every theme, free for ${data.trialLength}`,
+          icon: "lockOpen",
+          title: "Today: free trial starts",
+          body: `Everything unlocks: all your daily quotes and affirmations, streaks, widgets and every theme, free for ${data.trialLength}`,
           done: false,
         }
       : {
-          icon: "🔓",
-          title: "Today — everything unlocks",
-          body: "Your full daily mix, streaks, widgets and every theme",
+          icon: "lockOpen",
+          title: "Today: everything unlocks",
+          body: "All your daily quotes and affirmations, streaks, widgets and every theme",
           done: false,
         },
     ...(hasTrial
       ? [
           {
-            icon: "🔔",
-            title: `${reminderDay} — heads-up`,
-            body: "One reminder, so nothing surprises you",
+            icon: "bell" as const,
+            title: `${reminderDay}: heads-up`,
+            body: "Optional reminder, if notifications are enabled",
             done: false,
           },
           {
-            icon: "💎",
-            title: `${startDay} — membership begins`,
-            body: "Unless you've cancelled — no hard feelings",
+            icon: "diamond" as const,
+            title: `${startDay}: membership begins`,
+            body: "Unless you've cancelled. No hard feelings",
             done: false,
           },
         ]
@@ -128,9 +140,7 @@ export function TimelinePaywall({
       {showClose && onClose ? (
         <Animated.View entering={FadeIn.duration(400)} style={styles.close}>
           <Pressable onPress={onClose} hitSlop={12} testID="paywall-close">
-            <AppText variant="h3" tone="ink3">
-              ✕
-            </AppText>
+            <Icon name="close" size={22} color={colors.ink3} />
           </Pressable>
         </Animated.View>
       ) : null}
@@ -140,7 +150,7 @@ export function TimelinePaywall({
         showsVerticalScrollIndicator={false}
       >
         <AppText variant="h2" center>
-          {hasTrial ? "How your free trial works" : "Unlock Future Self"}
+          {hasTrial ? "Your free trial, day by day" : "Unlock Future Self"}
         </AppText>
 
         <View style={styles.timeline}>
@@ -157,9 +167,11 @@ export function TimelinePaywall({
                     },
                   ]}
                 >
-                  <AppText variant="body" tone={s.done ? "ctaInk" : "ink"}>
-                    {s.icon}
-                  </AppText>
+                  <Icon
+                    name={s.icon}
+                    size={16}
+                    color={s.done ? colors.ctaInk : colors.ink}
+                  />
                 </View>
                 {i < steps.length - 1 ? (
                   <View
@@ -197,7 +209,7 @@ export function TimelinePaywall({
           >
             <AppText variant="body" style={styles.reminderLabel}>
               {trialReminder && reminderDay
-                ? `We'll remind you on ${reminderDay} ✓`
+                ? `Request a reminder before ${startDay}`
                 : "Reminder before trial ends"}
             </AppText>
             <Switch
@@ -213,7 +225,10 @@ export function TimelinePaywall({
           <View style={styles.planSelector}>
             {data.allPackages.map((p) => {
               const isSelected = data.pkg?.identifier === p.identifier;
-              const trial = trialInfo(p);
+              const trial = trialInfo(
+                p,
+                data.eligibility?.[p.product.identifier],
+              );
               return (
                 <Pressable
                   key={p.identifier}
@@ -261,9 +276,16 @@ export function TimelinePaywall({
         {data.unavailable ? (
           <AppText variant="body" tone="ink2" center style={styles.unavailable}>
             {
-              "The store can't be reached right now. Your access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+              "The store can't be reached right now. Your access stays locked until a purchase completes. Try again shortly, or Restore if you've subscribed before."
             }
           </AppText>
+        ) : null}
+        {data.unavailable && data.retry ? (
+          <Button
+            label="Retry store"
+            variant="secondary"
+            onPress={data.retry}
+          />
         ) : null}
         {data.devMock ? (
           <AppText
@@ -272,18 +294,17 @@ export function TimelinePaywall({
             center
             style={styles.unavailable}
           >
-            Development mode: purchases are mocked
-            (EXPO_PUBLIC_DEV_MOCK_PURCHASES)
+            Development preview
           </AppText>
         ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
         <Button
-          label={hasTrial ? "Try for $0.00" : "Continue"}
+          label={hasTrial ? ctaLabel(data.trialLength) : "Continue"}
           onPress={buy}
           loading={purchasing}
-          disabled={data.loading || (data.unavailable && !data.devMock)}
+          disabled={data.loading || data.unavailable || !data.pkg}
           testID="paywall-cta"
         />
         {data.priceLine ? (
@@ -291,12 +312,16 @@ export function TimelinePaywall({
             {hasTrial ? `Then ${data.priceLine}` : data.priceLine}
           </AppText>
         ) : null}
+        {disclosure ? (
+          <AppText variant="label" tone="ink3" center style={styles.disclosure}>
+            {disclosure}
+          </AppText>
+        ) : null}
         <PaywallFooter onRestored={onPurchased} />
       </View>
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -350,4 +375,5 @@ const styles = StyleSheet.create({
   },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   price: { marginTop: spacing.md },
+  disclosure: { marginTop: spacing.sm },
 });

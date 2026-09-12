@@ -1,24 +1,35 @@
+import { useRef, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
 
 import { AppText } from "@/design-system/components";
 import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
+import { LEGAL_URLS } from "@/lib/legal";
 import { restorePurchases } from "@/lib/purchases";
 
-// Hosted by the `legal` Supabase edge function — swap for a branded
-// domain later without an app update being required for the store pages.
-const TERMS_URL = "https://ykgswczatkspryetstor.supabase.co/functions/v1/legal/terms";
-const PRIVACY_URL = "https://ykgswczatkspryetstor.supabase.co/functions/v1/legal/privacy";
+import { AuthSheet } from "@/features/auth/AuthSheet";
+import { PrivacyChoicesSheet } from "./PrivacyChoicesSheet";
 
 interface PaywallFooterProps {
   onRestored: () => void;
 }
 
-/** Privacy · Terms · Restore — required on every paywall. */
+/**
+ * Privacy · Terms · Restore · Privacy choices — required on every
+ * paywall. "Privacy choices" opens support + account deletion so both
+ * stay reachable from the hard paywall (Guideline 5.1.1(v)).
+ */
 export function PaywallFooter({ onRestored }: PaywallFooterProps) {
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const restoring = useRef(false);
+
   const restore = async () => {
+    if (restoring.current) return;
+    restoring.current = true;
     analytics.capture("restore_tapped", { placement: "paywall" });
     const result = await restorePurchases();
+    restoring.current = false;
     if (result.status === "purchased") {
       onRestored();
     } else if (result.status === "error") {
@@ -28,7 +39,10 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
 
   return (
     <View style={styles.row}>
-      <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+      <Pressable
+        onPress={() => Linking.openURL(LEGAL_URLS.privacy).catch(() => {})}
+        hitSlop={8}
+      >
         <AppText variant="label" tone="ink3">
           Privacy
         </AppText>
@@ -36,7 +50,10 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
       <AppText variant="label" tone="ink3">
         ·
       </AppText>
-      <Pressable onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
+      <Pressable
+        onPress={() => Linking.openURL(LEGAL_URLS.terms).catch(() => {})}
+        hitSlop={8}
+      >
         <AppText variant="label" tone="ink3">
           Terms
         </AppText>
@@ -49,6 +66,37 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
           Restore
         </AppText>
       </Pressable>
+      <AppText variant="label" tone="ink3">
+        ·
+      </AppText>
+      <Pressable
+        onPress={() => setPrivacyOpen(true)}
+        hitSlop={8}
+        testID="privacy-choices"
+      >
+        <AppText variant="label" tone="ink3">
+          Privacy choices
+        </AppText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setSignInOpen(true)}
+        hitSlop={8}
+      >
+        <AppText variant="label" tone="ink3">
+          Already have an account? Sign in
+        </AppText>
+      </Pressable>
+      <AuthSheet
+        visible={signInOpen}
+        mode="switch"
+        headline="Welcome back."
+        onDone={() => setSignInOpen(false)}
+      />
+      <PrivacyChoicesSheet
+        visible={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+      />
     </View>
   );
 }
@@ -56,6 +104,7 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
     gap: spacing.md,
     marginTop: spacing.lg,

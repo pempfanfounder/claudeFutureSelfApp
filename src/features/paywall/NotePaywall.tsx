@@ -8,7 +8,12 @@ import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
 import { PaywallFooter } from "./PaywallFooter";
-import { formatPriceLine, trialInfo, type PaywallData } from "./useOffering";
+import {
+  formatPriceLine,
+  subscriptionDisclosure,
+  trialInfo,
+  type PaywallData,
+} from "./useOffering";
 
 interface NotePaywallProps {
   data: PaywallData;
@@ -40,6 +45,7 @@ export function NotePaywall({
   }, []);
 
   const buy = async () => {
+    if (purchasing || data.loading) return;
     if (data.unavailable) {
       Alert.alert(
         "Purchases unavailable",
@@ -47,6 +53,7 @@ export function NotePaywall({
       );
       return;
     }
+    if (!data.pkg) return;
     setPurchasing(true);
     const result = await purchasePackage(data.pkg!);
     setPurchasing(false);
@@ -58,6 +65,10 @@ export function NotePaywall({
   };
 
   const trial = data.trialLength;
+  const disclosure = subscriptionDisclosure(
+    data.pkg,
+    data.pkg ? data.eligibility?.[data.pkg.product.identifier] : "unknown",
+  );
   const header =
     voice === "team"
       ? "A note before you begin"
@@ -65,12 +76,12 @@ export function NotePaywall({
   const body =
     voice === "team"
       ? [
-          "Future Self is a small team. There are no ads here, and nothing about your attention is for sale — the app works for you, not on you.",
+          "Future Self is a small team. There are no ads here, and nothing about your attention is for sale. The app works for you, not on you.",
           `That's only possible because it's paid.${trial ? ` Start with ${trial} free, on us. If it doesn't move you, cancel anytime and pay nothing.` : ""}`,
         ]
       : [
           `You just told me who you want to become${userName ? `, ${userName}` : ""}. I'm not letting that be another tab you close.`,
-          "Future Self has no ads and sells nothing about you — the app works for you, which is why it's paid.",
+          "Future Self has no ads and sells nothing about you. The app works for you, which is why it's paid.",
           trial
             ? `Take ${trial} free. If it doesn't move you, cancel anytime and pay nothing. But you didn't come this far to only come this far.`
             : "If it doesn't move you, cancel anytime. But you didn't come this far to only come this far.",
@@ -105,11 +116,14 @@ export function NotePaywall({
             <View style={styles.planSelector}>
               {data.allPackages.map((p) => {
                 const isSelected = data.pkg?.identifier === p.identifier;
-                const pTrial = trialInfo(p);
+                const pTrial = trialInfo(
+                  p,
+                  data.eligibility?.[p.product.identifier],
+                );
                 return (
                   <View key={p.identifier} style={styles.planWrapper}>
                     <Button
-                      label={`${p.product.title || p.packageType} — ${formatPriceLine(p)}${pTrial ? ` (${pTrial.label} free)` : ""}`}
+                      label={`${p.product.title || p.packageType} · ${formatPriceLine(p)}${pTrial ? ` (${pTrial.label} free)` : ""}`}
                       variant={isSelected ? "primary" : "secondary"}
                       onPress={() => data.selectPackage(p)}
                       style={styles.planButton}
@@ -124,13 +138,20 @@ export function NotePaywall({
           {data.unavailable ? (
             <AppText variant="body" tone="ink2" center style={styles.paragraph}>
               {
-                "The store can't be reached right now. Access stays locked until a purchase completes — try again shortly, or Restore if you've subscribed before."
+                "The store can't be reached right now. Access stays locked until a purchase completes. Try again shortly, or Restore if you've subscribed before."
               }
             </AppText>
           ) : null}
+          {data.unavailable ? (
+            <Button
+              label="Retry store connection"
+              variant="secondary"
+              onPress={() => data.retry?.()}
+            />
+          ) : null}
           {data.devMock ? (
             <AppText variant="label" tone="ink3" center>
-              Development mode: purchases are mocked
+              Development preview
             </AppText>
           ) : null}
 
@@ -138,13 +159,23 @@ export function NotePaywall({
             label={cta}
             onPress={buy}
             loading={purchasing}
-            disabled={data.loading || (data.unavailable && !data.devMock)}
+            disabled={data.loading || data.unavailable || !data.pkg}
             style={styles.cta}
             testID="paywall-cta"
           />
           {data.priceLine ? (
             <AppText variant="label" tone="ink2" center style={styles.price}>
               {trial ? `${trial} free, then ${data.priceLine}` : data.priceLine}
+            </AppText>
+          ) : null}
+          {disclosure ? (
+            <AppText
+              variant="label"
+              tone="ink3"
+              center
+              style={styles.disclosure}
+            >
+              {disclosure}
             </AppText>
           ) : null}
           <PaywallFooter onRestored={onPurchased} />
@@ -185,5 +216,5 @@ const styles = StyleSheet.create({
   },
   cta: { marginTop: spacing.sm },
   price: { marginTop: spacing.md },
+  disclosure: { marginTop: spacing.sm },
 });
-

@@ -86,7 +86,7 @@ export function ThemeStep({
           </AppText>
         ) : null}
         <Button
-          label={step.cta ?? "Continue"}
+          label={resolveText(step.cta, ctx) ?? "Continue"}
           onPress={onDone}
           testID="continue"
         />

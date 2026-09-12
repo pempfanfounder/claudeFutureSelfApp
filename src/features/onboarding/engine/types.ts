@@ -16,6 +16,7 @@ export type StepType =
   | "text"
   | "notifications"
   | "streak-commit"
+  | "app-icon"
   | "theme"
   | "result"
   | "preparing"
@@ -43,9 +44,22 @@ export interface OnboardingStep {
    * input appears. When present, `headline` is unused.
    */
   lines?: (string | ((ctx: OnboardingContext) => string))[];
+  /** Small supporting caption under the main content (streak-commit). */
+  info?: string;
+  /**
+   * `info` steps: short benefit lines rendered as an icon-led list under
+   * the headline/sub (e.g. the benefits screen).
+   */
+  bullets?: string[];
+  /**
+   * `info` steps: small ink3 line under the sub, for a source/citation
+   * (e.g. the science screen). Never a marketing claim.
+   */
+  footnote?: string;
   options?: StepOption[];
   placeholder?: string;
-  cta?: string;
+  /** CTA label; functions receive the running context (e.g. "I'm in for {N} days"). */
+  cta?: string | ((ctx: OnboardingContext) => string);
   secondaryCta?: string;
   skippable?: boolean;
   minSelect?: number;
@@ -77,6 +91,6 @@ export interface VariantConfig {
   paywallStyle: "timeline" | "note";
   /** iam: X fades in after this delay; stella: never closable. */
   paywallCloseDelayMs: number | null;
-  /** Stella family shows the skippable auth sheet before the paywall. */
+  /** Required Apple / Google / email step immediately before the paywall. */
   authSheetBeforePaywall: boolean;
 }

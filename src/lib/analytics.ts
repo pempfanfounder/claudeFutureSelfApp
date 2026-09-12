@@ -1,47 +1,64 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import PostHog from "posthog-react-native";
-
 import { config } from "./config";
-
-/**
- * Analytics abstraction over PostHog.
- *
- * - Safely no-ops when PostHog is not configured.
- * - Never send PII: no emails, tokens, life goals, custom affirmations,
- *   or raw free-text onboarding answers. Callers pass only enum-like
- *   values, counts, and ids.
- */
+import { diagnosticProperties, isDiagnosticEvent } from "./diagnosticPolicy";
 let posthog: PostHog | null = null;
-
 export function initAnalytics(): PostHog | null {
   if (posthog) return posthog;
   if (!config.hasPosthog) return null;
   posthog = new PostHog(config.posthogApiKey!, {
     host: config.posthogHost,
-    // Onboarding funnels depend on ordered events; flush reasonably often.
+    // Start a fresh anonymous identity and abandon pre-repair queued delivery.
+    // Preserve old diagnostics storage without loading, copying or deleting it.
+    customStorage: {
+      getItem: (key) => AsyncStorage.getItem(`fs.diagnostics.v3.${key}`),
+      setItem: (key, value) =>
+        AsyncStorage.setItem(`fs.diagnostics.v3.${key}`, value),
+    },
     flushAt: 10,
-    flushInterval: 10_000,
+    flushInterval: 10000,
+    captureAppLifecycleEvents: false,
+    enableSessionReplay: false,
+    disableGeoip: true,
+    personProfiles: "never",
+    preloadFeatureFlags: false,
+    disableRemoteFeatureFlags: true,
+    before_send: (event) => {
+      if (!event || !isDiagnosticEvent(event.event)) return null;
+      const properties: Record<string, string | number | boolean> =
+        diagnosticProperties(event.properties);
+      // SDK processing controls must survive scrubbing, regardless of caller input.
+      properties.$geoip_disable = true;
+      properties.$process_person_profile = false;
+      // The SDK project token is transport metadata, never a caller property.
+      if (
+        config.posthogApiKey &&
+        event.properties?.token === config.posthogApiKey
+      )
+        properties.token = config.posthogApiKey;
+      return {
+        event: event.event,
+        uuid: event.uuid,
+        timestamp: event.timestamp,
+        properties,
+      };
+    },
   });
   return posthog;
 }
-
-export function getPosthog(): PostHog | null {
+export function getPosthog() {
   return posthog;
 }
-
 type Properties = Record<string, string | number | boolean | null | undefined>;
-type CleanProperties = Record<string, string | number | boolean | null>;
-
 export const analytics = {
-  /** Identify the user by their Supabase UUID only. Never email/name. */
-  identify(userId: string, properties?: Properties) {
-    posthog?.identify(userId, sanitize(properties));
-  },
+  // Keep anonymous installation analytics; do not create person profiles or
+  // transfer arbitrary user properties into automatic SDK identity events.
+  identify(_userId: string, _properties?: Properties) {},
   capture(event: string, properties?: Properties) {
-    posthog?.capture(event, sanitize(properties));
+    if (isDiagnosticEvent(event))
+      posthog?.capture(event, diagnosticProperties(properties));
   },
-  screen(name: string, properties?: Properties) {
-    posthog?.screen(name, sanitize(properties));
-  },
+  screen(_name: string, _properties?: Properties) {},
   reset() {
     posthog?.reset();
   },
@@ -49,23 +66,3 @@ export const analytics = {
     await posthog?.flush().catch(() => {});
   },
 };
-
-const FORBIDDEN_KEY_PATTERN =
-  /(email|token|password|goal|affirmation|answer|name|text)/i;
-
-/**
- * Defense in depth: strip properties whose keys suggest sensitive
- * content. The primary control is that call sites never pass free text,
- * but a misnamed property should fail closed, not leak.
- */
-function sanitize(properties?: Properties): CleanProperties | undefined {
-  if (!properties) return undefined;
-  const out: CleanProperties = {};
-  for (const [key, value] of Object.entries(properties)) {
-    if (value === undefined) continue;
-    if (FORBIDDEN_KEY_PATTERN.test(key)) continue;
-    if (typeof value === "string" && value.length > 120) continue;
-    out[key] = value;
-  }
-  return out;
-}

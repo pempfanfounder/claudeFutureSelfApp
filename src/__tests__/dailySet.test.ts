@@ -77,7 +77,7 @@ describe("selectDailySet", () => {
     expect(day1).not.toEqual(other);
   });
 
-  it("returns at most the daily limit, only of the requested type", () => {
+  it("returns a full 20-item set, unique, only of the requested type", () => {
     const set = selectDailySet(
       library,
       "affirmation",
@@ -85,8 +85,25 @@ describe("selectDailySet", () => {
       "2026-08-09",
       weights,
     );
-    expect(set.length).toBeLessThanOrEqual(DAILY_LIMIT);
+    // Item 6: users can now receive up to 20 per type per day.
+    expect(DAILY_LIMIT).toBe(20);
+    // The 40-per-type fixture is large enough for a full set.
+    expect(set.length).toBe(DAILY_LIMIT);
+    expect(new Set(set).size).toBe(set.length);
     expect(set.every((id) => id.startsWith("aff-"))).toBe(true);
+  });
+
+  it("caps at the daily limit when the pool is larger", () => {
+    const big = makeLibrary(60);
+    const set = selectDailySet(big, "quote", "user-1", "2026-08-09", weights);
+    expect(set.length).toBe(DAILY_LIMIT);
+  });
+
+  it("returns the whole pool when fewer than the limit exist", () => {
+    const small = makeLibrary(7);
+    const set = selectDailySet(small, "quote", "user-1", "2026-08-09", weights);
+    expect(set.length).toBe(7);
+    expect(new Set(set).size).toBe(7);
   });
 
   it("weights matching categories above non-matching over many draws", () => {

@@ -1,15 +1,23 @@
 import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { resolveOptionIcon } from "../optionIcon";
 import { useColors } from "../ThemeProvider";
 import { radii, spacing } from "../tokens";
 import { AppText } from "./AppText";
+import { Icon } from "./Icon";
 
 interface SelectableRowProps {
   label: string;
   emoji?: string;
   selected: boolean;
   onPress: () => void;
+  /**
+   * Tighter vertical rhythm for long option lists (6+), so every answer
+   * fits on one screen. Still a 53 pt row: comfortably above the 44 pt
+   * minimum touch target.
+   */
+  compact?: boolean;
   testID?: string;
 }
 
@@ -19,9 +27,11 @@ export function SelectableRow({
   emoji,
   selected,
   onPress,
+  compact,
   testID,
 }: SelectableRowProps) {
   const colors = useColors();
+  const iconName = emoji ? resolveOptionIcon(emoji) : null;
   const handlePress = () => {
     Haptics.selectionAsync().catch(() => {});
     onPress();
@@ -34,6 +44,7 @@ export function SelectableRow({
       onPress={handlePress}
       style={({ pressed }) => [
         styles.row,
+        compact && styles.rowCompact,
         {
           backgroundColor: selected ? colors.bgAlt : colors.card,
           borderColor: selected ? colors.ink : colors.border,
@@ -41,7 +52,11 @@ export function SelectableRow({
         pressed && { transform: [{ scale: 0.99 }] },
       ]}
     >
-      {emoji ? <AppText variant="lead">{emoji}</AppText> : null}
+      {iconName ? (
+        <View testID={testID ? `${testID}-icon` : "option-icon"}>
+          <Icon name={iconName} size={22} color={colors.ink} />
+        </View>
+      ) : null}
       <AppText variant="lead" style={styles.label}>
         {label}
       </AppText>
@@ -67,6 +82,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
+  // 12 + 12 padding + a 26 pt lead line + 3 pt of border = ~53 pt.
+  rowCompact: { paddingVertical: spacing.md, marginBottom: spacing.sm },
   label: { flex: 1 },
   dot: {
     width: 20,

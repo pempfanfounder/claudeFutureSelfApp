@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, ProgressBar } from "@/design-system/components";
@@ -9,7 +9,6 @@ import { useColors } from "@/design-system/ThemeProvider";
 import { spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 import { useAppState } from "@/lib/appState";
-import { getSupabase } from "@/lib/supabase";
 
 import { useAuth } from "@/features/auth/AuthProvider";
 import { AuthSheet } from "@/features/auth/AuthSheet";
@@ -20,7 +19,8 @@ import { useOffering } from "@/features/paywall/useOffering";
 import { getVariantConfig } from "../variants";
 import { completeOnboarding } from "./completeOnboarding";
 import { resolveText } from "./resolve";
-import { markOnboardingComplete, useOnboardingStore } from "./store";
+import { useOnboardingStore } from "./store";
+import { AppIconStep } from "./steps/AppIconStep";
 import { IamStep } from "./steps/IamStep";
 import { NotificationsStep } from "./steps/NotificationsStep";
 import { PreparingStep } from "./steps/PreparingStep";
@@ -46,12 +46,11 @@ export function OnboardingFlow() {
     setAnswer,
     setName,
   } = useOnboardingStore();
-  const setPremium = useAppState((s) => s.setPremium);
   const { isAnonymous } = useAuth();
 
   const config = variant ? getVariantConfig(variant) : null;
   const offering = useOffering(
-    config?.paywallStyle === "note" ? "weekly" : "annual",
+    config?.paywallStyle === "note" ? "monthly" : "annual",
   );
   const [trialReminder, setTrialReminder] = useState(true);
   const [switchAuthVisible, setSwitchAuthVisible] = useState(false);
@@ -79,8 +78,15 @@ export function OnboardingFlow() {
 
   const finish = useCallback(async () => {
     if (!variant) return;
-    await completeOnboarding(variant);
-    router.replace("/");
+    try {
+      await completeOnboarding(variant);
+      router.replace("/");
+    } catch {
+      Alert.alert(
+        "Could not save this step",
+        "Your answers are still here. Please try again.",
+      );
+    }
   }, [variant]);
 
   const advance = useCallback(() => {
@@ -144,23 +150,7 @@ export function OnboardingFlow() {
     async (authenticated: boolean) => {
       setSwitchAuthVisible(false);
       if (!authenticated || !variant) return;
-      const supabase = getSupabase();
-      if (!supabase) return;
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user.id;
-      if (!userId) return;
-      const { data } = await supabase
-        .from("personalization")
-        .select("variant, onboarding_completed_at")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (data?.onboarding_completed_at) {
-        await markOnboardingComplete(
-          (data.variant as typeof variant | null) ?? variant,
-        );
-        useAppState.getState().setOnboardingComplete(true);
-        router.replace("/");
-      }
+      if (useAppState.getState().onboardingComplete) router.replace("/");
     },
     [variant],
   );
@@ -191,6 +181,10 @@ export function OnboardingFlow() {
         return (
           <StreakCommitStep step={step} ctx={ctx} onAnswer={handleAnswer} />
         );
+      case "app-icon":
+        // Records raw.app_icon only; completeOnboarding applies it once
+        // (iOS alerts on every icon change).
+        return <AppIconStep step={step} ctx={ctx} onAnswer={handleAnswer} />;
       case "theme":
         return <ThemeStep step={step} ctx={ctx} onDone={advance} />;
       case "result":
@@ -203,17 +197,22 @@ export function OnboardingFlow() {
             onDone={advance}
           />
         );
-      case "auth-sheet":
+      case "auth-sheet": {
+        const required = !step.secondaryCta;
         return (
           <AuthSheet
             visible
-            headline={resolveText(step.headline, ctx) ?? "Keep it safe."}
+            required={required}
+            headline={resolveText(step.headline, ctx) ?? "Create your account"}
             sub={resolveText(step.sub, ctx)}
             dismissLabel={step.secondaryCta ?? "Not now"}
             mode="link"
-            onDone={() => advance()}
+            onDone={(ok) => {
+              if (ok || !required) advance();
+            }}
           />
         );
+      }
       case "paywall":
         if (config.paywallStyle === "note") {
           return (
@@ -223,7 +222,6 @@ export function OnboardingFlow() {
               userName={name}
               placement="onboarding"
               onPurchased={() => {
-                setPremium(true);
                 advance();
               }}
             />
@@ -240,7 +238,6 @@ export function OnboardingFlow() {
             }}
             placement="onboarding"
             onPurchased={() => {
-              setPremium(true);
               advance();
             }}
             onClose={() => {

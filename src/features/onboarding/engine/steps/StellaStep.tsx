@@ -1,19 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, TextInput } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing, type } from "@/design-system/tokens";
 
-import { resolveLines } from "../resolve";
+import { KeyboardAvoider } from "../KeyboardAvoider";
+import { resolveLines, resolveText } from "../resolve";
 import { StreamedLines } from "../StreamedLines";
 import type { OnboardingContext, OnboardingStep } from "../types";
 
@@ -78,10 +72,7 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
       exiting={FadeOut.duration(180)}
       style={styles.root}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -147,13 +138,15 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
           ) : null}
         </ScrollView>
 
+        {/* Outside the ScrollView so the CTA sits directly above the
+            keyboard when the KeyboardAvoider pads the bottom. */}
         {streamed && !step.autoAdvanceMs ? (
           <Animated.View
             entering={FadeIn.duration(320).delay(120)}
             style={styles.footer}
           >
             <Button
-              label={step.cta ?? "Continue"}
+              label={resolveText(step.cta, ctx) ?? "Continue"}
               onPress={submit}
               disabled={!canContinue && !isInfo}
               testID="continue"
@@ -167,7 +160,7 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
             ) : null}
           </Animated.View>
         ) : null}
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Animated.View>
   );
 }
