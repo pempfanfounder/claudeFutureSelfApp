@@ -46,7 +46,8 @@ export type IconName =
   | "lockOpen"
   | "diamond"
   | "apple"
-  | "envelope";
+  | "envelope"
+  | "warning";
 
 const SF: Record<IconName, SymbolViewProps["name"]> = {
   share: "square.and.arrow.up",
@@ -86,6 +87,7 @@ const SF: Record<IconName, SymbolViewProps["name"]> = {
   diamond: "diamond.fill",
   apple: "apple.logo",
   envelope: "envelope",
+  warning: "exclamationmark.circle.fill",
 };
 
 // Monochrome text glyphs only (a color emoji would ignore `color`).
@@ -130,6 +132,8 @@ const FALLBACK: Record<IconName, string> = {
   // Sign in with Apple only renders on iOS, where the symbol path wins.
   apple: "",
   envelope: "✉",
+  // U+FE0E keeps the text presentation so `color` applies.
+  warning: "⚠︎",
 };
 
 export interface IconProps {

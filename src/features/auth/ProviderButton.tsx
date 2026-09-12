@@ -32,8 +32,6 @@ interface ProviderButtonProps {
   variant?: "solid" | "outline";
   loading?: boolean;
   disabled?: boolean;
-  /** Visually muted but still tappable, so a tap can explain the gate. */
-  dimmed?: boolean;
   style?: ViewStyle;
   testID?: string;
 }
@@ -53,7 +51,6 @@ export function ProviderButton({
   variant = "outline",
   loading,
   disabled,
-  dimmed,
   style,
   testID,
 }: ProviderButtonProps) {
@@ -107,7 +104,7 @@ export function ProviderButton({
           solid
             ? shadows.md
             : { borderWidth: 1, borderColor: colors.borderStrong },
-          (inert || dimmed) && { opacity: 0.5 },
+          inert && { opacity: 0.5 },
           pressed && !inert && { opacity: 0.92 },
           style,
         ]}
