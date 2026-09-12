@@ -7,6 +7,7 @@ import {
   record,
 } from "../_shared/input.ts";
 import {
+  parseAppIds,
   parseWebhook,
   reconcileEntitlement,
   rpc,
@@ -23,22 +24,23 @@ Deno.serve(async (req) => {
     return json({ error: "unauthorized" }, 401);
   }
   // Required deployment evidence; no assumed production app/environment.
-  const appId = Deno.env.get("REVENUECAT_WEBHOOK_APP_ID");
+  // REVENUECAT_WEBHOOK_APP_ID may list several apps, comma-separated.
+  const appIds = parseAppIds(Deno.env.get("REVENUECAT_WEBHOOK_APP_ID"));
   const environment = Deno.env.get("REVENUECAT_WEBHOOK_ENVIRONMENT");
   const apiKey = Deno.env.get("REVENUECAT_SECRET_API_KEY");
-  if (!appId || !environment || !apiKey)
+  if (!appIds || !environment || !apiKey)
     return json({ error: "reconciliation not configured" }, 503);
   try {
     const event = parseWebhook(
       await readBoundedJson(req, 65_536),
-      appId,
+      appIds,
       environment,
     );
     const db = createAdminClient();
     const received = record(
       await rpc(db, "receive_subscription_event", {
         p_event_id: event.id,
-        p_app_id: appId,
+        p_app_id: event.appId,
         p_environment: environment,
         p_event_time: new Date(event.timestamp).toISOString(),
         p_payload: event.payload,

@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { useAppState } from "@/lib/appState";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
-import { useAuth } from "./AuthProvider";
+import { useAuthFlow } from "./useAuthFlow";
 
 interface AuthSheetProps {
   visible: boolean;
@@ -20,12 +18,11 @@ interface AuthSheetProps {
   onDone: (authenticated: boolean) => void;
 }
 
-type EmailStage = "closed" | "enter-email" | "enter-code";
-
 /**
  * Skippable auth bottom sheet (Stella placement) reused by Settings.
  * Configured providers render their buttons. If none are available,
  * the sheet explains that sign-in isn't available on this build.
+ * The required pre-paywall placement uses `SaveAccountScreen` instead.
  */
 export function AuthSheet({
   visible,
@@ -37,107 +34,8 @@ export function AuthSheet({
   onDone,
 }: AuthSheetProps) {
   const colors = useColors();
-  const auth = useAuth();
-  const premium = useAppState((s) => s.isPremium);
-  const saveGuestFirst = mode === "switch" && auth.isAnonymous && premium;
-  const effectiveMode = saveGuestFirst ? "link" : mode;
-  const [busy, setBusy] = useState<string | null>(null);
-  const [emailStage, setEmailStage] = useState<EmailStage>("closed");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  // This owns UI results only. The provider keeps the actual SDK mutation
-  // fenced through timeout, dismissal and remount until it settles.
-  const operation = useRef<symbol | null>(null);
-  const reset = useCallback(() => {
-    operation.current = null;
-    setBusy(null);
-    setEmailStage("closed");
-    setEmail("");
-    setCode("");
-    setError(null);
-  }, []);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- A new modal visibility/mode session discards prior form state.
-    reset();
-    return () => {
-      operation.current = null;
-    };
-  }, [visible, mode, reset]);
-
-  const finish = (ok: boolean) => {
-    reset();
-    onDone(ok);
-  };
-  const begin = (key: string) => {
-    if (!visible || operation.current) return null;
-    const token = Symbol();
-    operation.current = token;
-    setBusy(key);
-    setError(null);
-    return token;
-  };
-  const end = (token: symbol) => {
-    if (operation.current !== token) return;
-    operation.current = null;
-    setBusy(null);
-  };
-  const run = async (
-    key: string,
-    fn: () => Promise<{ ok: boolean; message?: string; reason?: string }>,
-  ) => {
-    const token = begin(key);
-    if (!token) return;
-    try {
-      const result = await fn();
-      if (operation.current !== token) return;
-      if (result.ok) finish(true);
-      else if (result.reason !== "cancelled")
-        setError(
-          result.message || "Could not finish signing in. Please retry.",
-        );
-    } catch (cause) {
-      if (operation.current === token)
-        setError(
-          cause instanceof Error && cause.message
-            ? cause.message
-            : "Could not finish signing in. Please retry.",
-        );
-    } finally {
-      end(token);
-    }
-  };
-
-  const startEmail = async () => {
-    if (operation.current) return;
-    if (!email.includes("@")) {
-      setError("Enter a valid email address.");
-      return;
-    }
-    const token = begin("email");
-    if (!token) return;
-    try {
-      const result = await auth.startEmailLink(email.trim().toLowerCase());
-      if (operation.current !== token) return;
-      if (result.ok) setEmailStage("enter-code");
-      else setError(result.message || "Could not send the code. Try again.");
-    } catch (cause) {
-      if (operation.current === token)
-        setError(
-          cause instanceof Error && cause.message
-            ? cause.message
-            : "Could not send the code. Try again.",
-        );
-    } finally {
-      end(token);
-    }
-  };
-
-  const verifyEmail = () =>
-    run("email", () =>
-      auth.verifyEmailLink(email.trim().toLowerCase(), code.trim()),
-    );
+  const flow = useAuthFlow({ active: visible, mode, onDone });
+  const { auth, busy, emailStage, error, effectiveMode, saveGuestFirst } = flow;
 
   return (
     <Modal
@@ -145,7 +43,7 @@ export function AuthSheet({
       transparent
       animationType="slide"
       onRequestClose={() => {
-        if (!required) finish(false);
+        if (!required) flow.cancel();
       }}
     >
       <View style={styles.backdrop}>
@@ -183,20 +81,13 @@ export function AuthSheet({
               !auth.availableProviders.google &&
               !auth.availableProviders.email ? (
                 <AppText variant="body" tone="ink2" center>
-                  Sign-in isn't available on this build.
+                  Sign-in isn&apos;t available on this build.
                 </AppText>
               ) : null}
               {auth.availableProviders.apple ? (
                 <Button
                   label=" Sign in with Apple"
-                  onPress={() =>
-                    run(
-                      "apple",
-                      effectiveMode === "link"
-                        ? auth.linkWithApple
-                        : auth.signInExistingWithApple,
-                    )
-                  }
+                  onPress={flow.runApple}
                   loading={busy === "apple"}
                   disabled={Boolean(busy)}
                   testID="auth-apple"
@@ -206,14 +97,7 @@ export function AuthSheet({
                 <Button
                   label="Continue with Google"
                   variant="secondary"
-                  onPress={() =>
-                    run(
-                      "google",
-                      effectiveMode === "link"
-                        ? auth.linkWithGoogle
-                        : auth.signInExistingWithGoogle,
-                    )
-                  }
+                  onPress={flow.runGoogle}
                   loading={busy === "google"}
                   disabled={Boolean(busy)}
                   testID="auth-google"
@@ -224,9 +108,7 @@ export function AuthSheet({
                   label="Use email instead"
                   variant="ghost"
                   size="md"
-                  onPress={() => {
-                    if (!operation.current) setEmailStage("enter-email");
-                  }}
+                  onPress={flow.openEmail}
                   disabled={Boolean(busy)}
                   testID="auth-email"
                 />
@@ -237,9 +119,9 @@ export function AuthSheet({
           {emailStage === "enter-email" ? (
             <View style={styles.buttons}>
               <TextInput
-                value={email}
+                value={flow.email}
                 editable={!busy}
-                onChangeText={setEmail}
+                onChangeText={flow.setEmail}
                 placeholder="you@example.com"
                 placeholderTextColor={colors.ink3}
                 autoCapitalize="none"
@@ -254,7 +136,7 @@ export function AuthSheet({
               />
               <Button
                 label="Send code"
-                onPress={startEmail}
+                onPress={flow.startEmail}
                 loading={busy === "email"}
                 testID="auth-email-send"
               />
@@ -264,11 +146,11 @@ export function AuthSheet({
           {emailStage === "enter-code" ? (
             <View style={styles.buttons}>
               <AppText variant="body" tone="ink2" center>
-                We sent a 6-digit code to {email}.
+                We sent a 6-digit code to {flow.email}.
               </AppText>
               <TextInput
-                value={code}
-                onChangeText={setCode}
+                value={flow.code}
+                onChangeText={flow.setCode}
                 placeholder="123456"
                 placeholderTextColor={colors.ink3}
                 keyboardType="number-pad"
@@ -282,20 +164,16 @@ export function AuthSheet({
               />
               <Button
                 label="Verify"
-                onPress={verifyEmail}
+                onPress={flow.verifyEmail}
                 loading={busy === "email"}
-                disabled={code.length !== 6}
+                disabled={flow.code.length !== 6}
                 testID="auth-code-verify"
               />
             </View>
           ) : null}
 
           {required ? null : (
-            <Pressable
-              onPress={() => finish(false)}
-              style={styles.dismiss}
-              hitSlop={8}
-            >
+            <Pressable onPress={flow.cancel} style={styles.dismiss} hitSlop={8}>
               <AppText variant="body" tone="ink3" center>
                 {dismissLabel}
               </AppText>

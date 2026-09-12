@@ -1,7 +1,8 @@
 # Onboarding Copy Spec — `iam-claude`
 
 Claude-original conversion strategy on the **I Am** UX framework (serif-on-cream
-quiz rhythm, auto-advance single-selects, no progress bar, interstitial
+quiz rhythm, auto-advance single-selects, progress bar since 2026-09-12 (see
+the last section), interstitial
 breathers, name reuse, notification education before the OS dialog, streak
 commitment moment, trial seeding, timeline paywall with delayed X, no visible
 authentication). Written before `possibleonboardingcopy.md` was opened; not
@@ -151,3 +152,45 @@ source of truth, this spec's earlier sections are not re-transcribed.
   `src/__tests__/variants.test.ts`).
 - **Result screen** is a swipeable card carousel instead of one tall card;
   every card is still composed only from real answers.
+
+## 2026-09-12 feedback round
+
+Owner feedback on the live funnel; `src/features/onboarding/variants/iamClaude.ts`
+stays the source of truth.
+
+- **`habit-helper`**: "What would keep this going day after day?" was too
+  vague → "What would help make Future Self a habit you keep?" (owner's
+  pick). Options use plain language: "Reminders through my day" (was
+  "Nudges…"), "Quotes that match my goals" (was "Words…").
+- **Vocabulary**: the delivered content is always "quotes", never "words"
+  (theme, widget promos, every variant's notification copy); "nudge" does not
+  appear anywhere in the app. Guarded by a test in
+  `src/__tests__/variants.test.ts`.
+- **Numerals everywhere**: "1 quiet minute / 3 focused minutes / 10 unhurried
+  minutes", "3 readings a day…", and the same treatment in the other variants.
+  Narrative numbers ("five years", "One last thing") stay spelled out.
+- **`time-devotion`** sub: "Even 1 minute counts, if it's every day" (was
+  "Small and daily beats big and rare").
+- **`streak-goal`**: "What's your first streak goal?" (was "How long a streak
+  do you want to chase first?").
+- **`traits`**: the 4-trait cap is gone; every trait is selectable.
+- **`achieve`**: every option is a first-person answer to "A year in, what
+  should have changed?": "I'm the person I imagined to be" · "I am finally
+  disciplined" · "I trust myself more" · "My thinking got clearer" · "I'm
+  present, not rushing" · "I care for my mental well-being".
+- **`notifications`** (config screen): same compact footprint and
+  interaction as before, restyled away from the reference app's look. The
+  two count pills with solid dark round buttons and "3x" are now one grouped
+  card (`GroupCard`) with Quotes / Affirmations rows, each ending in a single
+  narrow outlined stepper capsule (− · numeral in the system font · +) with
+  a small "per day" caption after it. The Start at / End at
+  card sits on the same chrome (hairline edge, short accent rule at the
+  left). Both cards' rows are 52 pt so the whole screen, CTA included, fits
+  an iPhone 14/15/16 Pro without scrolling. The "Between {start} and {end} ·
+  your future self won't wake you" sentence is removed. (An earlier
+  big-tile + 24-hour-band design was tried and rejected by the owner as too
+  tall.)
+- **Progress bar (trial)**: a thin animated bar now runs above every
+  question in both families, advancing one segment per answer; hidden on the
+  welcome, auth, paywall, result and widget screens. Toggle per family in
+  `src/features/onboarding/engine/progress.ts` (`PROGRESS_BAR_FAMILIES`).

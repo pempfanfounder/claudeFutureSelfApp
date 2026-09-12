@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppState } from "@/lib/appState";
 import { getIdentitySupabase } from "@/lib/supabase";
 import {
+  APP_ICON_SAFETY_NET_DELAY_MS,
   completeOnboarding,
   reconcileOnboardingState,
 } from "@/features/onboarding/engine/completeOnboarding";
@@ -16,6 +17,10 @@ import {
   useOnboardingStore,
 } from "@/features/onboarding/engine/store";
 import { registerDevice } from "@/features/notifications/push";
+import { applyAppIcon } from "@/design-system/appIcons";
+jest.mock("@/design-system/appIcons", () => ({
+  applyAppIcon: jest.fn(async () => true),
+}));
 jest.mock("@/lib/monitoring", () => ({
   monitoring: { captureError: jest.fn() },
 }));
@@ -137,6 +142,39 @@ test.each(["personalization", "profiles", "notification_prefs", "recalc"])(
     expect(await getPendingServerSync()).toBeNull();
   },
 );
+test("re-applies the chosen app icon as a deferred safety net, not during completion", async () => {
+  jest.useFakeTimers();
+  try {
+    service();
+    (applyAppIcon as jest.Mock).mockClear();
+    useOnboardingStore.getState().setAnswer("raw.app_icon", "evergreen");
+    await completeOnboarding("iam-claude");
+    // Nothing during completion: the native icon change must not race the
+    // notification permission alert or the route replace that follow.
+    expect(applyAppIcon).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(APP_ICON_SAFETY_NET_DELAY_MS - 1);
+    expect(applyAppIcon).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(applyAppIcon).toHaveBeenCalledTimes(1);
+    expect(applyAppIcon).toHaveBeenCalledWith("evergreen");
+  } finally {
+    jest.useRealTimers();
+  }
+});
+test("the deferred icon safety net is dropped when the account changed meanwhile", async () => {
+  jest.useFakeTimers();
+  try {
+    service();
+    (applyAppIcon as jest.Mock).mockClear();
+    useOnboardingStore.getState().setAnswer("raw.app_icon", "arctic");
+    await completeOnboarding("iam-claude");
+    useAppState.getState().setUserId("fs-local-b");
+    jest.advanceTimersByTime(APP_ICON_SAFETY_NET_DELAY_MS);
+    expect(applyAppIcon).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
+});
 test("registration failure keeps payload even after all data writes", async () => {
   service();
   (registerDevice as jest.Mock).mockRejectedValueOnce(

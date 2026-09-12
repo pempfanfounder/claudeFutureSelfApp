@@ -22,7 +22,7 @@ export const stellaClaude: VariantConfig = {
       id: "notifications",
       type: "notifications",
       lines: [
-        "Future Self works by finding you during your day: a few of the right words, spread through the hours you choose.",
+        "Future Self works by finding you during your day: a few of the right quotes, spread through the hours you choose.",
         "Turn on notifications so today-you can hear from us.",
       ],
       cta: "Turn them on",
@@ -228,8 +228,7 @@ export const stellaClaude: VariantConfig = {
     {
       id: "auth",
       type: "auth-sheet",
-      headline: (ctx) =>
-        ctx.name ? `Keep it safe, ${ctx.name}.` : "Keep it safe.",
+      headline: "Save your progress",
       sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
       condition: (ctx) => ctx.isAnonymous,
     },

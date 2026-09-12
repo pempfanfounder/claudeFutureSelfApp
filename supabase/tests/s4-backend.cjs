@@ -186,6 +186,74 @@ test("wrong app and environment cannot change entitlement", async () => {
   assert.equal(f.fetches, 0);
   assert.equal(f.calls.length, 0);
 });
+test("app id secret parses single, list, whitespace and empty forms", () => {
+  const p = fixture().load("_shared/entitlement-reconciliation.ts").parseAppIds;
+  assert.deepEqual([...p("app6bb4e06e68")], ["app6bb4e06e68"]);
+  assert.deepEqual(
+    [...p("app6bb4e06e68,app6bbf4b6d0c")],
+    ["app6bb4e06e68", "app6bbf4b6d0c"],
+  );
+  assert.deepEqual(
+    [...p("  app6bb4e06e68 , app6bbf4b6d0c ,, ")],
+    ["app6bb4e06e68", "app6bbf4b6d0c"],
+  );
+  assert.equal(p(undefined), null);
+  assert.equal(p(""), null);
+  assert.equal(p(" , "), null);
+});
+test("webhook parser matches any configured app id, exact environment", () => {
+  const m = fixture().load("_shared/entitlement-reconciliation.ts");
+  const parse = (appIds, event) => m.parseWebhook({ event }, appIds, "SANDBOX");
+  const ios = { ...base, app_id: "app6bb4e06e68" };
+  const android = { ...base, app_id: "app6bbf4b6d0c" };
+  // Single configured value keeps working unchanged.
+  assert.equal(parse("app6bb4e06e68", ios).appId, "app6bb4e06e68");
+  assert.throws(() => parse("app6bb4e06e68", android), /scope mismatch/);
+  // Two IDs: each matches and the event's own value is persisted.
+  const both = m.parseAppIds("app6bb4e06e68,app6bbf4b6d0c");
+  assert.equal(parse(both, ios).payload.app_id, "app6bb4e06e68");
+  assert.equal(parse(both, android).payload.app_id, "app6bbf4b6d0c");
+  assert.equal(parse(both, android).appId, "app6bbf4b6d0c");
+  // Mismatch and non-string app ids are rejected.
+  assert.throws(() => parse(both, { ...base, app_id: "foreign" }), /mismatch/);
+  assert.throws(() => parse(both, { ...base, app_id: undefined }), /mismatch/);
+  assert.throws(() => parse(both, { ...base, app_id: ["app6bb4e06e68"] }));
+  // Whitespace in the configured list never becomes a match requirement.
+  const padded = m.parseAppIds(" app6bb4e06e68 ,app6bbf4b6d0c ");
+  assert.equal(parse(padded, ios).appId, "app6bb4e06e68");
+  assert.throws(() => parse(padded, { ...base, app_id: " app6bb4e06e68 " }));
+  // Environment stays exact even when the app id matches.
+  assert.throws(
+    () => m.parseWebhook({ event: ios }, both, "PRODUCTION"),
+    /mismatch/,
+  );
+  assert.throws(() =>
+    m.parseWebhook(
+      { event: { ...ios, environment: "sandbox" } },
+      both,
+      "SANDBOX",
+    ),
+  );
+});
+test("android event on a two-app secret is received under its own app id", async () => {
+  const f = fixture({
+    env: { ...env, REVENUECAT_WEBHOOK_APP_ID: "fixture-app, app6bbf4b6d0c" },
+  });
+  assert.equal(
+    (await f.call({ ...base, app_id: "app6bbf4b6d0c" })).status,
+    200,
+  );
+  const receipt = f.calls.find((c) => c.name === "receive_subscription_event");
+  assert.equal(receipt.args.p_app_id, "app6bbf4b6d0c");
+  assert.equal(receipt.args.p_payload.app_id, "app6bbf4b6d0c");
+  assert.equal((await f.call()).status, 200);
+  assert.equal((await f.call({ ...base, app_id: "foreign" })).status, 400);
+});
+test("blank app id secret is treated as unconfigured", async () => {
+  const f = fixture({ env: { ...env, REVENUECAT_WEBHOOK_APP_ID: " , " } });
+  assert.equal((await f.call()).status, 503);
+  assert.equal(f.calls.length, 0);
+});
 test("transfer reconciles every returned UUID target", async () => {
   const f = fixture({ targets: [A, B] });
   assert.equal(

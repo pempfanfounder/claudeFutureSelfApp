@@ -51,6 +51,9 @@ const ALL_ICONS: IconName[] = [
   "target",
   "lockOpen",
   "diamond",
+  "apple",
+  "envelope",
+  "warning",
 ];
 
 describe("Icon", () => {

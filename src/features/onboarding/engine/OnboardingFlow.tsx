@@ -12,6 +12,7 @@ import { useAppState } from "@/lib/appState";
 
 import { useAuth } from "@/features/auth/AuthProvider";
 import { AuthSheet } from "@/features/auth/AuthSheet";
+import { SaveAccountScreen } from "@/features/auth/SaveAccountScreen";
 import { CalAiPaywall } from "@/features/paywall/calai/CalAiPaywall";
 import { NotePaywall } from "@/features/paywall/NotePaywall";
 import {
@@ -23,6 +24,7 @@ import { useOffering } from "@/features/paywall/useOffering";
 
 import { getVariantConfig } from "../variants";
 import { completeOnboarding } from "./completeOnboarding";
+import { onboardingProgress, PROGRESS_BAR_FAMILIES } from "./progress";
 import { resolveText } from "./resolve";
 import { useOnboardingStore } from "./store";
 import { AppIconStep } from "./steps/AppIconStep";
@@ -164,13 +166,22 @@ export function OnboardingFlow() {
   if (!config || !step || !variant) return null;
 
   const isStella = config.family === "stella";
+  // The required pre-paywall account step is a full screen with its own
+  // back button and progress line.
+  const isSaveAccount = step.type === "auth-sheet" && !step.secondaryCta;
   const showBack =
-    isStella && stepIndex > 0 && !["preparing", "paywall"].includes(step.type);
-  const showProgress =
     isStella &&
-    !step.hideProgress &&
-    !["welcome", "preparing", "paywall", "auth-sheet"].includes(step.type);
-  const progress = (stepIndex + 1) / steps.length;
+    !isSaveAccount &&
+    stepIndex > 0 &&
+    !["preparing", "paywall"].includes(step.type);
+  const progress = PROGRESS_BAR_FAMILIES[config.family]
+    ? onboardingProgress(steps, stepIndex)
+    : null;
+  // The top bar hides on auth-sheet steps; SaveAccountScreen draws its own
+  // progress line, so give it a plain position-based value.
+  const saveAccountProgress = (stepIndex + 1) / steps.length;
+  // Going back onto a "preparing" step would rerun its work; stop there.
+  const canGoBack = stepIndex > 0 && steps[stepIndex - 1]?.type !== "preparing";
 
   const renderStep = () => {
     switch (step.type) {
@@ -204,18 +215,25 @@ export function OnboardingFlow() {
           />
         );
       case "auth-sheet": {
-        const required = !step.secondaryCta;
+        if (isSaveAccount)
+          return (
+            <SaveAccountScreen
+              sub={resolveText(step.sub, ctx)}
+              progress={saveAccountProgress}
+              onBack={canGoBack ? goBack : undefined}
+              onDone={(ok) => {
+                if (ok) advance();
+              }}
+            />
+          );
         return (
           <AuthSheet
             visible
-            required={required}
             headline={resolveText(step.headline, ctx) ?? "Create your account"}
             sub={resolveText(step.sub, ctx)}
             dismissLabel={step.secondaryCta ?? "Not now"}
             mode="link"
-            onDone={(ok) => {
-              if (ok || !required) advance();
-            }}
+            onDone={() => advance()}
           />
         );
       }
@@ -297,8 +315,9 @@ export function OnboardingFlow() {
   };
 
   const isFullBleed =
-    step.type === "paywall" &&
-    (calAi !== null || config.paywallStyle === "note");
+    isSaveAccount ||
+    (step.type === "paywall" &&
+      (calAi !== null || config.paywallStyle === "note"));
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -309,8 +328,11 @@ export function OnboardingFlow() {
         />
       ) : null}
 
-      {showProgress ? (
-        <View style={[styles.progress, { top: insets.top + spacing.sm }]}>
+      {progress !== null ? (
+        <View
+          style={[styles.progress, { top: insets.top + spacing.sm }]}
+          testID="onboarding-progress"
+        >
           <ProgressBar progress={progress} height={3} />
         </View>
       ) : null}

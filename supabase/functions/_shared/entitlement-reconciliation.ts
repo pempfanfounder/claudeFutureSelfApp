@@ -133,16 +133,36 @@ export function parseSubscriber(
       trialEnd === null ? null : new Date(trialEnd).toISOString(),
   };
 }
+/**
+ * One RevenueCat project may expose several apps (e.g. iOS and Android) that
+ * all post to the same webhook. Accepts a comma-separated list; a single ID
+ * keeps working unchanged. Returns null when no usable ID is configured.
+ */
+export function parseAppIds(raw: string | undefined): Set<string> | null {
+  if (raw === undefined) return null;
+  const ids = raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+  return ids.length ? new Set(ids) : null;
+}
 export function parseWebhook(
   payload: unknown,
-  appId: string,
+  appIds: string | ReadonlySet<string>,
   environment: string,
 ) {
   const event = record(record(payload, "body").event, "event");
   const id = boundedString(event.id, "event id");
   const type = boundedString(event.type, "event type", 64);
-  if (event.app_id !== appId || event.environment !== environment)
+  const allowed = typeof appIds === "string" ? new Set([appIds]) : appIds;
+  if (
+    typeof event.app_id !== "string" ||
+    !allowed.has(event.app_id) ||
+    event.environment !== environment
+  )
     throw new InputError("event scope mismatch");
+  // The matched event value, never the configured list, flows downstream.
+  const appId = boundedString(event.app_id, "app id", 128);
   const timestamp = event.event_timestamp_ms;
   if (
     typeof timestamp !== "number" ||
@@ -172,6 +192,7 @@ export function parseWebhook(
   return {
     id,
     type,
+    appId,
     timestamp,
     userIds,
     // Persist routing metadata only; custom aliases may contain personal data.
