@@ -178,13 +178,17 @@ stays the source of truth.
   should have changed?": "I'm the person I imagined to be" · "I am finally
   disciplined" · "I trust myself more" · "My thinking got clearer" · "I'm
   present, not rushing" · "I care for my mental well-being".
-- **`notifications`** (config screen) redesigned away from the reference
-  app's pill stepper + compact-picker card: two side-by-side **count tiles**
-  (eyebrow label, large serif numeral, "a day", split − | + control) and an
-  **Active hours** card (24-hour band that animates with the window, From /
-  Until tiles, inline wheel on iOS, native dialog on Android). The
-  "Between {start} and {end} · your future self won't wake you" sentence is
-  removed.
+- **`notifications`** (config screen): same compact footprint and
+  interaction as before, restyled away from the reference app's look. The
+  two count pills with solid dark round buttons and "3x" are now one grouped
+  card (`GroupCard`) with Quotes / Affirmations rows, each ending in a single
+  outlined stepper capsule (− · serif numeral · +). The Start at / End at
+  card sits on the same chrome (hairline edge, short accent rule at the
+  left). Both cards' rows are 52 pt so the whole screen, CTA included, fits
+  an iPhone 14/15/16 Pro without scrolling. The "Between {start} and {end} ·
+  your future self won't wake you" sentence is removed. (An earlier
+  big-tile + 24-hour-band design was tried and rejected by the owner as too
+  tall.)
 - **Progress bar (trial)**: a thin animated bar now runs above every
   question in both families, advancing one segment per answer; hidden on the
   welcome, auth, paywall, result and widget screens. Toggle per family in
