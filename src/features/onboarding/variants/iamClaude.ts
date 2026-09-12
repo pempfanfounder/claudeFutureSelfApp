@@ -125,7 +125,7 @@ export const iamClaude: VariantConfig = {
       id: "repetition",
       type: "info",
       headline:
-        "Repetition is how a thought stops being an idea and becomes a belief.",
+        "The thoughts you hear most are the ones you end up believing.",
       cta: "Continue",
     },
     {
