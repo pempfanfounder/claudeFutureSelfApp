@@ -104,15 +104,18 @@ export const iamClaude: VariantConfig = {
     {
       id: "habit-helper",
       type: "multi",
-      headline: "What would keep this going day after day?",
+      // Feedback 2026-09-12: the old "What would keep this going day
+      // after day?" was too vague. Plain language only: no "nudges", and
+      // the content is always called "quotes", never "words".
+      headline: "What would help you show up every day?",
       sub: "Choose all that apply",
       minSelect: 1,
       // Every option maps to a real Future Self feature.
       options: [
-        { slug: "reminders", label: "Nudges at the right moments" },
+        { slug: "reminders", label: "Reminders at the right moments" },
         { slug: "progress", label: "Watching my streak build" },
         { slug: "widget", label: "A widget on my Home or Lock Screen" },
-        { slug: "fit", label: "Words that match my goals" },
+        { slug: "fit", label: "Quotes that match my goals" },
         { slug: "unsure", label: "I don't know yet" },
       ],
       skippable: true,
@@ -188,11 +191,12 @@ export const iamClaude: VariantConfig = {
       id: "time-devotion",
       type: "single",
       headline: "How much time will you give your future self each day?",
-      sub: "Small and daily beats big and rare",
+      sub: "Pick something you'd still do on a bad day",
+      // Numerals everywhere (the streak screens already use them).
       options: [
-        { slug: "1", label: "One quiet minute" },
-        { slug: "3", label: "Three focused minutes" },
-        { slug: "10", label: "Ten unhurried minutes" },
+        { slug: "1", label: "1 quiet minute" },
+        { slug: "3", label: "3 focused minutes" },
+        { slug: "10", label: "10 unhurried minutes" },
       ],
       skippable: true,
       modelKey: "raw.daily_minutes",
@@ -200,7 +204,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "streak-goal",
       type: "single",
-      headline: "How long a streak do you want to chase first?",
+      headline: "How many days in a row are you aiming for first?",
       sub: "Pick what feels doable. Your streak keeps counting either way",
       options: [
         { slug: "3", label: "3 days straight" },
@@ -213,7 +217,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "streak",
       type: "streak-commit",
-      headline: "Three readings a day. That's the whole ask.",
+      headline: "3 readings a day. That's the whole ask.",
       sub: "Read 3 quotes or affirmations and the day counts.",
       info: "Miss a day and the chain breaks.",
       // Echoes the goal picked one screen earlier; 21 when it was skipped.
@@ -225,7 +229,8 @@ export const iamClaude: VariantConfig = {
       type: "chips",
       headline: "Meet your future self. What are they like?",
       sub: "Pick the traits you're building toward",
-      maxSelect: 4,
+      // No maxSelect: every trait the user is building toward should be
+      // selectable (feedback 2026-09-12).
       minSelect: 1,
       options: [
         { slug: "disciplined", label: "Disciplined" },
@@ -394,7 +399,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "theme",
       type: "theme",
-      headline: "Choose how your words should look.",
+      headline: "Choose how your quotes should look.",
       sub: "You can change this anytime, or build your own",
       trialCaption: true,
       cta: "Continue",
@@ -403,7 +408,7 @@ export const iamClaude: VariantConfig = {
       id: "life-goal",
       type: "text",
       headline: "Finish the sentence: a year from now, I want to be…",
-      sub: "Your words. They'll follow you through the app, and onto your Home Screen if you want.",
+      sub: "Your own line. It follows you through the app, and onto your Home Screen if you want.",
       placeholder: "…someone who shows up every single day",
       multiline: true,
       maxLength: 280,
@@ -417,12 +422,14 @@ export const iamClaude: VariantConfig = {
       headline: "A year in, what should have changed?",
       sub: "Choose at least one",
       minSelect: 1,
+      // Every option is a first-person answer to the headline, as if the
+      // user were saying it a year from now (feedback 2026-09-12). Kept
+      // short so each answer stays a single row on a 6.1" phone.
       options: [
-        // Kept short so each answer stays a single row on a 6.1" phone.
-        { slug: "best-self", label: "I'm the person I imagined" },
-        { slug: "discipline", label: "Discipline that holds" },
+        { slug: "best-self", label: "I'm the person I imagined to be" },
+        { slug: "discipline", label: "I am finally disciplined" },
         { slug: "confidence", label: "I trust myself more" },
-        { slug: "mindset", label: "My thinking got lighter" },
+        { slug: "mindset", label: "My thinking got clearer" },
         { slug: "presence", label: "I'm present, not rushing" },
         { slug: "mental-health", label: "I care for my mental well-being" },
       ],
@@ -478,7 +485,7 @@ export const iamClaude: VariantConfig = {
       id: "widget-lock",
       type: "widget-promo",
       headline: "Put your future on your Lock Screen.",
-      sub: "See your words without unlocking your phone",
+      sub: "See your quotes without unlocking your phone",
       cta: "Got it",
       placeholder: "I will not waste today.",
     },
