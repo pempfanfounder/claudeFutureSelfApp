@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  AppState,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 
 import { AppText, Button } from "@/design-system/components";
@@ -55,16 +62,31 @@ export function NotificationsStep({
   // dialog on the next request. Saying "Allow" then would promise a
   // prompt that never appears; the button only saves the counts.
   const [alreadyGranted, setAlreadyGranted] = useState(false);
+  // A previously denied permission makes the request resolve "denied"
+  // with no dialog at all. Advancing silently there reads as "the prompt
+  // doesn't work", so the iam screen switches to an inline explanation
+  // with an Open Settings action instead (feedback 2026-09-12).
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getPermissionStatus()
-      .then((status) => {
-        if (!cancelled) setAlreadyGranted(status === "granted");
-      })
-      .catch(() => {});
+    const sync = () =>
+      getPermissionStatus()
+        .then((status) => {
+          if (cancelled) return;
+          setAlreadyGranted(status === "granted");
+          // Coming back from Settings with reminders switched on clears
+          // the denied panel and offers the plain "Save".
+          if (status === "granted") setDenied(false);
+        })
+        .catch(() => {});
+    void sync();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void sync();
+    });
     return () => {
       cancelled = true;
+      sub.remove();
     };
   }, []);
 
@@ -73,7 +95,15 @@ export function NotificationsStep({
     const status = await requestNotificationPermission();
     setPermissionStatus(status);
     setRequesting(false);
+    if (status === "denied" && family === "iam") {
+      setDenied(true);
+      return;
+    }
     onDone();
+  };
+
+  const openSettings = () => {
+    Linking.openSettings().catch(() => {});
   };
 
   if (family === "stella") {
@@ -145,27 +175,60 @@ export function NotificationsStep({
         </View>
       </ScrollView>
       <View style={styles.footer}>
-        <Button
-          label={
-            alreadyGranted
-              ? "Save"
-              : (resolveText(step.cta, ctx) ?? "Turn on reminders")
-          }
-          onPress={ask}
-          loading={requesting}
-          testID="notif-allow"
-        />
-        <Pressable
-          onPress={onDone}
-          style={styles.maybeLater}
-          hitSlop={8}
-          accessibilityRole="button"
-          testID="notif-not-now"
-        >
-          <AppText variant="body" tone="ink3" center>
-            Not now
-          </AppText>
-        </Pressable>
+        {denied ? (
+          <Animated.View entering={FadeIn.duration(220)}>
+            <AppText
+              variant="label"
+              tone="ink2"
+              center
+              style={styles.deniedNote}
+              testID="notif-denied"
+            >
+              Reminders are off for Future Self in Settings. Turn them on there
+              and your quotes will find you.
+            </AppText>
+            <Button
+              label="Open Settings"
+              onPress={openSettings}
+              testID="notif-open-settings"
+            />
+            <Pressable
+              onPress={onDone}
+              style={styles.maybeLater}
+              hitSlop={8}
+              accessibilityRole="button"
+              testID="notif-continue-without"
+            >
+              <AppText variant="body" tone="ink3" center>
+                Continue without reminders
+              </AppText>
+            </Pressable>
+          </Animated.View>
+        ) : (
+          <>
+            <Button
+              label={
+                alreadyGranted
+                  ? "Save"
+                  : (resolveText(step.cta, ctx) ?? "Turn on reminders")
+              }
+              onPress={ask}
+              loading={requesting}
+              testID="notif-allow"
+            />
+            <Pressable
+              onPress={onDone}
+              style={styles.maybeLater}
+              hitSlop={8}
+              accessibilityRole="button"
+              testID="notif-not-now"
+            >
+              <AppText variant="body" tone="ink3" center>
+                Not now
+              </AppText>
+            </Pressable>
+          </>
+        )}
       </View>
     </Animated.View>
   );
@@ -179,5 +242,8 @@ const styles = StyleSheet.create({
   mock: { marginTop: spacing.xl },
   rows: { marginTop: spacing.xxl, gap: spacing.md },
   footer: { paddingBottom: spacing.sm },
+  // Two label lines at most, so the denied state still fits without
+  // scrolling on a 6.1" phone.
+  deniedNote: { marginBottom: spacing.md, paddingHorizontal: spacing.md },
   maybeLater: { marginTop: spacing.lg },
 });

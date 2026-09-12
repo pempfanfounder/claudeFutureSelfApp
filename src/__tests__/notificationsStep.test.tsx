@@ -1,6 +1,6 @@
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Platform } from "react-native";
+import { AppState, Linking, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -298,6 +298,76 @@ describe("NotificationsStep (iam)", () => {
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
     expect(requestNotificationPermission).toHaveBeenCalledTimes(1);
     expect(useOnboardingStore.getState().permissionStatus).toBe("granted");
+  });
+
+  it("on denied: stays put, explains, offers Settings and a way on", async () => {
+    // Previously denied on iOS: the request resolves "denied" with no
+    // dialog. The step must not advance silently.
+    (
+      requestNotificationPermission as jest.MockedFunction<
+        typeof requestNotificationPermission
+      >
+    ).mockResolvedValueOnce("denied");
+    const openSettings = jest
+      .spyOn(Linking, "openSettings")
+      .mockResolvedValue(undefined);
+    const { screen, onDone } = renderStep();
+
+    fireEvent.press(screen.getByTestId("notif-allow"));
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-denied")).toBeTruthy(),
+    );
+    expect(onDone).not.toHaveBeenCalled();
+    expect(useOnboardingStore.getState().permissionStatus).toBe("denied");
+    expect(screen.getByTestId("notif-denied")).toHaveTextContent(
+      "Reminders are off for Future Self in Settings. Turn them on there and your quotes will find you.",
+    );
+    expect(screen.getByTestId("notif-denied").props.children).not.toMatch(
+      /[—–]/,
+    );
+    // The ask button is gone; the counts are still on screen.
+    expect(screen.queryByTestId("notif-allow")).toBeNull();
+    expect(screen.queryByTestId("notif-not-now")).toBeNull();
+    expect(screen.getByTestId("quotes-value")).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("notif-open-settings"));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId("notif-continue-without"));
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the denied panel once Settings granted permission", async () => {
+    (
+      requestNotificationPermission as jest.MockedFunction<
+        typeof requestNotificationPermission
+      >
+    ).mockResolvedValueOnce("denied");
+    const listeners: ((state: string) => void)[] = [];
+    jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, handler) => {
+        listeners.push(handler as (state: string) => void);
+        return { remove: jest.fn() };
+      });
+    const { screen, onDone } = renderStep();
+    fireEvent.press(screen.getByTestId("notif-allow"));
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-denied")).toBeTruthy(),
+    );
+
+    // The user flips the switch in Settings and comes back.
+    mockPermissionStatus.mockResolvedValueOnce("granted");
+    expect(listeners.length).toBeGreaterThan(0);
+    act(() => {
+      for (const listener of listeners) listener("active");
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-allow")).toHaveTextContent("Save"),
+    );
+    expect(screen.queryByTestId("notif-denied")).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   it("Not now advances without asking", () => {
