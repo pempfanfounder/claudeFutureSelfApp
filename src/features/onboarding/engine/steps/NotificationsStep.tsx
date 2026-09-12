@@ -12,7 +12,6 @@ import {
 } from "@/features/notifications/push";
 import {
   applyWindowChange,
-  formatMinutes,
   type WindowKey,
 } from "@/features/notifications/time";
 
@@ -20,9 +19,9 @@ import { resolveLines, resolveText } from "../resolve";
 import { useOnboardingStore } from "../store";
 import { StreamedLines } from "../StreamedLines";
 import type { OnboardingContext, OnboardingStep } from "../types";
-import { CountRow } from "./notifications/CountRow";
+import { ActiveHoursPicker } from "./notifications/ActiveHoursPicker";
+import { CountTile } from "./notifications/CountTile";
 import { MockNotification } from "./notifications/MockNotification";
-import { TimeWindowCard } from "./notifications/TimeWindowCard";
 
 interface NotificationsStepProps {
   step: OnboardingStep;
@@ -33,10 +32,11 @@ interface NotificationsStepProps {
 
 /**
  * Notification education before the OS dialog.
- * iam family: the config screen. A mock notification banner, one
- * count pill per type (Quotes / Affirmations, 0..DAILY_LIMIT; the server
- * enforces the cap too), a Start at / End at card with the native time
- * pickers, then "Turn on reminders".
+ * iam family: the config screen. A mock notification banner, two
+ * side-by-side count tiles (Quotes / Affirmations, 0..DAILY_LIMIT; the
+ * server enforces the cap too), an "Active hours" card with a 24-hour
+ * band and From / Until tiles over the native time pickers, then "Turn on
+ * reminders". No sentence restates the window (feedback 2026-09-12).
  * stella family: streamed voice + a single contextual ask.
  */
 export function NotificationsStep({
@@ -123,34 +123,27 @@ export function NotificationsStep({
         </View>
 
         <View style={styles.rows}>
-          <CountRow
-            id="quotes"
-            label="Quotes"
-            value={notificationPrefs.quotesPerDay}
-            max={DAILY_LIMIT}
-            onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
+          <View style={styles.tiles}>
+            <CountTile
+              id="quotes"
+              label="Quotes"
+              value={notificationPrefs.quotesPerDay}
+              max={DAILY_LIMIT}
+              onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
+            />
+            <CountTile
+              id="affirmations"
+              label="Affirmations"
+              value={notificationPrefs.affirmationsPerDay}
+              max={DAILY_LIMIT}
+              onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
+            />
+          </View>
+          <ActiveHoursPicker
+            range={notificationPrefs}
+            onChange={changeWindow}
           />
-          <CountRow
-            id="affirmations"
-            label="Affirmations"
-            value={notificationPrefs.affirmationsPerDay}
-            max={DAILY_LIMIT}
-            onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
-          />
-          <TimeWindowCard range={notificationPrefs} onChange={changeWindow} />
         </View>
-
-        <AppText
-          variant="label"
-          tone="ink3"
-          center
-          style={styles.windowHint}
-          testID="window-hint"
-        >
-          {`Between ${formatMinutes(notificationPrefs.windowStartMinutes)} and ${formatMinutes(
-            notificationPrefs.windowEndMinutes,
-          )} · your future self won't wake you`}
-        </AppText>
       </ScrollView>
       <View style={styles.footer}>
         <Button
@@ -186,7 +179,7 @@ const styles = StyleSheet.create({
   sub: { marginTop: spacing.md },
   mock: { marginTop: spacing.xl },
   rows: { marginTop: spacing.xxl, gap: spacing.md },
-  windowHint: { marginTop: spacing.md },
+  tiles: { flexDirection: "row", gap: spacing.md },
   footer: { paddingBottom: spacing.sm },
   maybeLater: { marginTop: spacing.lg },
 });
