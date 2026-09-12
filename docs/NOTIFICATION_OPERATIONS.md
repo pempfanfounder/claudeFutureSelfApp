@@ -265,13 +265,30 @@ The levers above stop _future_ sends only.
 
 Configured once; listed here for troubleshooting.
 
-| Where                             | Name                             | Used by                                                              |
-| --------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
-| Edge function secrets             | `DISPATCH_SECRET`                | `push-dispatch`, `push-receipts` (must match the vault secret)       |
-| Edge function secrets (optional)  | `PUSH_RPC_DEADLINE_MS`           | `push-dispatch`, `push-receipts` per-RPC abort (default `10000`)     |
-| Edge function secrets             | `REVENUECAT_WEBHOOK_SECRET`      | `revenuecat-webhook` (Bearer auth from RevenueCat)                   |
-| Edge function secrets             | `REVENUECAT_SECRET_API_KEY`      | `sync-entitlement` (server-side verification; returns 501 until set) |
-| Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller                                 |
+| Where                             | Name                             | Used by                                                                          |
+| --------------------------------- | -------------------------------- | -------------------------------------------------------------------------------- |
+| Edge function secrets             | `DISPATCH_SECRET`                | `push-dispatch`, `push-receipts` (must match the vault secret)                   |
+| Edge function secrets (optional)  | `PUSH_RPC_DEADLINE_MS`           | `push-dispatch`, `push-receipts` per-RPC abort (default `10000`)                 |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_SECRET`      | `revenuecat-webhook` (Bearer auth from RevenueCat)                               |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_APP_ID`      | `revenuecat-webhook` (accepted `event.app_id`s; comma-separated list, see below) |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_ENVIRONMENT` | `revenuecat-webhook` (exact `event.environment`, e.g. `PRODUCTION`)              |
+| Edge function secrets             | `REVENUECAT_SECRET_API_KEY`      | `sync-entitlement`, `revenuecat-webhook` (server-side verification)              |
+| Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller                                             |
+
+`revenuecat-webhook` returns `503 reconciliation not configured` until all
+three of its RevenueCat secrets are set, and `400 event scope mismatch` for any
+event whose `app_id`/`environment` is not listed. One RevenueCat project has
+one app per platform, so list every app ID that posts to the webhook,
+comma-separated (whitespace around entries is ignored; a single ID still
+works):
+
+```sh
+supabase secrets set REVENUECAT_WEBHOOK_APP_ID=app6bb4e06e68,app6bbf4b6d0c   # iOS, Android
+supabase secrets set REVENUECAT_WEBHOOK_ENVIRONMENT=PRODUCTION
+```
+
+Each stored `subscription_events.app_id` is the event's own `app_id`, so
+iOS and Android receipts stay distinguishable in the inbox.
 
 Deploy flags: `push-dispatch`, `push-receipts`, and `revenuecat-webhook` are
 called by machines without a Supabase JWT — deploy them with
