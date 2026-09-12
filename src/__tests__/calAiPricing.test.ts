@@ -4,7 +4,6 @@ import {
   billingLabel,
   formatLikePriceString,
   perMonthLabel,
-  priceNote,
   savingsPercent,
   splitPlans,
 } from "@/features/paywall/calai/pricing";
@@ -13,7 +12,6 @@ import {
   PAYWALL_VARIANT,
   calAiVersion,
 } from "@/features/paywall/paywallVariant";
-import type { PaywallData } from "@/features/paywall/useOffering";
 import { LOCAL_CATALOG } from "@/features/content/localCatalog";
 
 jest.mock("react-native-purchases", () => ({
@@ -93,35 +91,6 @@ describe("plan maths from real prices", () => {
   it("labels the billing cadence", () => {
     expect(billingLabel(annual)).toBe("$59.99 billed yearly");
     expect(billingLabel(monthly)).toBe("$9.99 billed monthly");
-  });
-});
-
-describe("priceNote", () => {
-  const base: PaywallData = {
-    loading: false,
-    pkg: annual,
-    allPackages: [annual, monthly],
-    selectPackage: () => {},
-    priceLine: "$59.99/year",
-    trialLength: null,
-    trialDays: null,
-    devMock: false,
-    unavailable: false,
-  };
-
-  it("mirrors Cal AI's 'Just … per year' without a trial", () => {
-    expect(priceNote(base)).toBe("Just $59.99 per year");
-    expect(priceNote({ ...base, pkg: monthly })).toBe("Just $9.99 per month");
-  });
-
-  it("names the real trial when the store grants one", () => {
-    expect(priceNote({ ...base, trialLength: "3 days", trialDays: 3 })).toBe(
-      "3 days free, then $59.99 per year",
-    );
-  });
-
-  it("is empty without a package", () => {
-    expect(priceNote({ ...base, pkg: null })).toBeNull();
   });
 });
 

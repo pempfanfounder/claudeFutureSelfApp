@@ -19,12 +19,10 @@ interface PaywallFooterProps {
  * paywall. "Privacy choices" opens support + account deletion so both
  * stay reachable from the hard paywall (Guideline 5.1.1(v)).
  */
-export function PaywallFooter({ onRestored }: PaywallFooterProps) {
-  const [privacyOpen, setPrivacyOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
+/** Single-flight Restore handler shared by every paywall footer. */
+export function useRestorePurchases(onRestored: () => void) {
   const restoring = useRef(false);
-
-  const restore = async () => {
+  return async () => {
     if (restoring.current) return;
     restoring.current = true;
     analytics.capture("restore_tapped", { placement: "paywall" });
@@ -36,6 +34,12 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
       Alert.alert("Restore", result.message);
     }
   };
+}
+
+export function PaywallFooter({ onRestored }: PaywallFooterProps) {
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const restore = useRestorePurchases(onRestored);
 
   return (
     <View style={styles.row}>

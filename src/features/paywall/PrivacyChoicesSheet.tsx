@@ -23,9 +23,10 @@ interface PrivacyChoicesSheetProps {
 }
 
 /**
- * Privacy choices bottom sheet, reachable from the paywall footer so
- * legal pages, support, and account deletion stay available even behind
- * the hard paywall (Guideline 5.1.1(v)).
+ * Privacy choices bottom sheet: legal pages, support, and account
+ * deletion. Reachable from the legacy paywall footer (so they stay
+ * available behind the hard paywall, Guideline 5.1.1(v)) and from
+ * Settings › Account.
  */
 export function PrivacyChoicesSheet({
   visible,

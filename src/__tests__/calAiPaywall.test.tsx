@@ -151,15 +151,19 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       expect(screen.getByTestId("notification-card-0")).toHaveTextContent(
         /^Future SelfNowMake yourself the kind of person you promised you would become\.$/,
       );
-      expect(
-        screen.getByText("3 days free, then $59.99 per year"),
-      ).toBeTruthy();
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        /3 days free, then \$59\.99 per year\. .*renews automatically.*cancelled at least 24 hours/,
+        "3 days free, then $59.99 per year. Renews automatically unless cancelled in the App Store.",
       );
-      expect(screen.getByText("Privacy")).toBeTruthy();
-      expect(screen.getByText("Terms")).toBeTruthy();
+      // Trimmed footer: exactly Terms · Privacy · Restore.
+      expect(screen.getByTestId("paywall-links")).toHaveTextContent(
+        "Terms·Privacy·Restore",
+      );
+      expect(screen.getByTestId("terms")).toBeTruthy();
+      expect(screen.getByTestId("privacy")).toBeTruthy();
       expect(screen.getByTestId("restore")).toBeTruthy();
+      expect(screen.queryByText("Privacy choices")).toBeNull();
+      expect(screen.queryByText(/Sign in/)).toBeNull();
+      expect(screen.queryByText(/24 hours/)).toBeNull();
       expect(analytics.capture).toHaveBeenCalledWith("paywall_viewed", {
         style: `calai-${version}`,
         placement: "test",
@@ -192,7 +196,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("falls back to Continue and 'Just … per year' without a trial", () => {
+    it("falls back to Continue and plain price terms without a trial", () => {
       const { screen } = renderPaywall(
         version,
         makeData({
@@ -202,10 +206,10 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         }),
       );
       expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
-      expect(screen.getByText("Just $59.99 per year")).toBeTruthy();
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        /^\$59\.99 per year\./,
+        "$59.99 per year. Renews automatically unless cancelled in the App Store.",
       );
+      expect(screen.queryByText(/free/)).toBeNull();
       screen.unmount();
     });
 

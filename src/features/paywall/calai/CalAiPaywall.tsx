@@ -10,18 +10,14 @@ import { shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
-import { PaywallFooter } from "../PaywallFooter";
 import type { CalAiVersion } from "../paywallVariant";
-import {
-  ctaLabel,
-  subscriptionDisclosure,
-  type PaywallData,
-} from "../useOffering";
+import { ctaLabel, type PaywallData } from "../useOffering";
+import { CompactFooter } from "./CompactFooter";
 import { NotificationStack } from "./NotificationStack";
 import { PlanCards } from "./PlanCards";
 import { PlanToggle } from "./PlanToggle";
 import { paywallPreviewNotifications } from "./previewQuotes";
-import { priceNote } from "./pricing";
+import { compactDisclosure } from "./pricing";
 
 interface CalAiPaywallProps {
   data: PaywallData;
@@ -95,11 +91,10 @@ export function CalAiPaywall({
     }
   };
 
-  const disclosure = subscriptionDisclosure(
+  const disclosure = compactDisclosure(
     data.pkg,
     data.pkg ? data.eligibility?.[data.pkg.product.identifier] : "unknown",
   );
-  const note = priceNote(data);
   const heroTop = insets.top + spacing.xxxl + spacing.lg;
 
   // v2 fades from the near-black CTA brown; v4 from the warm ink brown
@@ -228,15 +223,10 @@ export function CalAiPaywall({
             style={version === 3 ? styles.ctaTall : undefined}
             testID="paywall-cta"
           />
-          {note ? (
-            <AppText variant="label" tone="ink2" center style={styles.note}>
-              {note}
-            </AppText>
-          ) : null}
           {disclosure ? (
             <AppText
               variant="label"
-              tone="ink3"
+              tone="ink2"
               center
               style={styles.disclosure}
               testID="paywall-disclosure"
@@ -244,7 +234,7 @@ export function CalAiPaywall({
               {disclosure}
             </AppText>
           ) : null}
-          <PaywallFooter onRestored={onPurchased} />
+          <CompactFooter onRestored={onPurchased} />
         </View>
       </ScrollView>
 
@@ -296,8 +286,7 @@ const styles = StyleSheet.create({
   spacer: { flex: 1, minHeight: spacing.xxl },
   ctaWrap: { paddingHorizontal: spacing.xl },
   ctaTall: { minHeight: V3_CTA_HEIGHT },
-  note: { marginTop: spacing.md },
-  disclosure: { marginTop: spacing.sm },
+  disclosure: { marginTop: spacing.md, paddingHorizontal: spacing.md },
   close: { position: "absolute", left: spacing.xl, zIndex: 10 },
   closeCircle: {
     width: 40,

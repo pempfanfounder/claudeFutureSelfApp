@@ -1,5 +1,6 @@
 import type { PurchasesPackage } from "react-native-purchases";
 
+import { compactDisclosure } from "@/features/paywall/calai/pricing";
 import {
   ctaLabel,
   subscriptionDisclosure,
@@ -78,6 +79,57 @@ describe("subscriptionDisclosure", () => {
     expect(text).toContain("One-time");
     expect(text).toContain("$99.99");
     expect(text).not.toContain("renews automatically");
+  });
+});
+
+describe("compactDisclosure (Cal AI paywalls)", () => {
+  it("returns null without a package", () => {
+    expect(compactDisclosure(null)).toBeNull();
+  });
+
+  it("states the trial, price and period plus renewal terms in one line", () => {
+    const pkg = fakePackage({
+      packageType: "ANNUAL",
+      priceString: "$59.99",
+      introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 },
+    });
+    expect(compactDisclosure(pkg, "eligible")).toBe(
+      "3 days free, then $59.99 per year. Renews automatically unless cancelled in the App Store.",
+    );
+  });
+
+  it("never promises a trial the store has not granted", () => {
+    const withIntro = fakePackage({
+      packageType: "ANNUAL",
+      priceString: "$59.99",
+      introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 },
+    });
+    expect(compactDisclosure(withIntro, "ineligible")).toBe(
+      "$59.99 per year. Renews automatically unless cancelled in the App Store.",
+    );
+    expect(compactDisclosure(withIntro, "unknown")).toMatch(
+      /^\$59\.99 per year\./,
+    );
+    const monthly = fakePackage({
+      packageType: "MONTHLY",
+      priceString: "$9.99",
+    });
+    expect(compactDisclosure(monthly)).toBe(
+      "$9.99 per month. Renews automatically unless cancelled in the App Store.",
+    );
+  });
+
+  it("keeps the price and period visible for every allowed plan", () => {
+    for (const [packageType, period] of [
+      ["ANNUAL", "year"],
+      ["MONTHLY", "month"],
+    ] as const) {
+      const text = compactDisclosure(
+        fakePackage({ packageType, priceString: "€ 4,99" }),
+      );
+      expect(text).toContain(`€ 4,99 per ${period}`);
+      expect(text).toContain("Renews automatically");
+    }
   });
 });
 

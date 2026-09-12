@@ -1,6 +1,6 @@
 import { PACKAGE_TYPE, type PurchasesPackage } from "react-native-purchases";
 
-import type { PaywallData } from "../useOffering";
+import { periodLabel, trialInfo, type TrialEligibility } from "../useOffering";
 
 /** Annual and monthly packages picked out of the approved offering. */
 export interface PlanPair {
@@ -97,20 +97,21 @@ export function billingLabel(pkg: PurchasesPackage): string {
 }
 
 /**
- * The small line under the CTA. Names the real trial when the store
- * grants one, otherwise mirrors Cal AI's "Just … per year".
+ * The one-line small print under the Cal AI CTA: price + period, the
+ * real trial when the store grants one, and the renewal terms. The
+ * legacy paywalls keep the long `subscriptionDisclosure` paragraph.
  */
-export function priceNote(data: PaywallData): string | null {
-  const pkg = data.pkg;
+export function compactDisclosure(
+  pkg: PurchasesPackage | null,
+  eligibility: TrialEligibility = "unknown",
+): string | null {
   if (!pkg) return null;
-  const period =
-    pkg.packageType === PACKAGE_TYPE.ANNUAL
-      ? "per year"
-      : pkg.packageType === PACKAGE_TYPE.MONTHLY
-        ? "per month"
-        : null;
-  if (!period) return data.priceLine;
-  return data.trialLength
-    ? `${data.trialLength} free, then ${pkg.product.priceString} ${period}`
-    : `Just ${pkg.product.priceString} ${period}`;
+  if (pkg.packageType === PACKAGE_TYPE.LIFETIME) {
+    return `One-time purchase of ${pkg.product.priceString}.`;
+  }
+  const trial = trialInfo(pkg, eligibility);
+  const lead = trial
+    ? `${trial.label} free, then ${pkg.product.priceString} per ${periodLabel(pkg)}.`
+    : `${pkg.product.priceString} per ${periodLabel(pkg)}.`;
+  return `${lead} Renews automatically unless cancelled in the App Store.`;
 }
