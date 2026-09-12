@@ -23,6 +23,49 @@ straight-apostrophe normalization. Everything else is as written.
 - Categories in the module/migration are editorial assignments for
   personalization weighting (the 8 quote slugs); the owner supplied none.
 
+## Selection: everyone sees the same quotes (personalization OFF)
+
+Owner decision 2026-09-12: no category/interest-based personalization of
+quote selection for now. Every user sees the same daily set. The capability
+stays in the code and the category data stays in the library; it is gated
+behind one flag, default OFF:
+
+| Surface | Flag | Where to set |
+|---|---|---|
+| App (daily feed, widgets, onboarding preview copy) | `EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED=true` | EAS build profile `env` in `eas.json` / `.env`; read by `src/lib/config.ts` as `config.contentPersonalizationEnabled` |
+| Push picks + campaign audiences (`push-dispatch` edge function) | `CONTENT_PERSONALIZATION_ENABLED=true` | Supabase edge-function secret (`supabase secrets set`) |
+
+Both default to OFF when unset. Affirmations share the same selection path
+(`selectDailySet` / `pick_notification_content`), so the flag governs both
+content types.
+
+How the daily pick works when OFF (`selectSharedDailySet` in
+`src/features/content/dailySet.ts`):
+
+- Deterministic and identical across users: a pure function of
+  (active library, type, local calendar date). No `userId`, interests, tags
+  or editorial `priority` involved.
+- Rotation: from a fixed epoch (2026-01-01) the pool is shuffled into a
+  seeded "deck" and 20 cards are dealt per day; a new seeded deck starts
+  when one runs out. A card shown yesterday is passed over, so consecutive
+  days never overlap and every quote gets near-equal exposure (~1 showing
+  per 3.25 days for 65 quotes at 20/day).
+- Same local date, same set: users in different timezones move to the next
+  day's set at their own midnight, so at a given instant two users can be
+  on adjacent days' sets. Once a user's day is confirmed via
+  `save_daily_set` it is frozen for that user even if the library changes.
+- Push notifications are **per-user by design**: `pick_notification_content`
+  picks one eligible item ordered by priority then `random()`, excluding
+  what that user received in the last 14 days. With the flag OFF the
+  interest boost is removed (empty interests), but the pick is not
+  synchronized across users — users have different windows, counts and
+  delivery histories, so a global pick would be a redesign.
+- Onboarding still collects interests (stored in `personalization`) so
+  turning the flag on later personalizes immediately; the result screen
+  copy stops claiming "weighted toward …" while OFF.
+
+To re-enable: set both flags above to `"true"` and ship an app build.
+
 ## Quotes
 
 1. If you don't sacrifice for the life you want, the life you want will become the sacrifice.
