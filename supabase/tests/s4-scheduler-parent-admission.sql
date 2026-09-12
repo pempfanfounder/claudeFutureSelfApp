@@ -6,7 +6,7 @@ set local statement_timeout='15s';
 set local lock_timeout='3s';
 set local idle_in_transaction_session_timeout='30s';
 do $$ declare table_name text;row_count bigint;begin
-if exists(select 1 from cron.job where active) or (select count(*) from cron.job)<>4
+if exists(select 1 from cron.job where active) or (select count(*) from cron.job)<>7
  or exists(select 1 from vault.secrets) or exists(select 1 from net.http_request_queue) or exists(select 1 from net._http_response)
  or exists(select 1 from pgmq.q_push_jobs) or exists(select 1 from pgmq.a_push_jobs)
  or (select paused from public.push_pipeline_control where id) is distinct from true
@@ -87,7 +87,7 @@ begin
  perform set_config('future_self.rb13_scenarios',results::text,true);
 end $$;
 do $$ declare table_name text;row_count bigint;begin
-if exists(select 1 from cron.job where active) or (select count(*) from cron.job)<>4
+if exists(select 1 from cron.job where active) or (select count(*) from cron.job)<>7
  or exists(select 1 from vault.secrets) or exists(select 1 from net.http_request_queue) or exists(select 1 from net._http_response)
  or exists(select 1 from pgmq.q_push_jobs) or exists(select 1 from pgmq.a_push_jobs)
  or (select paused from public.push_pipeline_control where id) is distinct from true

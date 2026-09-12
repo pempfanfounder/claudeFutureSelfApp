@@ -60,8 +60,8 @@ gracefully until configured. Work through the sections in order.
 Dashboard → Authentication:
 
 1. **Sign In / Up → Allow anonymous sign-ins: ON.** The app signs everyone in
-   anonymously at first launch; nothing works without this. Add CAPTCHA
-   (Turnstile) if abuse appears.
+   anonymously at first launch; nothing works without this. Protect it with
+   Turnstile before launch — see § 1b (order of operations matters).
 2. **Allow manual linking: ON** (required for `linkIdentity` — converting an
    anonymous user to Apple/Google keeps the same UUID).
 3. **Providers → Apple:** add the app's **bundle ID** `com.futureself.app` to
@@ -79,6 +79,51 @@ Dashboard → Authentication:
 
 Until 3/4 are configured the corresponding sign-in buttons simply don't render
 (no dead buttons); email linking works as soon as SMTP does.
+
+## 1b. Anonymous sign-in CAPTCHA (Cloudflare Turnstile, ~15 min)
+
+`signInAnonymously()` is the only unauthenticated write anyone can trigger
+from the public bundle; every fake guest is a billable MAU plus ~2 KB of
+disk. The client can attach a Turnstile token to that call
+(`src/features/auth/captcha.ts`, `TurnstileHost.tsx`), but it is **off by
+default** because Supabase rejects the sign-in if either side is enabled
+without the other. Do the steps in this order:
+
+1. **Cloudflare dashboard → Turnstile → Add widget.** Name it
+   `future-self-app`. Hostnames: add `joinfutureself.com` (the origin the
+   in-app WebView renders the widget under — change
+   `EXPO_PUBLIC_TURNSTILE_BASE_URL` if you use another domain you own).
+   Widget mode: **Managed**. Copy the **Site key** and the **Secret key**.
+2. **Supabase dashboard → Authentication → Attack Protection →
+   Enable CAPTCHA protection: ON.** Provider: **Turnstile by Cloudflare**.
+   Paste the **Secret key** into "CAPTCHA secret". Save.
+   Enabling this immediately makes `signInAnonymously()` (and every other
+   sign-in) fail for builds that do not send a token — so ship step 3 in the
+   same release window, or do step 2 last.
+3. **App build:** set in `.env` / the EAS profile env
+   `EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED=true` and
+   `EXPO_PUBLIC_TURNSTILE_SITE_KEY=<site key>`. The flag is ignored (with a
+   console error) if the site key is missing. `react-native-webview` is a
+   native module, so this needs a new EAS build, not an OTA update.
+4. **Verify** on a fresh install (delete the app first): a small "Quick
+   check" card appears before the first screen; after it passes the guest
+   session is created. In Supabase → Authentication → Users the new user has
+   `is_anonymous = true`. If the card shows "Verification failed (110200)"
+   the WebView origin is not in the widget's hostname list.
+5. **Auth → Rate Limits** (same page family): set "Rate limit for anonymous
+   users" to **5 per hour per IP** and "Rate limit for sending emails" to
+   **≤ 30 / hour** regardless of the CAPTCHA.
+
+Rollback: turn "Enable CAPTCHA protection" OFF in Supabase; builds with the
+flag on still work (the token is simply ignored).
+
+Related server-side guard (migration `20260912120000_security_prelaunch`):
+`cleanup_stale_anonymous_users()` runs nightly (`fs-anon-cleanup`,
+04:11 UTC) and removes anonymous accounts with no linked identity and no
+activity for 14 days. It starts in **dry-run**: check
+`select * from public.anonymous_cleanup_runs order by ran_at desc;` for a
+few nights, then arm it with
+`update public.anonymous_cleanup_control set dry_run=false;`.
 
 ## 2. RevenueCat (~30 min + store console work)
 
@@ -225,6 +270,7 @@ locally, so users never switch funnels either way.
 | `EXPO_PUBLIC_POSTHOG_API_KEY` / `_HOST`                      | `.env`                   | set ✅                 |
 | `EXPO_PUBLIC_SENTRY_DSN`                                     | `.env`                   | crash reporting        |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `_IOS_CLIENT_ID`        | `.env`                   | Google sign-in         |
+| `EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED` / `EXPO_PUBLIC_TURNSTILE_SITE_KEY` / `_BASE_URL` | `.env` / EAS env | Turnstile on anonymous sign-in (§ 1b; off by default) |
 | `EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE`                    | `.env` (dev only)        | force a funnel         |
 | `EXPO_PUBLIC_DEV_MOCK_PURCHASES`                             | `.env` (dev only)        | mock paywall           |
 | `DISPATCH_SECRET`                                            | supabase secrets + vault | cron → dispatcher auth |
