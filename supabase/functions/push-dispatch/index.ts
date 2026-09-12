@@ -5,6 +5,7 @@ import { createAdminClient } from "../_shared/admin.ts";
 import { requireDispatchSecret } from "../_shared/auth.ts";
 import { json } from "../_shared/http.ts";
 import { readBoundedJson, record, boundedString } from "../_shared/input.ts";
+import { PUSH_RPC_DEADLINE_MS } from "../_shared/rpc-deadline.ts";
 import type {
   CampaignRow,
   PersonalizationRow,
@@ -65,9 +66,11 @@ async function boundedDb(
   const remaining = (deadlines.get(db) ?? 0) - Date.now();
   if (remaining <= 0) throw new Error("worker deadline reached");
   const controller = new AbortController();
+  // Per-call cap sized for a cold start (see _shared/rpc-deadline.ts); the
+  // worker deadline stays the hard bound on the whole invocation.
   const timeout = setTimeout(
     () => controller.abort(),
-    Math.min(3_000, remaining),
+    Math.min(PUSH_RPC_DEADLINE_MS, remaining),
   );
   try {
     return await request.abortSignal(controller.signal);
@@ -227,8 +230,10 @@ Deno.serve(async (req) => {
         p_lease_token: lease,
         p_content: content,
       });
-      // Leave time for one transport call and two idempotent persistence calls.
-      // A preparation that consumes the time allowance stays unsent/recoverable.
+      // Leave time for one transport call (8 s) plus one full-deadline
+      // persistence call; the persistence retry runs in whatever remains,
+      // since warm RPCs finish in milliseconds. A preparation that consumes
+      // the time allowance stays unsent/recoverable.
       if (Date.now() + 18_000 > deadline)
         throw new Error("insufficient send time");
       const ready = record(
