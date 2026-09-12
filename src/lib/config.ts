@@ -24,6 +24,22 @@ const envSchema = z.object({
   EXPO_PUBLIC_SENTRY_DSN: z.string().url().optional(),
   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: z.string().min(1).optional(),
   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: z.string().min(1).optional(),
+  /**
+   * Sends a Cloudflare Turnstile token with the first-launch anonymous
+   * sign-in. Off by default: turn it on only together with Supabase
+   * Auth → Attack Protection → CAPTCHA (Turnstile) and the site key below,
+   * otherwise every fresh install fails to sign in (see
+   * docs/SETUP_REQUIRED.md § Anonymous sign-in CAPTCHA).
+   */
+  EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED: z.enum(["true", "false"]).optional(),
+  /** Turnstile *site* key (public). The secret key lives only in Supabase. */
+  EXPO_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
+  /**
+   * Origin the Turnstile widget is rendered under inside the WebView; it
+   * must be one of the widget's allowed hostnames in Cloudflare. Defaults
+   * to the app's public website.
+   */
+  EXPO_PUBLIC_TURNSTILE_BASE_URL: z.string().url().optional(),
   /** Deterministic onboarding variant override for development/testing. */
   EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE: z
     .enum(["iam-founder", "iam-claude", "stella-founder", "stella-claude"])
@@ -61,6 +77,10 @@ const parsed = envSchema.safeParse({
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED:
+    process.env.EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED,
+  EXPO_PUBLIC_TURNSTILE_SITE_KEY: process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY,
+  EXPO_PUBLIC_TURNSTILE_BASE_URL: process.env.EXPO_PUBLIC_TURNSTILE_BASE_URL,
   EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE:
     process.env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   EXPO_PUBLIC_DEV_MOCK_PURCHASES: process.env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,
@@ -93,6 +113,33 @@ export function resolveDevMockPurchases(options: {
   return options.isDev;
 }
 
+/**
+ * The CAPTCHA is only armed when the flag is on AND a site key exists; a
+ * flag without a key would otherwise break every first launch.
+ */
+export function resolveAuthCaptcha(options: {
+  enabled?: string;
+  siteKey?: string;
+  baseUrl?: string;
+}): { enabled: boolean; siteKey?: string; baseUrl: string } {
+  const enabled = options.enabled === "true" && Boolean(options.siteKey);
+  if (options.enabled === "true" && !options.siteKey)
+    console.error(
+      "[config] EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED is true but EXPO_PUBLIC_TURNSTILE_SITE_KEY is missing; captcha stays off.",
+    );
+  return {
+    enabled,
+    siteKey: enabled ? options.siteKey : undefined,
+    baseUrl: options.baseUrl ?? "https://joinfutureself.com",
+  };
+}
+
+const authCaptcha = resolveAuthCaptcha({
+  enabled: env.EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED,
+  siteKey: env.EXPO_PUBLIC_TURNSTILE_SITE_KEY,
+  baseUrl: env.EXPO_PUBLIC_TURNSTILE_BASE_URL,
+});
+
 export const config = {
   appEnvironment:
     env.EXPO_PUBLIC_APP_ENV ?? (__DEV__ ? "development" : "production"),
@@ -105,6 +152,9 @@ export const config = {
   sentryDsn: env.EXPO_PUBLIC_SENTRY_DSN,
   googleWebClientId: env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   googleIosClientId: env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  authCaptchaEnabled: authCaptcha.enabled,
+  turnstileSiteKey: authCaptcha.siteKey,
+  turnstileBaseUrl: authCaptcha.baseUrl,
   onboardingVariantOverride: env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
   devMockPurchases: resolveDevMockPurchases({
     enabled: env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,

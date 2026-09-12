@@ -12,10 +12,12 @@ import {
 } from "react";
 import { AppState, Platform } from "react-native";
 
+import { cancelSignInCaptcha, requestSignInCaptchaToken } from "./captcha";
 import {
   runSharedAuthOperation,
   sharedAuthPending,
 } from "./sharedAuthOperation";
+import { TurnstileHost } from "./TurnstileHost";
 import { storageNeedsRestart } from "@/lib/accountStorage";
 import { analytics } from "@/lib/analytics";
 import {
@@ -249,32 +251,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       adopt(next);
     });
     const before = authEvents;
-    void withDeadline(
-      (async () => {
-        if (sharedAuthPending())
-          throw new Error("Account action still in progress.");
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (!mounted || authEvents !== before) return;
-        if (data.session) {
-          adopt(data.session);
-          return;
-        }
-        // Only a successful lookup proving absence may create a new guest.
-        const { data: anon, error: anonError } = await runSharedAuthOperation(
-          () => supabase.auth.signInAnonymously(),
-        );
-        if (anonError || !anon.session)
-          throw anonError ?? new Error("No account session returned.");
-        if (mounted && authEvents === before) adopt(anon.session);
-      })(),
-    ).catch((error) => {
+    void (async () => {
+      const existing = await withDeadline(
+        (async () => {
+          if (sharedAuthPending())
+            throw new Error("Account action still in progress.");
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          return data.session;
+        })(),
+      );
+      if (!mounted || authEvents !== before) return;
+      if (existing) {
+        adopt(existing);
+        return;
+      }
+      // Only a successful lookup proving absence may create a new guest.
+      // The captcha (when enabled) is interactive, so it runs outside the
+      // request deadline; `signInAnonymously` keeps its own via the shared op.
+      const captchaToken = await requestSignInCaptchaToken();
+      if (!mounted || authEvents !== before) return;
+      const { data: anon, error: anonError } = await runSharedAuthOperation(
+        () =>
+          supabase.auth.signInAnonymously(
+            captchaToken ? { options: { captchaToken } } : undefined,
+          ),
+      );
+      if (anonError || !anon.session)
+        throw anonError ?? new Error("No account session returned.");
+      if (mounted && authEvents === before) adopt(anon.session);
+    })().catch((error) => {
       if (authEvents === before) fail(error);
     });
     return () => {
       mounted = false;
       activeTask++;
       timers.forEach(clearTimeout);
+      cancelSignInCaptcha();
       sub.subscription.unsubscribe();
     };
   }, [retry]);
@@ -783,7 +796,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <TurnstileHost />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

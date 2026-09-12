@@ -192,22 +192,39 @@ function fixture(options = {}) {
   // receipt-only status probe spends a separate per-receipt pool.
   const keyed = fixture();
   assert.equal((await keyed.call({ receipt: nonce })).status, 200);
-  assert.deepEqual({ ...keyed.budgetCalls[0] }, {
-    p_user: A,
-    p_operation: "delete_account",
-    p_units: 1,
-  });
-  assert.equal((await keyed.call({ receipt: nonce, check_only: true })).status, 200);
-  assert.deepEqual({ ...keyed.budgetCalls[1] }, {
-    p_user: nonce,
-    p_operation: "delete_account_status",
-    p_units: 1,
-  });
+  assert.deepEqual(
+    { ...keyed.budgetCalls[0] },
+    {
+      p_user: A,
+      p_operation: "delete_account",
+      p_units: 1,
+    },
+  );
+  assert.equal(
+    (await keyed.call({ receipt: nonce, check_only: true })).status,
+    200,
+  );
+  assert.deepEqual(
+    { ...keyed.budgetCalls[1] },
+    {
+      p_user: nonce,
+      p_operation: "delete_account_status",
+      p_units: 1,
+    },
+  );
   assert.equal(keyed.budgetCalls.length, 2);
   const probe = fixture({ unauthorized: true });
-  assert.equal((await probe.call({ receipt: nonce.toUpperCase(), check_only: true })).status, 401);
+  assert.equal(
+    (await probe.call({ receipt: nonce.toUpperCase(), check_only: true }))
+      .status,
+    401,
+  );
   assert.equal(probe.budgetCalls[0].p_operation, "delete_account_status");
-  assert.equal(probe.budgetCalls[0].p_user, nonce, "receipt subject is lowercased");
+  assert.equal(
+    probe.budgetCalls[0].p_user,
+    nonce,
+    "receipt subject is lowercased",
+  );
   assert.equal(probe.deletes, 0);
   // Exhausting the unauthenticated status pool must not block a real deletion.
   const starved = fixture({ exhaustedOperation: "delete_account_status" });
