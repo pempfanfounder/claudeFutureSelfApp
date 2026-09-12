@@ -2,13 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
 import { themeById } from "@/design-system/themes";
-import { monitoring } from "@/lib/monitoring";
+import { ownedStorage } from "@/lib/accountStorage";
+import {
+  captureIdentity,
+  assertCurrentIdentity,
+  type Identity,
+} from "@/lib/appState";
 
 // Module cycle with ./widgetSync is safe: each side only dereferences
 // the other at call time, never during module initialization.
 import { syncWidgets } from "./widgetSync";
 
-const PREFS_KEY = "fs.widget.prefs.v1";
+const prefsKey = (userId: string) => `fs.widget.prefs.v2.${userId}`;
 
 /** User-tweakable widget appearance + content preferences (local-first). */
 export interface WidgetPrefs {
@@ -36,11 +41,15 @@ interface WidgetPrefsState {
   prefs: WidgetPrefs;
   /** True once storage has been read (or a change made) this session. */
   hydrated: boolean;
+  ownerGeneration: number | null;
+  error: string | null;
 }
 
 export const useWidgetPrefs = create<WidgetPrefsState>(() => ({
   prefs: DEFAULT_WIDGET_PREFS,
   hydrated: false,
+  ownerGeneration: null,
+  error: null,
 }));
 
 function merge(base: WidgetPrefs, partial: WidgetPrefsPartial): WidgetPrefs {
@@ -50,41 +59,67 @@ function merge(base: WidgetPrefs, partial: WidgetPrefsPartial): WidgetPrefs {
   };
 }
 
-/** Hydrate prefs from storage. Idempotent — only the first call reads. */
-export async function loadWidgetPrefs(): Promise<void> {
-  if (useWidgetPrefs.getState().hydrated) return;
-  try {
-    const raw = await AsyncStorage.getItem(PREFS_KEY);
-    if (raw) {
-      const stored = JSON.parse(raw) as WidgetPrefsPartial;
-      useWidgetPrefs.setState({
-        prefs: merge(DEFAULT_WIDGET_PREFS, stored),
-        hydrated: true,
-      });
+/** All hydration and edits share account persistence ordering. */
+export async function loadWidgetPrefs(
+  identity = captureIdentity(),
+): Promise<void> {
+  assertCurrentIdentity(identity);
+  if (
+    useWidgetPrefs.getState().hydrated &&
+    useWidgetPrefs.getState().ownerGeneration === identity.generation
+  )
+    return;
+  await ownedStorage(identity, async () => {
+    if (
+      useWidgetPrefs.getState().hydrated &&
+      useWidgetPrefs.getState().ownerGeneration === identity.generation
+    )
       return;
-    }
-  } catch (error) {
-    monitoring.captureError(error, { area: "widgets.prefs.load" });
-  }
-  useWidgetPrefs.setState({ hydrated: true });
+    const raw = await AsyncStorage.getItem(prefsKey(identity.userId!));
+    assertCurrentIdentity(identity);
+    const prefs = raw
+      ? merge(DEFAULT_WIDGET_PREFS, JSON.parse(raw) as WidgetPrefsPartial)
+      : DEFAULT_WIDGET_PREFS;
+    useWidgetPrefs.setState({
+      prefs,
+      hydrated: true,
+      ownerGeneration: identity.generation,
+      error: null,
+    });
+  });
 }
-
-/**
- * Deep-merge a partial update, persist it, then refresh the widgets.
- * The widget sync runs fire-and-forget: prefs must save even when the
- * native widget modules are unavailable (Expo Go, Jest).
- */
 export async function setWidgetPrefs(
   partial: WidgetPrefsPartial,
 ): Promise<void> {
-  const next = merge(useWidgetPrefs.getState().prefs, partial);
-  useWidgetPrefs.setState({ prefs: next, hydrated: true });
+  const identity = captureIdentity();
+  await ownedStorage(identity, async () => {
+    // Read inside the queue so rapid partial updates never lose a sibling edit.
+    const raw = await AsyncStorage.getItem(prefsKey(identity.userId!));
+    const next = merge(
+      raw ? merge(DEFAULT_WIDGET_PREFS, JSON.parse(raw)) : DEFAULT_WIDGET_PREFS,
+      partial,
+    );
+    await AsyncStorage.setItem(
+      prefsKey(identity.userId!),
+      JSON.stringify(next),
+    );
+    assertCurrentIdentity(identity);
+    useWidgetPrefs.setState({
+      prefs: next,
+      hydrated: true,
+      ownerGeneration: identity.generation,
+      error: null,
+    });
+  });
+  void syncWidgets(identity).catch(() => {});
+}
+export function setWidgetSyncError(identity: Identity, error: string | null) {
   try {
-    await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(next));
-  } catch (error) {
-    monitoring.captureError(error, { area: "widgets.prefs.save" });
+    assertCurrentIdentity(identity);
+    useWidgetPrefs.setState({ error });
+  } catch {
+    /* departed account */
   }
-  void syncWidgets().catch(() => {});
 }
 
 /**
@@ -108,4 +143,13 @@ export function paletteForWidget(themeId: string): {
     };
   }
   return { bg: theme.bg, ink: theme.ink, ink2: `${theme.ink}99` };
+}
+
+export function resetWidgetPrefs() {
+  useWidgetPrefs.setState({
+    prefs: DEFAULT_WIDGET_PREFS,
+    hydrated: false,
+    ownerGeneration: null,
+    error: null,
+  });
 }

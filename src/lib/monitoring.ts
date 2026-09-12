@@ -1,60 +1,51 @@
 import * as Sentry from "@sentry/react-native";
-
 import { config } from "./config";
-
-/**
- * Monitoring abstraction over Sentry.
- *
- * - Safely no-ops when no DSN is configured.
- * - Scrubs request/user data so no emails, tokens, or user-entered text
- *   leave the device in crash reports.
- */
+import { diagnosticArea, scrubCrashEvent } from "./diagnosticPolicy";
 let initialized = false;
-
 export function initMonitoring() {
   if (initialized || !config.hasSentry) return;
   initialized = true;
   Sentry.init({
     dsn: config.sentryDsn,
+    environment: config.appEnvironment,
     sendDefaultPii: false,
-    tracesSampleRate: 0.1,
-    beforeSend(event) {
-      // Never attach user identifiers beyond the anonymous Sentry id.
-      if (event.user) {
-        event.user = { id: event.user.id };
-      }
-      return event;
+    tracesSampleRate: 0,
+    enableNative: false,
+    enableNativeCrashHandling: false,
+    enableAutoSessionTracking: false,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
+    defaultIntegrations: false,
+    beforeSend: (event, hint) => {
+      hint.attachments = [];
+      return scrubCrashEvent(event as unknown as Record<string, unknown>);
     },
+    beforeBreadcrumb: () => null,
   });
 }
-
 export const monitoring = {
-  /** Attach the Supabase UUID (only) so crashes can be correlated. */
-  setUser(userId: string | null) {
-    if (!initialized) return;
-    Sentry.setUser(userId ? { id: userId } : null);
+  setUser(_userId: string | null) {
+    if (initialized) Sentry.setUser(null);
   },
   captureError(
-    error: unknown,
+    _error: unknown,
     context?: Record<string, string | number | boolean>,
   ) {
+    const area = diagnosticArea(context?.area);
     if (!initialized) {
-      if (__DEV__) console.error("[monitoring]", error, context);
+      if (__DEV__) console.error("[monitoring]", area);
       return;
     }
-    Sentry.captureException(error, context ? { extra: context } : undefined);
+    Sentry.captureException(new Error("Application operation failed"), {
+      tags: { area },
+    });
   },
-  addBreadcrumb(message: string, category?: string) {
-    if (!initialized) return;
-    Sentry.addBreadcrumb({ message, category });
-  },
+  addBreadcrumb(_message: string, _category?: string) {},
 };
-
-/** Wraps the root component with Sentry instrumentation when enabled. */
 export function withMonitoring<
   C extends React.ComponentType<Record<string, unknown>>,
 >(component: C): C {
-  if (!config.hasSentry) return component;
-  initMonitoring();
-  return Sentry.wrap(component) as C;
+  // Explicit sanitized diagnostics only; automatic render/native breadcrumbs
+  // and tracing would bypass the finite event vocabulary.
+  return component;
 }

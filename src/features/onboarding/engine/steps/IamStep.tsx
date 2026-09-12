@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Animated, { FadeInRight, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInRight, FadeOut } from "react-native-reanimated";
 
 import {
   AppText,
@@ -299,7 +299,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
             sibling (not an overlay) it also reserves its own height, so
             the list above only needs breathing room, not clearance. */}
         {hasFooter ? (
-          <View style={styles.footer}>
+          <Animated.View
+            entering={FadeIn.duration(320).delay(120)}
+            style={styles.footer}
+          >
             {step.trialCaption ? (
               <AppText
                 variant="label"
@@ -326,7 +329,7 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
             {step.type === "welcome" ? (
               <LegalFooter style={styles.terms} />
             ) : null}
-          </View>
+          </Animated.View>
         ) : null}
       </KeyboardAvoider>
     </Animated.View>
@@ -400,7 +403,10 @@ const styles = StyleSheet.create({
     fontFamily: type.sans,
   },
   inputMultiline: { minHeight: 120, textAlignVertical: "top" },
-  footer: { paddingBottom: spacing.sm },
+  footer: {
+    paddingBottom: spacing.sm,
+    alignItems: "stretch",
+  },
   trialCaption: { marginBottom: spacing.sm },
   secondary: { marginTop: spacing.lg },
   terms: { marginTop: spacing.lg },

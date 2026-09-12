@@ -91,6 +91,6 @@ export interface VariantConfig {
   paywallStyle: "timeline" | "note";
   /** iam: X fades in after this delay; stella: never closable. */
   paywallCloseDelayMs: number | null;
-  /** Stella family shows the skippable auth sheet before the paywall. */
+  /** Required Apple / Google / email step immediately before the paywall. */
   authSheetBeforePaywall: boolean;
 }

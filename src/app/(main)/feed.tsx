@@ -7,18 +7,35 @@ import {
   type RefObject,
 } from "react";
 import {
+  AccessibilityInfo,
+  AppState,
+  findNodeHandle,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
   type ViewToken,
 } from "react-native";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
+import { useMotionPreference } from "@/design-system/motion";
+import { getLocalDate } from "@/features/content/dailySet";
+import {
+  captureIdentity,
+  isCurrentIdentity,
+  useAppState,
+} from "@/lib/appState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
-import { useAppState } from "@/lib/appState";
 
 import { ContentCard } from "@/features/content/ContentCard";
 import { useFeedStore } from "@/features/content/feedStore";
@@ -36,7 +53,23 @@ import {
 import { StreakBanner } from "@/features/streaks/StreakBanner";
 import { syncWidgets } from "@/features/widgets/widgetSync";
 
-type FeedRow = { kind: "item"; item: ContentItem } | { kind: "end" };
+export type FeedRow = { kind: "item"; item: ContentItem } | { kind: "end" };
+
+/**
+ * Instant page change only. Animated `scrollTo` on this nested Fabric
+ * pager crashes iOS 26 (`UIAnimator` / `CFRunLoopWakeUp`). Swipe still
+ * uses native paging.
+ */
+export function programmaticPagerScroll(
+  pageWidth: number,
+  tab: ContentType,
+) {
+  return {
+    x: tab === "quote" ? 0 : pageWidth,
+    y: 0,
+    animated: false as const,
+  };
+}
 
 /**
  * `pagingEnabled` snaps by the FlatList's OWN layout height, so pages
@@ -72,12 +105,37 @@ function FeedContent() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const userId = useAppState((s) => s.userId);
+  const reduced = useMotionPreference();
+  const indicator = useSharedValue(0);
+  const quoteX = useSharedValue(0);
+  const quoteW = useSharedValue(0);
+  const affirmationX = useSharedValue(0);
+  const affirmationW = useSharedValue(0);
+  const offsets = useRef({ quote: 0, affirmation: 0 });
+  const tabRef = useRef<ContentType>("quote");
+  const indicatorStyle = useAnimatedStyle(() => {
+    const t = indicator.get();
+    return {
+      width: quoteW.get() + (affirmationW.get() - quoteW.get()) * t,
+      transform: [
+        {
+          translateX:
+            quoteX.get() + (affirmationX.get() - quoteX.get()) * t,
+        },
+      ],
+    };
+  });
+  useEffect(() => {
+    cancelAnimation(indicator);
+    indicator.set(tabRef.current === "quote" ? 0 : 1);
+  }, [reduced, indicator]);
   const [tab, setTab] = useState<ContentType>("quote");
-  // Measured list height drives page size; null until the first layout
-  // pass so no mis-sized pages ever flash.
   const [pageH, setPageH] = useState<number | null>(null);
+  const [pageW, setPageW] = useState(0);
   const feed = useFeedStore();
-  const listRef = useRef<FlatList<FeedRow>>(null);
+  const pagerRef = useRef<ScrollView>(null);
+  const quoteListRef = useRef<FlatList<FeedRow>>(null);
+  const affirmationListRef = useRef<FlatList<FeedRow>>(null);
   const morph = useMorph();
   const avatarRef = useRef<View>(null);
   const heartRef = useRef<View>(null);
@@ -88,7 +146,20 @@ function FeedContent() {
   const launch = useCallback(
     (ref: RefObject<View | null>, screen: MorphScreen, radius: number) => {
       ref.current?.measureInWindow((x, y, width, height) => {
-        morph.open({ x, y, width, height, radius }, screen);
+        morph.open(
+          {
+            x,
+            y,
+            width,
+            height,
+            radius,
+            restoreFocus: () => {
+              const target = findNodeHandle(ref.current);
+              if (target) AccessibilityInfo.setAccessibilityFocus(target);
+            },
+          },
+          screen,
+        );
       });
     },
     [morph],
@@ -101,21 +172,67 @@ function FeedContent() {
   }, []);
 
   useEffect(() => {
-    if (userId) {
-      feed.load(userId).then(() => {
-        syncWidgets().catch(() => {});
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!userId) return;
+    const identity = captureIdentity();
+    let alive = true;
+    let running = false;
+    let requested = false;
+    let day = getLocalDate();
+    const refresh = async () => {
+      requested = true;
+      if (running || !alive || !isCurrentIdentity(identity)) return;
+      running = true;
+      try {
+        for (
+          let pass = 0;
+          requested && pass < 2 && alive && isCurrentIdentity(identity);
+          pass++
+        ) {
+          requested = false;
+          await useFeedStore.getState().load(userId);
+          if (alive && isCurrentIdentity(identity) && !requested)
+            await syncWidgets(identity);
+        }
+      } catch {
+      } finally {
+        running = false;
+      }
+    };
+
+    void refresh();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        day = getLocalDate();
+        void refresh();
+      }
+    });
+    const timer = setInterval(() => {
+      const next = getLocalDate();
+      if (next !== day || requested) {
+        day = next;
+        void refresh();
+      }
+    }, 30000);
+    return () => {
+      alive = false;
+      sub.remove();
+      clearInterval(timer);
+    };
   }, [userId]);
 
-  const items = tab === "quote" ? feed.quotes : feed.affirmations;
-  const rows = useMemo<FeedRow[]>(
+  const quoteRows = useMemo<FeedRow[]>(
     () => [
-      ...items.map((item) => ({ kind: "item" as const, item })),
+      ...feed.quotes.map((item) => ({ kind: "item" as const, item })),
       { kind: "end" as const },
     ],
-    [items],
+    [feed.quotes],
+  );
+  const affirmationRows = useMemo<FeedRow[]>(
+    () => [
+      ...feed.affirmations.map((item) => ({ kind: "item" as const, item })),
+      { kind: "end" as const },
+    ],
+    [feed.affirmations],
   );
 
   const onViewableItemsChanged = useCallback(
@@ -139,54 +256,142 @@ function FeedContent() {
 
   const switchTab = (next: ContentType) => {
     if (next === tab) return;
+    tabRef.current = next;
     setTab(next);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    pagerRef.current?.scrollTo(programmaticPagerScroll(pageW, next));
+    indicator.set(next === "quote" ? 0 : 1);
+  };
+
+  const onPagerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (pageW <= 0) return;
+    indicator.set(e.nativeEvent.contentOffset.x / pageW);
+  };
+
+  const onPagerSettled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (pageW <= 0) return;
+    const next: ContentType =
+      Math.round(e.nativeEvent.contentOffset.x / pageW) === 0
+        ? "quote"
+        : "affirmation";
+    tabRef.current = next;
+    setTab(next);
   };
 
   const viewedCount = feed.viewedToday.length;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <FlatList
-        ref={listRef}
-        // Render pages only once the list is measured; renderItem and
-        // getItemLayout therefore never run with a null pageH.
-        data={pageH == null ? UNMEASURED_ROWS : rows}
+      <View
+        style={{ flex: 1 }}
         onLayout={(e) => {
-          // Keep the exact float: pagingEnabled snaps by the true bounds,
-          // and rounding the per-page length accumulates ~0.5dp of drift
-          // per page on fractional-density screens. Epsilon-dedupe only
-          // to avoid re-render loops from layout jitter.
-          const h = e.nativeEvent.layout.height;
+          const { width, height } = e.nativeEvent.layout;
+          setPageW((prev) =>
+            prev !== 0 && Math.abs(prev - width) < 0.5 ? prev : width,
+          );
           setPageH((prev) =>
-            prev !== null && Math.abs(prev - h) < 0.5 ? prev : h,
+            prev !== null && Math.abs(prev - height) < 0.5 ? prev : height,
           );
         }}
-        keyExtractor={(row) => (row.kind === "item" ? row.item.id : "end")}
-        renderItem={({ item: row }) =>
-          row.kind === "item" ? (
-            <ContentCard
-              item={row.item}
-              height={pageH ?? 0}
-              isFavorite={feed.favoriteIds.includes(row.item.id)}
-              onToggleFavorite={() =>
-                userId && feed.toggleFavorite(userId, row.item)
-              }
-            />
-          ) : (
-            <EndCard
-              height={pageH ?? 0}
-              tab={tab}
-              completed={feed.completedToday}
-            />
-          )
-        }
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={(_, index) => pageLayout(pageH ?? 0, index)}
-      />
+      >
+        {pageW > 0 ? (
+          <ScrollView
+            ref={pagerRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onPagerScroll}
+            onMomentumScrollEnd={onPagerSettled}
+            scrollEventThrottle={16}
+            testID="feed-pager"
+          >
+            <View style={{ width: pageW }}>
+              <FeedColumn
+                listRef={quoteListRef}
+                rows={quoteRows}
+                kind="quote"
+                active={tab === "quote"}
+                pageH={pageH}
+                userId={userId}
+                feed={feed}
+                offsets={offsets}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+              />
+            </View>
+            <View style={{ width: pageW }}>
+              <FeedColumn
+                listRef={affirmationListRef}
+                rows={affirmationRows}
+                kind="affirmation"
+                active={tab === "affirmation"}
+                pageH={pageH}
+                userId={userId}
+                feed={feed}
+                offsets={offsets}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+              />
+            </View>
+          </ScrollView>
+        ) : null}
+      </View>
+      {feed.loading || feed.error || feed.pendingCount > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry daily content and pending changes"
+          onPress={() => {
+            if (userId)
+              void feed
+                .load(userId)
+                .then(() => syncWidgets())
+                .catch(() => {});
+          }}
+          style={{
+            position: "absolute",
+            top: insets.top + 70,
+            left: 24,
+            right: 24,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: colors.card,
+          }}
+        >
+          <AppText accessibilityRole="alert" center variant="label">
+            {feed.loading
+              ? "Loading your daily words…"
+              : (feed.error ??
+                `${feed.pendingCount} changes waiting to sync. Tap Retry.`)}
+          </AppText>
+          {feed.localOnlyCount > 0 ? (
+            <AppText center variant="label">
+              {feed.localOnlyCount} older views are kept only on this device.
+              They could not be synced to your account.
+            </AppText>
+          ) : null}
+        </Pressable>
+      ) : null}
+
+      {!feed.loading &&
+      !feed.error &&
+      feed.pendingCount === 0 &&
+      feed.localOnlyCount > 0 ? (
+        <View
+          style={{
+            position: "absolute",
+            top: insets.top + 70,
+            left: 24,
+            right: 24,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: colors.card,
+          }}
+        >
+          <AppText center variant="label">
+            {feed.localOnlyCount} older views are kept only on this device. They
+            could not be synced to your account.
+          </AppText>
+        </View>
+      ) : null}
 
       {/* Top chrome */}
       <View style={[styles.top, { top: insets.top + spacing.sm }]}>
@@ -197,6 +402,7 @@ function FeedContent() {
           }
           style={[styles.avatar, { backgroundColor: colors.card }, shadows.sm]}
           testID="open-settings"
+          accessibilityRole="button"
           accessibilityLabel="Profile"
         >
           <AppText variant="label">fs</AppText>
@@ -205,14 +411,37 @@ function FeedContent() {
         <View
           style={[styles.segment, { backgroundColor: colors.card }, shadows.sm]}
         >
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: 4,
+                bottom: 4,
+                left: 0,
+                borderRadius: radii.pill,
+                backgroundColor: colors.ctaBg,
+              },
+              indicatorStyle,
+            ]}
+          />
           {(["quote", "affirmation"] as const).map((t) => (
             <Pressable
               key={t}
               onPress={() => switchTab(t)}
-              style={[
-                styles.segmentBtn,
-                tab === t && { backgroundColor: colors.ctaBg },
-              ]}
+              onLayout={(e) => {
+                const { x, width } = e.nativeEvent.layout;
+                if (t === "quote") {
+                  quoteX.set(x);
+                  quoteW.set(width);
+                } else {
+                  affirmationX.set(x);
+                  affirmationW.set(width);
+                }
+              }}
+              style={styles.segmentBtn}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === t }}
+              accessibilityLabel={t === "quote" ? "Quotes" : "Affirmations"}
               testID={`tab-${t}`}
             >
               <AppText variant="label" tone={tab === t ? "ctaInk" : "ink2"}>
@@ -276,26 +505,120 @@ function FeedContent() {
   );
 }
 
-function EndCard({
+export function FeedColumn({
+  listRef,
+  rows,
+  kind,
+  active,
+  pageH,
+  userId,
+  feed,
+  offsets,
+  onViewableItemsChanged,
+  viewabilityConfig,
+}: {
+  listRef: RefObject<FlatList<FeedRow> | null>;
+  rows: FeedRow[];
+  kind: ContentType;
+  active: boolean;
+  pageH: number | null;
+  userId: string | null;
+  feed: ReturnType<typeof useFeedStore.getState>;
+  offsets: { current: { quote: number; affirmation: number } };
+  onViewableItemsChanged: (info: { viewableItems: ViewToken[] }) => void;
+  viewabilityConfig: { itemVisiblePercentThreshold: number };
+}) {
+  const items = kind === "quote" ? feed.quotes : feed.affirmations;
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const handleViewableItemsChanged = useCallback(
+    (info: { viewableItems: ViewToken[] }) => {
+      if (!activeRef.current) return;
+      onViewableItemsChanged(info);
+    },
+    [onViewableItemsChanged],
+  );
+  return (
+    <FlatList
+      onScroll={(e) => {
+        offsets.current[kind] = e.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={32}
+      ref={listRef}
+      data={pageH == null ? UNMEASURED_ROWS : rows}
+      keyExtractor={(row) => (row.kind === "item" ? row.item.id : "end")}
+      renderItem={({ item: row }) =>
+        row.kind === "item" ? (
+          <ContentCard
+            item={row.item}
+            height={pageH ?? 0}
+            isFavorite={feed.favoriteIds.includes(row.item.id)}
+            onToggleFavorite={() =>
+              userId && feed.toggleFavorite(userId, row.item)
+            }
+          />
+        ) : (
+          <EndCard
+            height={pageH ?? 0}
+            tab={kind}
+            completed={feed.completedToday}
+            empty={items.length === 0}
+            loading={feed.loading}
+            failed={Boolean(feed.error)}
+            pending={feed.pendingCount > 0}
+          />
+        )
+      }
+      pagingEnabled
+      showsVerticalScrollIndicator={false}
+      onViewableItemsChanged={handleViewableItemsChanged}
+      viewabilityConfig={viewabilityConfig}
+      accessibilityLabel={
+        kind === "quote" ? "Daily quotes" : "Daily affirmations"
+      }
+      getItemLayout={(_, index) => pageLayout(pageH ?? 0, index)}
+    />
+  );
+}
+
+export function EndCard({
   height,
   tab,
   completed,
+  empty = false,
+  loading = false,
+  failed = false,
+  pending = false,
 }: {
   height: number;
   tab: ContentType;
   completed: boolean;
+  empty?: boolean;
+  loading?: boolean;
+  failed?: boolean;
+  pending?: boolean;
 }) {
   return (
     <View style={[styles.endCard, { height }]}>
       <AppText variant="h2" center>
-        {"That's the whole set for today."}
+        {loading && empty
+          ? "Loading your daily words…"
+          : empty
+            ? "Your daily words aren’t available yet."
+            : "That's the whole set for today."}
       </AppText>
       <AppText variant="lead" tone="ink2" center style={styles.endSub}>
-        {completed
-          ? "Streak's safe. Come back tomorrow: same rhythm, new words."
-          : tab === "quote"
-            ? "Read three in total and today counts. Your affirmations are waiting too."
-            : "Read three in total and today counts. Your quotes are waiting too."}
+        {empty
+          ? failed
+            ? "Tap Retry to reconnect and load your set."
+            : "Tap Retry to check for your daily set."
+          : pending
+            ? "Your progress is saved on this device and waiting to sync."
+            : completed
+              ? "Streak's safe. Come back tomorrow: same rhythm, new words."
+              : tab === "quote"
+                ? "Read three in total and today counts. Your affirmations are waiting too."
+                : "Read three in total and today counts. Your quotes are waiting too."}
       </AppText>
     </View>
   );
@@ -320,12 +643,13 @@ const styles = StyleSheet.create({
   },
   segment: {
     flexDirection: "row",
+    alignItems: "center",
     borderRadius: radii.pill,
-    padding: 3,
+    padding: 4,
   },
   segmentBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.xl,
     borderRadius: radii.pill,
   },
   streakChip: {

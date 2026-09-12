@@ -1,21 +1,38 @@
 import * as Haptics from "expo-haptics";
-import { useCallback, useRef, useState } from "react";
-import { Pressable, Share, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef } from "react";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { captureRef } from "react-native-view-shot";
 import Animated, {
-  Easing,
-  runOnJS,
+  cancelAnimation,
+  withSpring,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
+import {
+  CONTROLLED_SPRING,
+  MOTION,
+  useMotionPreference,
+} from "@/design-system/motion";
 import { spacing, type } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 
+import {
+  SHARE_CARD_HEIGHT,
+  SHARE_CARD_PIXEL_RATIO,
+  SHARE_CARD_WIDTH,
+  ShareCard,
+} from "./ShareCard";
+import { shareContentImage } from "./shareImage";
 import type { ContentItem } from "./types";
+
+/** Feed / deep-link card actions. Larger than 24pt chrome icons. */
+export const CARD_ACTION_ICON_SIZE = 32;
+/** Liked heart — a true red, not the dusty theme accent. */
+export const FAVORITE_RED = "#FF3B30";
 
 interface ContentCardProps {
   item: ContentItem;
@@ -40,32 +57,35 @@ export function ContentCard({
   onToggleFavorite,
 }: ContentCardProps) {
   const colors = useColors();
-  const burstScale = useSharedValue(0);
-  const burstOpacity = useSharedValue(0);
+  const reduced = useMotionPreference();
+  const iconScale = useSharedValue(1);
+  const iconOpacity = useSharedValue(1);
   const lastTap = useRef(0);
-  const [textSize] = useState(() =>
+  const shareRef = useRef<View>(null);
+  const textSize =
     item.body.length > 180
       ? type.sizes.h3
       : item.body.length > 90
         ? type.sizes.h2
-        : type.sizes.h1,
-  );
-
+        : type.sizes.h1;
+  useEffect(() => {
+    cancelAnimation(iconScale);
+    cancelAnimation(iconOpacity);
+    iconScale.set(1);
+    iconOpacity.set(1);
+  }, [reduced, iconScale, iconOpacity]);
   const burst = useCallback(() => {
-    burstScale.set(0.4);
-    burstOpacity.set(0.9);
-    burstScale.set(
-      withTiming(1.6, { duration: 620, easing: Easing.out(Easing.quad) }),
-    );
-    burstOpacity.set(
-      withSequence(
-        withTiming(0.9, { duration: 120 }),
-        withTiming(0, { duration: 480 }, (finished) => {
-          if (finished) runOnJS(noop)();
-        }),
-      ),
-    );
-  }, [burstScale, burstOpacity]);
+    cancelAnimation(iconScale);
+    cancelAnimation(iconOpacity);
+    if (reduced) {
+      iconScale.set(1);
+      iconOpacity.set(0.65);
+      iconOpacity.set(withTiming(1, { duration: MOTION.reducedFade }));
+    } else {
+      iconScale.set(MOTION.favoriteScale);
+      iconScale.set(withSpring(1, CONTROLLED_SPRING));
+    }
+  }, [reduced, iconScale, iconOpacity]);
 
   const handleTap = () => {
     const now = Date.now();
@@ -86,20 +106,39 @@ export function ContentCard({
       content_id: item.id,
       content_type: item.type,
     });
-    const suffix = item.author ? ` — ${item.author}` : "";
-    await Share.share({
-      message: `${item.body}${suffix}\n\nvia Future Self`,
-    }).catch(() => {});
+    await shareContentImage({
+      item,
+      capture: () =>
+        captureRef(shareRef, {
+          format: "png",
+          quality: 1,
+          result: "tmpfile",
+          width: SHARE_CARD_WIDTH * SHARE_CARD_PIXEL_RATIO,
+          height: SHARE_CARD_HEIGHT * SHARE_CARD_PIXEL_RATIO,
+        }),
+    });
   };
 
-  const burstStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: burstScale.get() }],
-    opacity: burstOpacity.get(),
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: reduced ? 1 : iconScale.get() }],
+    opacity: iconOpacity.get(),
   }));
 
   return (
     <Pressable onPress={handleTap} style={[styles.card, { height }]}>
-      <View style={styles.center}>
+      <View
+        ref={shareRef}
+        collapsable={false}
+        pointerEvents="none"
+        style={styles.shareShot}
+      >
+        <ShareCard item={item} />
+      </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.center, { flexGrow: 1 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <AppText
           variant="quote"
           center
@@ -112,42 +151,66 @@ export function ContentCard({
             — {item.author}
           </AppText>
         ) : null}
-
-        <Animated.View pointerEvents="none" style={[styles.burst, burstStyle]}>
-          <Icon name="heartFill" size={96} color={colors.accent} />
-        </Animated.View>
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable onPress={share} hitSlop={12} testID={`share-${item.id}`}>
-          <Icon name="share" size={24} color={colors.ink2} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share this message"
+          style={styles.actionBtn}
+          onPress={share}
+          hitSlop={12}
+          testID={`share-${item.id}`}
+        >
+          <Icon
+            name="share"
+            size={CARD_ACTION_ICON_SIZE}
+            color={colors.ink2}
+            weight="semibold"
+          />
         </Pressable>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            isFavorite ? "Remove saved message" : "Save message"
+          }
+          accessibilityState={{ selected: isFavorite }}
+          style={styles.actionBtn}
           onPress={() => {
-            if (!isFavorite) burst();
+            burst();
             Haptics.selectionAsync().catch(() => {});
             onToggleFavorite();
           }}
           hitSlop={12}
           testID={`favorite-${item.id}`}
         >
-          <Icon
-            name={isFavorite ? "heartFill" : "heart"}
-            size={24}
-            color={isFavorite ? colors.accent : colors.ink2}
-          />
+          <Animated.View style={iconStyle}>
+            <Icon
+              name={isFavorite ? "heartFill" : "heart"}
+              size={CARD_ACTION_ICON_SIZE}
+              color={isFavorite ? FAVORITE_RED : colors.ink2}
+              weight="semibold"
+            />
+          </Animated.View>
         </Pressable>
       </View>
     </Pressable>
   );
 }
 
-function noop() {}
-
 const styles = StyleSheet.create({
   card: {
     paddingHorizontal: spacing.xxl,
+    paddingTop: 100,
+    paddingBottom: 220,
     justifyContent: "center",
+  },
+  shareShot: {
+    position: "absolute",
+    left: -SHARE_CARD_WIDTH - 8,
+    top: 0,
+    width: SHARE_CARD_WIDTH,
+    height: SHARE_CARD_HEIGHT,
   },
   center: { justifyContent: "center" },
   author: { marginTop: spacing.lg },
@@ -161,5 +224,11 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     gap: spacing.xxxl,
+  },
+  actionBtn: {
+    minWidth: 56,
+    minHeight: 56,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

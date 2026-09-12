@@ -59,3 +59,27 @@ describe("ContentCard", () => {
     screen.unmount();
   });
 });
+
+it("empty or pending feed states never claim an acknowledged safe streak", () => {
+  const { EndCard } = require("@/app/(main)/feed");
+  const screen = render(
+    <ThemeProvider>
+      <EndCard height={700} tab="quote" completed empty failed />
+    </ThemeProvider>,
+  );
+  expect(screen.queryByText("That's the whole set for today.")).toBeNull();
+  expect(
+    screen.getByText("Tap Retry to reconnect and load your set."),
+  ).toBeTruthy();
+  screen.rerender(
+    <ThemeProvider>
+      <EndCard height={700} tab="quote" completed pending />
+    </ThemeProvider>,
+  );
+  expect(
+    screen.getByText(
+      "Your progress is saved on this device and waiting to sync.",
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByText(/Streak's safe/)).toBeNull();
+});

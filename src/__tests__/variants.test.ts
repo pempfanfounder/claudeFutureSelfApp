@@ -74,24 +74,20 @@ describe("onboarding variant configs", () => {
         );
       });
 
-      it("matches its family's paywall placement rules", () => {
+      it("requires Apple, Google, or email immediately before the paywall", () => {
+        const paywallIndex = config.steps.findIndex(
+          (s) => s.type === "paywall",
+        );
+        const before = config.steps[paywallIndex - 1];
+        expect(before?.type).toBe("auth-sheet");
+        expect(before?.secondaryCta).toBeUndefined();
+        expect(config.authSheetBeforePaywall).toBe(true);
         if (config.family === "iam") {
-          // I Am: delayed-close timeline paywall, no auth in the funnel.
           expect(config.paywallStyle).toBe("timeline");
           expect(config.paywallCloseDelayMs).not.toBeNull();
-          expect(config.steps.some((s) => s.type === "auth-sheet")).toBe(false);
         } else {
-          // Stella: hard note paywall, skippable auth sheet before it.
           expect(config.paywallStyle).toBe("note");
           expect(config.paywallCloseDelayMs).toBeNull();
-          const authIndex = config.steps.findIndex(
-            (s) => s.type === "auth-sheet",
-          );
-          const paywallIndex = config.steps.findIndex(
-            (s) => s.type === "paywall",
-          );
-          expect(authIndex).toBeGreaterThan(-1);
-          expect(authIndex).toBeLessThan(paywallIndex);
         }
       });
 
@@ -252,6 +248,7 @@ describe("iam-claude conversion refinements", () => {
       "result",
       "source",
       "trial-preframe",
+      "save-account",
       "paywall",
       "widget-lock",
       "widget-home",

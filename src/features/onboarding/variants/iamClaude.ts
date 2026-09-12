@@ -13,7 +13,7 @@ export const iamClaude: VariantConfig = {
   family: "iam",
   paywallStyle: "timeline",
   paywallCloseDelayMs: 2000,
-  authSheetBeforePaywall: false,
+  authSheetBeforePaywall: true,
   steps: [
     {
       id: "welcome",
@@ -21,6 +21,7 @@ export const iamClaude: VariantConfig = {
       headline: "Become the person you keep promising yourself.",
       sub: "Future Self turns quotes and affirmations into small daily pushes toward the life you actually want.",
       cta: "Begin",
+      secondaryCta: "Already have an account? Sign in",
     },
     {
       id: "name",
@@ -461,6 +462,13 @@ export const iamClaude: VariantConfig = {
       sub: "No surprises: we'll remind you before the trial ends, and you can cancel anytime.",
       cta: "Show me how it works",
       condition: (ctx) => ctx.trialLength !== null,
+    },
+    {
+      id: "save-account",
+      type: "auth-sheet",
+      headline: "Create your account",
+      sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
+      condition: (ctx) => ctx.isAnonymous,
     },
     {
       id: "paywall",

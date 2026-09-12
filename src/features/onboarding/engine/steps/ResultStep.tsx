@@ -14,6 +14,7 @@ import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 
+import { captureIdentity, isCurrentIdentity } from "@/lib/appState";
 import { loadLibrary } from "@/features/content/repository";
 import type { ContentItem } from "@/features/content/types";
 
@@ -139,18 +140,24 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
 
   useEffect(() => {
     let cancelled = false;
-    loadLibrary().then((items) => {
-      if (cancelled) return;
-      const targetCategories =
-        quoteInterests.length > 0 ? quoteInterests : ["discipline"];
-      const match =
-        items.find(
-          (i) =>
-            i.type === "quote" &&
-            i.categories.some((c) => targetCategories.includes(c)),
-        ) ?? items.find((i) => i.type === "quote");
-      setPreview(match ?? null);
-    });
+    const identity = captureIdentity();
+    loadLibrary(false, identity)
+      .then((items) => {
+        if (cancelled || !isCurrentIdentity(identity)) return;
+        const targetCategories =
+          quoteInterests.length > 0 ? quoteInterests : ["discipline"];
+        const match =
+          items.find(
+            (i) =>
+              i.type === "quote" &&
+              i.categories.some((c) => targetCategories.includes(c)),
+          ) ?? items.find((i) => i.type === "quote");
+        setPreview(match ?? null);
+      })
+      .catch(() => {
+        // The preview is optional; the collected plan remains available.
+        if (!cancelled && isCurrentIdentity(identity)) setPreview(null);
+      });
     return () => {
       cancelled = true;
     };

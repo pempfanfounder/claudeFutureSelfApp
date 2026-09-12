@@ -5,48 +5,61 @@ import Purchases, {
   type PurchasesOffering,
   type PurchasesPackage,
 } from "react-native-purchases";
-
 import { analytics } from "./analytics";
+import {
+  assertCurrentIdentity,
+  captureIdentity,
+  isCurrentIdentity,
+  useAppState,
+  type Identity,
+} from "./appState";
 import { config } from "./config";
 import { monitoring } from "./monitoring";
-import { getSupabase } from "./supabase";
+import { getIdentitySupabase } from "./supabase";
 
-/**
- * Purchases abstraction over RevenueCat.
- *
- * RevenueCat is the source of truth for premium access via the
- * configured entitlement (EXPO_PUBLIC_RC_ENTITLEMENT_ID, default
- * "premium"). In production a missing RevenueCat key NEVER unlocks the
- * app: `isPremium` stays false and the paywall stays up. In development
- * an explicitly enabled mock (EXPO_PUBLIC_DEV_MOCK_PURCHASES) lets the
- * four onboarding funnels be tested end-to-end without a store account;
- * the mock is compiled out of production behavior by the `__DEV__` guard
- * in config.
- */
 export const PREMIUM_ENTITLEMENT_ID = config.rcEntitlementId;
-
 let configured = false;
-let mockPremium = false;
-
-type PremiumListener = (isPremium: boolean) => void;
+let sdkUserId: string | null = null;
+let sdkQueue: Promise<unknown> = Promise.resolve();
+let sdkStalled = false;
+export function purchasesNeedRestart() {
+  return sdkStalled;
+}
+const mockPremium = new Map<string, boolean>();
+type PremiumListener = (premium: boolean, identity?: Identity) => void;
 const listeners = new Set<PremiumListener>();
+function serial<T>(work: () => Promise<T>, timeoutMs = 10_000): Promise<T> {
+  if (sdkStalled)
+    return Promise.reject(
+      new Error(
+        "The purchase service has not finished. Restart the app to reconnect safely.",
+      ),
+    );
+  const result = sdkQueue.then(work, work);
+  sdkQueue = result.catch(() => {});
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      sdkStalled = true;
+      reject(
+        new Error(
+          "The purchase service has not finished. Restart the app to reconnect safely.",
+        ),
+      );
+    }, timeoutMs);
+  });
+  void result
+    .finally(() => {
+      clearTimeout(timer);
+      sdkStalled = false;
+    })
+    .catch(() => {});
+  return Promise.race([result, timeout]);
+}
 
 export function isConfigured() {
   return configured || config.devMockPurchases;
 }
-
-/**
- * Why a RevenueCat key must not be handed to the SDK. `null` = usable.
- *
- * - `test_…` (RevenueCat Test Store) keys are virtual: they never touch
- *   StoreKit/Play, so a sandbox purchase is impossible with them, and the
- *   SDK itself refuses to run one in a non-debug build — it shows a
- *   "Wrong API Key" alert and terminates the app. Refusing here keeps a
- *   misconfigured build alive (paywall shows the store-unavailable state)
- *   instead of quitting on launch.
- * - `appl_` on Android / `goog_` on iOS can never resolve products.
- * Exported for tests.
- */
 export function rejectApiKey(
   apiKey: string,
   platform: string = Platform.OS,
@@ -65,214 +78,216 @@ export function rejectApiKey(
 }
 
 export async function initPurchases(appUserId?: string) {
-  if (config.devMockPurchases) return;
+  if (config.devMockPurchases || configured || !appUserId) return;
   const apiKey =
     Platform.OS === "ios"
       ? config.revenueCatIosKey
       : config.revenueCatAndroidKey;
-  if (!apiKey) {
-    console.warn(
-      `[purchases] No RevenueCat API key found for platform "${Platform.OS}". Check environment configuration.`,
-    );
-    return;
-  }
+  if (!apiKey) return;
   const rejection = rejectApiKey(apiKey);
   if (rejection) {
-    console.warn(`[purchases] ${rejection}`);
     monitoring.captureError(new Error(rejection), {
       area: "purchases.configure",
     });
     return;
   }
-  if (configured) return;
-
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
-  try {
-    Purchases.configure({ apiKey, appUserID: appUserId ?? null });
-    configured = true;
-    Purchases.addCustomerInfoUpdateListener((info) => {
-      notify(hasPremium(info));
+  Purchases.setLogLevel(LOG_LEVEL.ERROR);
+  Purchases.configure({ apiKey, appUserID: appUserId });
+  configured = true;
+  sdkUserId = appUserId;
+  // Untagged SDK callbacks are refresh signals; aliases make originalAppUserId
+  // unsuitable as an identity proof. Read again after queued identity work.
+  Purchases.addCustomerInfoUpdateListener(() => schedulePremiumRefresh());
+}
+let refreshQueued = false;
+function schedulePremiumRefresh() {
+  if (refreshQueued) return;
+  refreshQueued = true;
+  const identity = captureIdentity();
+  void getIsPremium()
+    .then((premium) => notify(premium, identity))
+    .catch((error) =>
+      monitoring.captureError(error, { area: "purchases.refresh" }),
+    )
+    .finally(() => {
+      refreshQueued = false;
     });
-  } catch (error) {
-    console.error("[purchases] Purchases.configure failed:", error);
-    monitoring.captureError(error, { area: "purchases.configure" });
-  }
 }
-
-/**
- * Ties the RevenueCat identity to the Supabase user so purchases
- * survive anonymous-to-authenticated transitions and account switches.
- */
-export async function logInPurchases(supabaseUserId: string) {
-  if (!configured) return;
-  try {
-    const { customerInfo } = await Purchases.logIn(supabaseUserId);
-    notify(hasPremium(customerInfo));
-  } catch (error) {
-    monitoring.captureError(error, { area: "purchases.logIn" });
-  }
+export async function logInPurchases(userId: string) {
+  const identity = captureIdentity();
+  if (identity.userId !== userId) return;
+  return serial(async () => {
+    if (!isCurrentIdentity(identity)) return;
+    await initPurchases(userId);
+    if (config.devMockPurchases) {
+      notify(mockPremium.get(userId) ?? false, identity);
+      return;
+    }
+    if (!configured) return;
+    const { customerInfo } = await Purchases.logIn(userId);
+    sdkUserId = userId;
+    notify(hasPremium(customerInfo), identity);
+  });
 }
-
-export async function logOutPurchases() {
-  if (!configured) return;
-  try {
-    // logOut generates a fresh anonymous RevenueCat id.
-    const info = await Purchases.logOut();
-    notify(hasPremium(info));
-  } catch (error) {
-    monitoring.captureError(error, { area: "purchases.logOut" });
-  }
+/** Detach is serialized with every transaction. Do not publish the SDK's
+ * replacement anonymous customer's entitlement into any app account. */
+export async function logOutPurchases(identity?: Identity) {
+  return serial(async () => {
+    if (identity) assertCurrentIdentity(identity);
+    if (configured) await Purchases.logOut();
+    sdkUserId = null;
+  });
 }
-
-/**
- * This is a single-tier app: any genuinely active RevenueCat entitlement
- * means premium. The configured entitlement id is checked first; if it
- * isn't the one that's active (e.g. a dashboard rename/typo) we still
- * honor whatever entitlement IS active rather than falsely locking out a
- * paying customer — but we warn loudly in dev so the misconfiguration
- * gets fixed. This still requires a real, active store entitlement; it
- * is not a bypass.
- */
 function hasPremium(info: CustomerInfo): boolean {
   if (info.entitlements.active[PREMIUM_ENTITLEMENT_ID]) return true;
   const anyActive = Object.keys(info.entitlements.active).length > 0;
-  if (anyActive && __DEV__) {
-    console.warn(
-      `[purchases] Active entitlement found, but not under the configured id "${PREMIUM_ENTITLEMENT_ID}". ` +
-        `Falling back to treating the user as premium. Active entitlements: ${Object.keys(info.entitlements.active).join(", ")}. ` +
-        "Check EXPO_PUBLIC_RC_ENTITLEMENT_ID against the RevenueCat dashboard.",
-    );
-  }
   return anyActive;
 }
 
 export async function getIsPremium(): Promise<boolean> {
-  if (config.devMockPurchases) return mockPremium;
-  if (!configured) return false;
-  try {
+  const identity = captureIdentity();
+  return serial(async () => {
+    if (!identity.userId || !isCurrentIdentity(identity)) return false;
+    if (config.devMockPurchases)
+      return mockPremium.get(identity.userId) ?? false;
+    if (!configured) return false;
+    if (sdkUserId !== identity.userId)
+      throw new Error("Purchases are still reconnecting to your account.");
     const info = await Purchases.getCustomerInfo();
-    return hasPremium(info);
-  } catch (error) {
-    monitoring.captureError(error, { area: "purchases.getCustomerInfo" });
-    return false;
-  }
+    return isCurrentIdentity(identity) && hasPremium(info);
+  });
 }
-
 export async function getCurrentOffering(): Promise<PurchasesOffering | null> {
-  if (config.devMockPurchases) return null;
-  if (!configured) return null;
-  try {
+  if (config.devMockPurchases || !configured) return null;
+  const identity = captureIdentity();
+  return serial(async () => {
+    assertCurrentIdentity(identity);
+    if (sdkUserId !== identity.userId)
+      throw new Error("Purchases are still reconnecting.");
     const offerings = await Purchases.getOfferings();
-    // Fall back to first available offering if current is not explicitly set as default
+    assertCurrentIdentity(identity);
     return offerings.current ?? Object.values(offerings.all)[0] ?? null;
-  } catch (error) {
-    console.error("[purchases] getOfferings error:", error);
-    monitoring.captureError(error, { area: "purchases.getOfferings" });
-    return null;
-  }
+  });
 }
-
 export type PurchaseOutcome =
   | { status: "purchased" }
   | { status: "cancelled" }
   | { status: "error"; message: string };
-
-/**
- * Fire-and-forget push of the fresh entitlement to the server right
- * after a purchase/restore, so server-side premium state doesn't have
- * to wait on the RevenueCat webhook.
- */
-function syncEntitlementToServer() {
-  getSupabase()
-    ?.functions.invoke("sync-entitlement", { body: {} })
-    .catch(() => {});
+export const PURCHASE_ACCOUNT_REQUIRED =
+  "Save this account with Apple, Google, or email before starting a subscription.";
+export function purchaseRequiresAccount(isAnonymous: boolean): boolean {
+  return isAnonymous === true;
 }
-
-export async function purchasePackage(
-  pkg: PurchasesPackage,
-): Promise<PurchaseOutcome> {
-  if (config.devMockPurchases) {
-    mockPremium = true;
-    notify(true);
-    return { status: "purchased" };
-  }
-  if (!configured) {
-    return {
-      status: "error",
-      message: "Purchases are not available right now.",
-    };
-  }
-  try {
-    const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const premium = hasPremium(customerInfo);
-    analytics.capture("purchase_completed", {
-      package_id: pkg.identifier,
-      product_id: pkg.product.identifier,
+export function isAllowedPackage(pkg: PurchasesPackage): boolean {
+  return pkg.packageType === "MONTHLY" || pkg.packageType === "ANNUAL";
+}
+const syncPending = new Map<string, Promise<void>>();
+export async function syncEntitlementToServer(
+  identity = captureIdentity(),
+): Promise<void> {
+  if (!identity.userId) return;
+  const previous = syncPending.get(identity.userId);
+  if (previous) return previous;
+  const request = (async () => {
+    const client = await getIdentitySupabase(identity);
+    assertCurrentIdentity(identity);
+    if (!client) return;
+    const { error } = await client.functions.invoke("sync-entitlement", {
+      body: {},
     });
-    notify(premium);
-    if (premium) syncEntitlementToServer();
-    return premium
-      ? { status: "purchased" }
-      : {
-          status: "error",
-          message: "Purchase did not unlock premium. Try Restore Purchases.",
-        };
-  } catch (error: unknown) {
-    const err = error as { userCancelled?: boolean; message?: string };
-    if (err.userCancelled) {
-      analytics.capture("purchase_cancelled", { package_id: pkg.identifier });
-      return { status: "cancelled" };
-    }
-    monitoring.captureError(error, { area: "purchases.purchasePackage" });
-    return {
-      status: "error",
-      message: err.message ?? "Purchase failed. Please try again.",
-    };
-  }
-}
-
-export async function restorePurchases(): Promise<PurchaseOutcome> {
-  if (config.devMockPurchases) {
-    mockPremium = true;
-    notify(true);
-    return { status: "purchased" };
-  }
-  if (!configured) {
-    return {
-      status: "error",
-      message: "Purchases are not available right now.",
-    };
-  }
+    if (error) throw error;
+  })();
+  syncPending.set(identity.userId, request);
   try {
-    const info = await Purchases.restorePurchases();
-    const premium = hasPremium(info);
-    analytics.capture("restore_completed", { premium });
-    notify(premium);
-    if (premium) syncEntitlementToServer();
-    return premium
-      ? { status: "purchased" }
-      : {
-          status: "error",
-          message: "No previous purchase was found for this account.",
-        };
-  } catch (error: unknown) {
-    monitoring.captureError(error, { area: "purchases.restore" });
-    return { status: "error", message: "Restore failed. Please try again." };
+    await request;
+  } finally {
+    syncPending.delete(identity.userId);
   }
 }
-
+let transactionRunning = false;
+async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
+  const identity = captureIdentity();
+  if (purchaseRequiresAccount(useAppState.getState().isAnonymous))
+    return { status: "error", message: PURCHASE_ACCOUNT_REQUIRED };
+  if (pkg && !isAllowedPackage(pkg))
+    return { status: "error", message: "Choose a monthly or yearly plan." };
+  if (transactionRunning)
+    return {
+      status: "error",
+      message: "A purchase or restore is already in progress.",
+    };
+  transactionRunning = true;
+  try {
+    return await serial(async () => {
+      assertCurrentIdentity(identity);
+      if (config.devMockPurchases) {
+        mockPremium.set(identity.userId!, true);
+        notify(true, identity);
+        return { status: "purchased" };
+      }
+      if (!configured || sdkUserId !== identity.userId)
+        return {
+          status: "error",
+          message: "Purchases are not available right now. Please retry.",
+        };
+      const info = pkg
+        ? (await Purchases.purchasePackage(pkg)).customerInfo
+        : await Purchases.restorePurchases();
+      assertCurrentIdentity(identity);
+      const premium = hasPremium(info);
+      notify(premium, identity);
+      if (premium) {
+        void syncEntitlementToServer(identity).catch((error) =>
+          monitoring.captureError(error, { area: "purchases.sync" }),
+        );
+        analytics.capture(pkg ? "purchase_completed" : "restore_completed", {
+          premium,
+        });
+        return { status: "purchased" };
+      }
+      return {
+        status: "error",
+        message: pkg
+          ? "Purchase did not unlock premium. Try Restore Purchases."
+          : "No previous purchase was found for this account.",
+      };
+    }, 180_000);
+  } catch (error) {
+    if ((error as { userCancelled?: boolean }).userCancelled)
+      return { status: "cancelled" };
+    monitoring.captureError(error, { area: "purchases.transaction" });
+    return {
+      status: "error",
+      message: sdkStalled
+        ? "The purchase service has not finished. Restart the app, then use Restore Purchases to check the outcome."
+        : isCurrentIdentity(identity)
+          ? "Could not complete this purchase or restore. Please try again."
+          : "Account changed. Return to your account to check the purchase.",
+    };
+  } finally {
+    transactionRunning = false;
+  }
+}
+export async function purchasePackage(pkg: PurchasesPackage) {
+  return transaction(pkg);
+}
+export async function restorePurchases() {
+  return transaction();
+}
 export function subscribePremium(listener: PremiumListener): () => void {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
-
-function notify(isPremium: boolean) {
-  for (const listener of listeners) listener(isPremium);
+function notify(premium: boolean, identity: Identity) {
+  if (!identity.userId || !isCurrentIdentity(identity)) return;
+  useAppState.getState().setPremium(premium);
+  for (const listener of listeners) listener(premium, identity);
 }
-
-/** Development helper for the dev-only mock. No-op in production. */
 export function devResetMockPremium() {
-  if (!config.devMockPurchases) return;
-  mockPremium = false;
-  notify(false);
+  const identity = captureIdentity();
+  if (!config.devMockPurchases || !identity.userId) return;
+  mockPremium.delete(identity.userId);
+  notify(false, identity);
 }

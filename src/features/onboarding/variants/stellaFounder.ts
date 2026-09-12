@@ -231,8 +231,8 @@ export const stellaFounder: VariantConfig = {
       type: "auth-sheet",
       headline: (ctx) =>
         ctx.name ? `Don't lose us, ${ctx.name}.` : "Don't lose us.",
-      sub: "Sign in so our goal, our streak and our words survive a lost phone.",
-      secondaryCta: "Not now",
+      sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
+      condition: (ctx) => ctx.isAnonymous,
     },
     {
       id: "paywall",

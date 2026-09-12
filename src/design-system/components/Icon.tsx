@@ -25,7 +25,26 @@ export type IconName =
   | "person"
   | "widget"
   | "bell"
-  | "check";
+  | "check"
+  | "flame"
+  | "chart"
+  | "fog"
+  | "strength"
+  | "brain"
+  | "health"
+  | "briefcase"
+  | "peace"
+  | "compass"
+  | "hourglass"
+  | "phone"
+  | "repeat"
+  | "spiral"
+  | "reflect"
+  | "map"
+  | "money"
+  | "target"
+  | "lockOpen"
+  | "diamond";
 
 const SF: Record<IconName, SymbolViewProps["name"]> = {
   share: "square.and.arrow.up",
@@ -44,6 +63,25 @@ const SF: Record<IconName, SymbolViewProps["name"]> = {
   widget: "widget.small",
   bell: "bell",
   check: "checkmark",
+  flame: "flame.fill",
+  chart: "chart.line.uptrend.xyaxis",
+  fog: "cloud.fog.fill",
+  strength: "dumbbell.fill",
+  brain: "brain.head.profile",
+  health: "stethoscope",
+  briefcase: "briefcase.fill",
+  peace: "bird",
+  compass: "safari",
+  hourglass: "hourglass",
+  phone: "iphone",
+  repeat: "arrow.triangle.2.circlepath",
+  spiral: "hurricane",
+  reflect: "person.crop.circle",
+  map: "map.fill",
+  money: "dollarsign.circle.fill",
+  target: "target",
+  lockOpen: "lock.open.fill",
+  diamond: "diamond.fill",
 };
 
 // Monochrome text glyphs only (a color emoji would ignore `color`).
@@ -66,6 +104,25 @@ const FALLBACK: Record<IconName, string> = {
   widget: "▣",
   bell: "⍾",
   check: "✓",
+  flame: "▲",
+  chart: "↗",
+  fog: "≈",
+  strength: "▰",
+  brain: "◉",
+  health: "+",
+  briefcase: "▣",
+  peace: "○",
+  compass: "◎",
+  hourglass: "⧖",
+  phone: "▭",
+  repeat: "↻",
+  spiral: "◌",
+  reflect: "◑",
+  map: "▢",
+  money: "$",
+  target: "◎",
+  lockOpen: "○",
+  diamond: "◇",
 };
 
 export interface IconProps {

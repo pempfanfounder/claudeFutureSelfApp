@@ -230,8 +230,8 @@ export const stellaClaude: VariantConfig = {
       type: "auth-sheet",
       headline: (ctx) =>
         ctx.name ? `Keep it safe, ${ctx.name}.` : "Keep it safe.",
-      sub: "Sign in so your goal, your streak and your saved quotes survive a lost phone, and follow you to a new one.",
-      secondaryCta: "Not now",
+      sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
+      condition: (ctx) => ctx.isAnonymous,
     },
     {
       id: "paywall",

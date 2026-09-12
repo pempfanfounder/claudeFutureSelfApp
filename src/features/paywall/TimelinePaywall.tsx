@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-import { AppText, Button, Icon } from "@/design-system/components";
+import { AppText, Button, Icon, type IconName } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
@@ -63,6 +63,7 @@ export function TimelinePaywall({
   }, []);
 
   const buy = async () => {
+    if (purchasing || data.loading) return;
     if (data.unavailable) {
       Alert.alert(
         "Purchases unavailable",
@@ -70,7 +71,7 @@ export function TimelinePaywall({
       );
       return;
     }
-    if (!data.pkg && !data.devMock) return;
+    if (!data.pkg) return;
     setPurchasing(true);
     const result = await purchasePackage(data.pkg!);
     setPurchasing(false);
@@ -82,28 +83,36 @@ export function TimelinePaywall({
   };
 
   const hasTrial = data.trialLength !== null && data.trialDays !== null;
-  const disclosure = subscriptionDisclosure(data.pkg);
+  const disclosure = subscriptionDisclosure(
+    data.pkg,
+    data.pkg ? data.eligibility?.[data.pkg.product.identifier] : "unknown",
+  );
   const reminderDay = hasTrial
     ? shortDateInDays(Math.max(0, data.trialDays! - 1))
     : null;
   const startDay = hasTrial ? shortDateInDays(data.trialDays!) : null;
 
-  const steps = [
+  const steps: {
+    icon: IconName;
+    title: string;
+    body: string;
+    done: boolean;
+  }[] = [
     {
-      icon: "✓",
+      icon: "check",
       title: "You showed up",
       body: "Set it up to match your goals",
       done: true,
     },
     hasTrial
       ? {
-          icon: "🔓",
+          icon: "lockOpen",
           title: "Today: free trial starts",
           body: `Everything unlocks: all your daily quotes and affirmations, streaks, widgets and every theme, free for ${data.trialLength}`,
           done: false,
         }
       : {
-          icon: "🔓",
+          icon: "lockOpen",
           title: "Today: everything unlocks",
           body: "All your daily quotes and affirmations, streaks, widgets and every theme",
           done: false,
@@ -111,13 +120,13 @@ export function TimelinePaywall({
     ...(hasTrial
       ? [
           {
-            icon: "🔔",
+            icon: "bell" as const,
             title: `${reminderDay}: heads-up`,
-            body: "One reminder, so nothing surprises you",
+            body: "Optional reminder, if notifications are enabled",
             done: false,
           },
           {
-            icon: "💎",
+            icon: "diamond" as const,
             title: `${startDay}: membership begins`,
             body: "Unless you've cancelled. No hard feelings",
             done: false,
@@ -158,9 +167,11 @@ export function TimelinePaywall({
                     },
                   ]}
                 >
-                  <AppText variant="body" tone={s.done ? "ctaInk" : "ink"}>
-                    {s.icon}
-                  </AppText>
+                  <Icon
+                    name={s.icon}
+                    size={16}
+                    color={s.done ? colors.ctaInk : colors.ink}
+                  />
                 </View>
                 {i < steps.length - 1 ? (
                   <View
@@ -198,7 +209,7 @@ export function TimelinePaywall({
           >
             <AppText variant="body" style={styles.reminderLabel}>
               {trialReminder && reminderDay
-                ? `We'll remind you on ${reminderDay} ✓`
+                ? `Request a reminder before ${startDay}`
                 : "Reminder before trial ends"}
             </AppText>
             <Switch
@@ -214,7 +225,10 @@ export function TimelinePaywall({
           <View style={styles.planSelector}>
             {data.allPackages.map((p) => {
               const isSelected = data.pkg?.identifier === p.identifier;
-              const trial = trialInfo(p);
+              const trial = trialInfo(
+                p,
+                data.eligibility?.[p.product.identifier],
+              );
               return (
                 <Pressable
                   key={p.identifier}
@@ -266,6 +280,13 @@ export function TimelinePaywall({
             }
           </AppText>
         ) : null}
+        {data.unavailable && data.retry ? (
+          <Button
+            label="Retry store"
+            variant="secondary"
+            onPress={data.retry}
+          />
+        ) : null}
         {data.devMock ? (
           <AppText
             variant="label"
@@ -273,8 +294,7 @@ export function TimelinePaywall({
             center
             style={styles.unavailable}
           >
-            Development mode: purchases are mocked
-            (EXPO_PUBLIC_DEV_MOCK_PURCHASES)
+            Development preview
           </AppText>
         ) : null}
       </ScrollView>
@@ -284,7 +304,7 @@ export function TimelinePaywall({
           label={hasTrial ? ctaLabel(data.trialLength) : "Continue"}
           onPress={buy}
           loading={purchasing}
-          disabled={data.loading || (data.unavailable && !data.devMock)}
+          disabled={data.loading || data.unavailable || !data.pkg}
           testID="paywall-cta"
         />
         {data.priceLine ? (

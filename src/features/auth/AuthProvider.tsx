@@ -10,25 +10,53 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
+import {
+  runSharedAuthOperation,
+  sharedAuthPending,
+} from "./sharedAuthOperation";
+import { storageNeedsRestart } from "@/lib/accountStorage";
 import { analytics } from "@/lib/analytics";
-import { useAppState } from "@/lib/appState";
+import {
+  assertCurrentIdentity,
+  captureIdentity,
+  isCurrentIdentity,
+  useAppState,
+  withDeadline,
+} from "@/lib/appState";
 import { config } from "@/lib/config";
 import { monitoring } from "@/lib/monitoring";
-import { getIsPremium, logInPurchases, logOutPurchases } from "@/lib/purchases";
+import {
+  purchasesNeedRestart,
+  getIsPremium,
+  logInPurchases,
+  logOutPurchases,
+  syncEntitlementToServer,
+} from "@/lib/purchases";
 import { getSupabase } from "@/lib/supabase";
+import { resetFeed } from "@/features/content/feedStore";
+import { resetWidgetPrefs } from "@/features/widgets/widgetPrefs";
 
 import {
   deactivateDevice,
+  pauseDeviceRegistration,
+  resumeDeviceRegistration,
   registerDevice,
 } from "@/features/notifications/push";
 import { reconcileOnboardingState } from "@/features/onboarding/engine/completeOnboarding";
 import {
+  useOnboardingStore,
   clearLocalUserData,
   clearOnboardingState,
 } from "@/features/onboarding/engine/store";
 import { clearWidgets } from "@/features/widgets/widgetSync";
+import {
+  requestAccountDeletion,
+  getPendingDeletion,
+  checkPendingDeletion as verifyPendingDeletion,
+  clearDeletionReceipt,
+} from "./deletion";
 
 /**
  * Anonymous-first auth.
@@ -55,6 +83,9 @@ export type AuthOutcome =
 interface AuthContextValue {
   session: Session | null;
   initializing: boolean;
+  initializationError: string | null;
+  retryInitialization: () => void;
+  recoverPendingDeletion: () => Promise<AuthOutcome>;
   isAnonymous: boolean;
   /** Providers that are actually usable in this build/config. */
   availableProviders: { apple: boolean; google: boolean; email: boolean };
@@ -70,33 +101,39 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/**
- * `functions.invoke` surfaces a FunctionsHttpError whose `context` is
- * the raw fetch Response (some transports expose `status` directly).
- * For delete-account, a 401 means the JWT's user no longer exists —
- * i.e. a previous deletion already went through.
- */
-function isAccountAlreadyGone(error: unknown): boolean {
-  const err = error as {
-    status?: unknown;
-    context?: { status?: unknown } | null;
-  };
-  return err?.status === 401 || err?.context?.status === 401;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const generation = useAppState((s) => s.identityGeneration);
+  const ready = useAppState((s) => s.identityReady);
   const [session, setSession] = useState<Session | null>(null);
   // Nothing to initialize when Supabase isn't configured.
   const [initializing, setInitializing] = useState(() =>
     Boolean(getSupabase()),
   );
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const [initializationError, setInitializationError] = useState<string | null>(
+    null,
+  );
+  const [retry, setRetry] = useState(0);
+  const retryInitialization = useCallback(() => setRetry((n) => n + 1), []);
   const googleReady = useRef(false);
-  // Last user id seen by the auth listener, so onboarding-state
-  // reconciliation runs once per boot/account-switch instead of on
-  // every token refresh.
-  const lastUserIdRef = useRef<string | null>(null);
-
+  const mutationRunning = useRef(false);
+  const runMutation = useCallback(
+    async <T,>(work: () => Promise<T>): Promise<T> => {
+      if (sharedAuthPending())
+        throw new Error(
+          "The account service has not finished. Wait or restart the app before reconnecting.",
+        );
+      if (mutationRunning.current)
+        throw new Error("An account action is already in progress.");
+      mutationRunning.current = true;
+      try {
+        return await work();
+      } finally {
+        mutationRunning.current = false;
+      }
+    },
+    [],
+  );
   useEffect(() => {
     if (Platform.OS === "ios") {
       AppleAuthentication.isAvailableAsync()
@@ -107,56 +144,167 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = getSupabase();
-    if (!supabase) return;
-
+    if (!supabase) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset external request state when its identity or retry key changes.
+      setInitializing(false);
+      setInitializationError("Account services are unavailable in this build.");
+      return;
+    }
     let mounted = true;
-
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          const { data: anon, error } = await supabase.auth.signInAnonymously();
-          if (error) throw error;
-          if (mounted) setSession(anon.session);
-        } else if (mounted) {
-          setSession(data.session);
-        }
-      } catch (error) {
-        monitoring.captureError(error, { area: "auth.bootstrap" });
-      } finally {
-        if (mounted) setInitializing(false);
-      }
-    })();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+    let authEvents = 0;
+    let receivedNewAuthEvent = false;
+    let activeTask = 0;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    setInitializing(true);
+    setInitializationError(null);
+    const fail = (error: unknown) => {
       if (!mounted) return;
-      setSession(next);
+      setInitializing(false);
+      setInitializationError(
+        sharedAuthPending()
+          ? "The account service has not finished. Wait or restart the app before reconnecting."
+          : storageNeedsRestart()
+            ? "Device storage has not finished. Restart the app to recover your saved account."
+            : purchasesNeedRestart()
+              ? "The purchase service has not finished. Restart the app to reconnect your saved account safely."
+              : "Could not reconnect your account. Your saved account has been kept. Please retry.",
+      );
+      useAppState.setState({
+        identityReady: false,
+        identityError: "Account recovery needs a retry.",
+      });
+      monitoring.captureError(error, { area: "auth.bootstrap" });
+    };
+    const adopt = (next: Session | null) => {
+      if (!mounted) return;
+      const previous = useAppState.getState().userId;
       const userId = next?.user.id ?? null;
+      setSession(next);
       useAppState.getState().setUserId(userId);
-      if (userId && userId !== lastUserIdRef.current) {
-        // Boot or account switch: make the local onboarding flag agree
-        // with the server before the gate trusts it. Deferred out of
-        // the auth callback per supabase-js guidance (the callback runs
-        // under the auth lock; nested Supabase calls can deadlock).
-        setTimeout(() => {
-          reconcileOnboardingState(userId).catch(() => {});
-        }, 0);
+      if (next)
+        useAppState.getState().setAnonymous(next.user.is_anonymous === true);
+      if (previous !== userId) {
+        resetFeed();
+        resetWidgetPrefs();
+        if (previous) useOnboardingStore.getState().reset();
+        analytics.reset();
+        monitoring.setUser(null);
+        void clearWidgets().catch(() => {});
       }
-      lastUserIdRef.current = userId;
-      if (userId) {
-        analytics.identify(userId, {
-          is_anonymous: next?.user.is_anonymous ?? false,
+      if (!userId) {
+        activeTask++;
+        fail(new Error("The session ended. Reconnect to continue."));
+        return;
+      }
+      if (previous === userId && useAppState.getState().identityReady) {
+        setInitializing(false);
+        setInitializationError(null);
+        return;
+      }
+      const identity = captureIdentity();
+      const task = ++activeTask;
+      setInitializing(true);
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        void withDeadline(
+          (async () => {
+            const deletion = await getPendingDeletion();
+            if (deletion?.userId === userId)
+              throw new Error(
+                "A deletion outcome is pending. Check its status before continuing.",
+              );
+            await logInPurchases(userId);
+            if (!isCurrentIdentity(identity)) return;
+            const [complete, premium] = await Promise.all([
+              reconcileOnboardingState(userId),
+              getIsPremium(),
+            ]);
+            if (!mounted || task !== activeTask || !isCurrentIdentity(identity))
+              return;
+            useAppState.setState({
+              onboardingComplete: complete,
+              isPremium: premium,
+              identityReady: true,
+              identityError: null,
+            });
+            analytics.identify(userId, {
+              is_anonymous: next?.user.is_anonymous ?? false,
+            });
+            monitoring.setUser(userId);
+            setInitializing(false);
+            setInitializationError(null);
+            if (premium) void syncEntitlementToServer(identity).catch(() => {});
+          })(),
+        ).catch((error) => {
+          if (task === activeTask && isCurrentIdentity(identity)) fail(error);
         });
-        monitoring.setUser(userId);
-        logInPurchases(userId).catch(() => {});
-      }
+      }, 0);
+      timers.add(timer);
+    };
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === "INITIAL_SESSION") {
+        if (receivedNewAuthEvent || !next) return;
+      } else receivedNewAuthEvent = true;
+      authEvents++;
+      adopt(next);
     });
-
+    const before = authEvents;
+    void withDeadline(
+      (async () => {
+        if (sharedAuthPending())
+          throw new Error("Account action still in progress.");
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!mounted || authEvents !== before) return;
+        if (data.session) {
+          adopt(data.session);
+          return;
+        }
+        // Only a successful lookup proving absence may create a new guest.
+        const { data: anon, error: anonError } = await runSharedAuthOperation(
+          () => supabase.auth.signInAnonymously(),
+        );
+        if (anonError || !anon.session)
+          throw anonError ?? new Error("No account session returned.");
+        if (mounted && authEvents === before) adopt(anon.session);
+      })(),
+    ).catch((error) => {
+      if (authEvents === before) fail(error);
+    });
     return () => {
       mounted = false;
+      activeTask++;
+      timers.forEach(clearTimeout);
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [retry]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const identity = captureIdentity();
+    let refreshing = false;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active" || refreshing || sharedAuthPending()) return;
+      refreshing = true;
+      void (async () => {
+        const premium = await getIsPremium();
+        if (!isCurrentIdentity(identity)) return;
+        useAppState.getState().setPremium(premium);
+        if (!premium) {
+          resetFeed();
+          await clearWidgets();
+        }
+        if (isCurrentIdentity(identity)) await registerDevice(identity);
+      })()
+        .catch((error) =>
+          monitoring.captureError(error, { area: "auth.bootstrap" }),
+        )
+        .finally(() => {
+          refreshing = false;
+        });
+    });
+    return () => sub.remove();
+  }, [generation, ready]);
 
   const ensureGoogle = useCallback(async () => {
     if (!config.hasGoogleAuth) return null;
@@ -202,16 +350,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const linkWithApple = useCallback(async (): Promise<AuthOutcome> => {
+    const identity = captureIdentity();
     const supabase = getSupabase();
     if (!supabase || !appleAvailable)
       return { ok: false, reason: "unavailable" };
     const apple = await getAppleToken();
     if (!apple) return { ok: false, reason: "error" };
     if ("cancelled" in apple) return { ok: false, reason: "cancelled" };
-    const { error } = await supabase.auth.linkIdentity({
-      provider: "apple",
-      token: apple.token,
-    });
+    if (!isCurrentIdentity(identity))
+      return {
+        ok: false,
+        reason: "error",
+        message: "Account changed. Please try again.",
+      };
+    const { error } = await runSharedAuthOperation(() =>
+      supabase.auth.linkIdentity({
+        provider: "apple",
+        token: apple.token,
+      }),
+    );
     if (error) {
       if (
         error.code === "identity_already_exists" ||
@@ -233,6 +390,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [appleAvailable, getAppleToken, afterIdentityChange]);
 
   const linkWithGoogle = useCallback(async (): Promise<AuthOutcome> => {
+    const identity = captureIdentity();
     const supabase = getSupabase();
     const GoogleSignin = await ensureGoogle();
     if (!supabase || !GoogleSignin) return { ok: false, reason: "unavailable" };
@@ -243,10 +401,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await GoogleSignin.signIn();
       const idToken = result.data?.idToken;
       if (!idToken) return { ok: false, reason: "cancelled" };
-      const { error } = await supabase.auth.linkIdentity({
-        provider: "google",
-        token: idToken,
-      });
+      assertCurrentIdentity(identity);
+      const { error } = await runSharedAuthOperation(() =>
+        supabase.auth.linkIdentity({
+          provider: "google",
+          token: idToken,
+        }),
+      );
       if (error) {
         if (
           error.code === "identity_already_exists" ||
@@ -278,8 +439,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startEmailLink = useCallback(
     async (email: string): Promise<AuthOutcome> => {
       const supabase = getSupabase();
-      if (!supabase) return { ok: false, reason: "unavailable" };
-      const { error } = await supabase.auth.updateUser({ email });
+      if (!supabase || !config.emailAuthEnabled)
+        return { ok: false, reason: "unavailable" };
+      let error;
+      try {
+        ({ error } = await runSharedAuthOperation(() =>
+          supabase.auth.updateUser({ email }),
+        ));
+      } catch (cause) {
+        return {
+          ok: false,
+          reason: "error",
+          message: (cause as Error).message,
+        };
+      }
       if (error) {
         if (error.code === "email_exists") {
           return {
@@ -299,12 +472,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyEmailLink = useCallback(
     async (email: string, code: string): Promise<AuthOutcome> => {
       const supabase = getSupabase();
-      if (!supabase) return { ok: false, reason: "unavailable" };
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: "email_change",
-      });
+      if (!supabase || !config.emailAuthEnabled)
+        return { ok: false, reason: "unavailable" };
+      let error;
+      try {
+        ({ error } = await runSharedAuthOperation(() =>
+          supabase.auth.verifyOtp({
+            email,
+            token: code,
+            type: "email_change",
+          }),
+        ));
+      } catch (cause) {
+        return {
+          ok: false,
+          reason: "error",
+          message: (cause as Error).message,
+        };
+      }
       if (error) {
         return {
           ok: false,
@@ -321,16 +506,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInExistingWithApple =
     useCallback(async (): Promise<AuthOutcome> => {
+      const identity = captureIdentity();
       const supabase = getSupabase();
       if (!supabase || !appleAvailable)
         return { ok: false, reason: "unavailable" };
       const apple = await getAppleToken();
       if (!apple) return { ok: false, reason: "error" };
       if ("cancelled" in apple) return { ok: false, reason: "cancelled" };
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: "apple",
-        token: apple.token,
-      });
+      if (!isCurrentIdentity(identity))
+        throw new Error("Account changed. Please retry.");
+      const { data, error } = await runSharedAuthOperation(() =>
+        supabase.auth.signInWithIdToken({
+          provider: "apple",
+          token: apple.token,
+        }),
+      );
       if (error) {
         monitoring.captureError(error, { area: "auth.signInApple" });
         return { ok: false, reason: "error", message: error.message };
@@ -339,13 +529,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Switched accounts: this device's onboarding flag now belongs
       // to the signed-in user, not whoever held it before.
       const newUserId = data.session?.user.id ?? data.user?.id;
-      if (newUserId) await reconcileOnboardingState(newUserId);
+      if (newUserId && useAppState.getState().userId === newUserId)
+        await reconcileOnboardingState(newUserId);
       await afterIdentityChange();
       return { ok: true };
     }, [appleAvailable, getAppleToken, afterIdentityChange]);
 
   const signInExistingWithGoogle =
     useCallback(async (): Promise<AuthOutcome> => {
+      const identity = captureIdentity();
       const supabase = getSupabase();
       const GoogleSignin = await ensureGoogle();
       if (!supabase || !GoogleSignin)
@@ -357,10 +549,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await GoogleSignin.signIn();
         const idToken = result.data?.idToken;
         if (!idToken) return { ok: false, reason: "cancelled" };
-        const { data, error } = await supabase.auth.signInWithIdToken({
-          provider: "google",
-          token: idToken,
-        });
+        if (!isCurrentIdentity(identity))
+          throw new Error("Account changed. Please retry.");
+        const { data, error } = await runSharedAuthOperation(() =>
+          supabase.auth.signInWithIdToken({
+            provider: "google",
+            token: idToken,
+          }),
+        );
         if (error) {
           monitoring.captureError(error, { area: "auth.signInGoogle" });
           return { ok: false, reason: "error", message: error.message };
@@ -369,7 +565,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Switched accounts: reconcile the local onboarding flag with
         // the signed-in user's server state.
         const newUserId = data.session?.user.id ?? data.user?.id;
-        if (newUserId) await reconcileOnboardingState(newUserId);
+        if (newUserId && useAppState.getState().userId === newUserId)
+          await reconcileOnboardingState(newUserId);
         await afterIdentityChange();
         return { ok: true };
       } catch {
@@ -378,103 +575,202 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [ensureGoogle, afterIdentityChange]);
 
   const signOut = useCallback(async () => {
-    const supabase = getSupabase();
-    if (!supabase) return;
+    const supabase = getSupabase(),
+      identity = captureIdentity();
+    if (!supabase || !identity.userId) throw new Error("No signed-in account.");
+    let localEnded = false;
+    pauseDeviceRegistration(identity);
     try {
-      await deactivateDevice();
-      await logOutPurchases();
+      await withDeadline(deactivateDevice(identity));
+      assertCurrentIdentity(identity);
+      await withDeadline(logOutPurchases(identity));
+      assertCurrentIdentity(identity);
+      const { error } = await runSharedAuthOperation(() =>
+        supabase.auth.signOut({ scope: "local" }),
+      );
+      if (error) {
+        const after = await withDeadline(supabase.auth.getSession());
+        if (after.error || after.data.session) throw error;
+        localEnded = true;
+      }
+      const current = useAppState.getState().userId;
+      if (current !== identity.userId && current !== null)
+        throw new Error("Account changed during sign-out.");
+      useAppState.getState().setUserId(null);
+      localEnded = true;
+      resetFeed();
+      resetWidgetPrefs();
       analytics.reset();
-      await supabase.auth.signOut();
-      // The sign-out copy promises "this device returns to a fresh
-      // start": drop the persisted onboarding flag with the session,
-      // plus per-user local caches (pinned line, widget prefs).
-      await clearOnboardingState();
-      await clearLocalUserData();
-      // Fire-and-forget: the home-screen widgets must not keep showing
-      // the departed user's personal line.
-      clearWidgets().catch(() => {});
-      useAppState.getState().setOnboardingComplete(false);
-      // Immediately start a fresh anonymous session so the app keeps a
-      // stable identity for the gate/paywall.
-      const { data } = await supabase.auth.signInAnonymously();
-      setSession(data.session);
+      monitoring.setUser(null);
+      const cleanup = await Promise.allSettled([
+        withDeadline(clearOnboardingState(identity.userId)),
+        withDeadline(clearLocalUserData(identity.userId)),
+        withDeadline(clearWidgets()),
+      ]);
+      setSession(null);
+      if (error || cleanup.some((result) => result.status === "rejected")) {
+        setInitializing(false);
+        setInitializationError(
+          "This device is signed out. Some server confirmation or device cleanup did not finish. Restart or retry, or sign in to your existing account.",
+        );
+        throw new Error(
+          "This device is signed out, but some confirmation or cleanup did not finish. Your server account has not been deleted.",
+        );
+      }
+      retryInitialization();
     } catch (error) {
       monitoring.captureError(error, { area: "auth.signOut" });
+      if (localEnded) throw error;
+      resumeDeviceRegistration(identity);
+      if (isCurrentIdentity(identity))
+        void logInPurchases(identity.userId).catch(() => {});
+      throw new Error(
+        isCurrentIdentity(identity)
+          ? "Sign-out did not finish. Please retry."
+          : "The account session changed during sign-out. Reopen the current account to continue.",
+      );
     }
-  }, []);
+  }, [retryInitialization]);
 
   const deleteAccount = useCallback(async (): Promise<AuthOutcome> => {
-    const supabase = getSupabase();
-    if (!supabase) return { ok: false, reason: "unavailable" };
+    const identity = captureIdentity();
+    const shared = getSupabase();
+    if (!shared || !identity.userId)
+      return { ok: false, reason: "unavailable" };
     try {
-      const { error } = await supabase.functions.invoke("delete-account", {
-        body: {},
-      });
-      // A 401 means this session's user no longer exists server-side:
-      // a previous attempt already deleted the account but the
-      // response was lost. Proceed to local teardown instead of
-      // failing the same dead session forever.
-      if (error && !isAccountAlreadyGone(error)) throw error;
+      await requestAccountDeletion(identity);
     } catch (error) {
       monitoring.captureError(error, { area: "auth.deleteAccount" });
       return {
         ok: false,
         reason: "error",
-        message: "Could not delete the account. Try again.",
+        message:
+          "Deletion was not confirmed. Your saved sign-in has been kept. Retry or sign in again.",
       };
     }
-    // Server-side deletion is done. From here on, failures are
-    // reported but must NOT surface as "deletion failed" — the user
-    // would retry forever against an account that is already gone.
-    try {
-      analytics.capture("account_deleted");
-      analytics.reset();
-      await supabase.auth.signOut();
-      // Detach RevenueCat from the deleted identity so its entitlement
-      // cannot unlock the paywall for the next (anonymous) user.
-      await logOutPurchases();
-      // A deleted account must not leave this device pre-onboarded:
-      // drop the persisted completion flag and per-user local caches.
-      await clearOnboardingState();
-      await clearLocalUserData();
-      // Fire-and-forget: the home-screen widgets must not keep showing
-      // the deleted user's personal line.
-      clearWidgets().catch(() => {});
-      useAppState.getState().setOnboardingComplete(false);
-      const { data } = await supabase.auth.signInAnonymously();
-      setSession(data.session);
-      // Re-read premium for the fresh anonymous RevenueCat customer.
-      useAppState.getState().setPremium(await getIsPremium());
-    } catch (error) {
-      monitoring.captureError(error, { area: "auth.deleteAccount.teardown" });
+    if (!isCurrentIdentity(identity)) {
+      const ownCleanup = await Promise.allSettled([
+        clearOnboardingState(identity.userId),
+        clearLocalUserData(identity.userId),
+      ]);
+      if (ownCleanup.some((result) => result.status === "rejected"))
+        return {
+          ok: false,
+          reason: "error",
+          message:
+            "Account deleted. Restart or retry to finish clearing its saved data from this device.",
+        };
+      await clearDeletionReceipt(identity.userId);
+      return { ok: true };
     }
+    useAppState.getState().setUserId(null);
+    resetFeed();
+    resetWidgetPrefs();
+    useOnboardingStore.getState().reset();
+    analytics.reset();
+    monitoring.setUser(null);
+    // Each cleanup runs even if a neighboring operation fails. Server deletion
+    // is already confirmed; local cleanup failure is a separate recovery state.
+    const results = await Promise.allSettled([
+      withDeadline(logOutPurchases()),
+      withDeadline(clearOnboardingState(identity.userId)),
+      withDeadline(clearLocalUserData(identity.userId)),
+      withDeadline(clearWidgets()),
+      runSharedAuthOperation(() =>
+        shared.auth.signOut({ scope: "local" }).then(({ error }) => {
+          if (error) throw error;
+        }),
+      ),
+    ]);
+    if (results.some((result) => result.status === "rejected")) {
+      setInitializationError(
+        "Account deleted. Restart or retry to finish clearing this device.",
+      );
+      setInitializing(false);
+      return { ok: true };
+    }
+    await clearDeletionReceipt(identity.userId);
+    setSession(null);
+    retryInitialization();
     return { ok: true };
-  }, []);
+  }, [retryInitialization]);
+
+  const recoverPendingDeletion = useCallback(async (): Promise<AuthOutcome> => {
+    try {
+      const deletedId = await verifyPendingDeletion();
+      const current = useAppState.getState().userId;
+      const ownCleanup = [
+        withDeadline(clearOnboardingState(deletedId)),
+        withDeadline(clearLocalUserData(deletedId)),
+      ];
+      if (current === deletedId || current === null) {
+        useAppState.getState().setUserId(null);
+        resetFeed();
+        resetWidgetPrefs();
+        const shared = getSupabase();
+        const results = await Promise.allSettled([
+          ...ownCleanup,
+          withDeadline(logOutPurchases()),
+          withDeadline(clearWidgets()),
+          runSharedAuthOperation(
+            () =>
+              shared?.auth.signOut({ scope: "local" }).then(({ error }) => {
+                if (error) throw error;
+              }) ?? Promise.resolve(),
+          ),
+        ]);
+        if (results.some((r) => r.status === "rejected"))
+          throw new Error(
+            "Deletion confirmed, but device cleanup needs a restart.",
+          );
+        analytics.reset();
+        monitoring.setUser(null);
+        setSession(null);
+      } else {
+        const results = await Promise.allSettled(ownCleanup);
+        if (results.some((r) => r.status === "rejected"))
+          throw new Error(
+            "Could not finish clearing the deleted account from this device.",
+          );
+      }
+      await clearDeletionReceipt(deletedId);
+      retryInitialization();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, reason: "error", message: (error as Error).message };
+    }
+  }, [retryInitialization]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       initializing,
+      initializationError,
+      retryInitialization,
+      recoverPendingDeletion: () => runMutation(recoverPendingDeletion),
       isAnonymous: session?.user.is_anonymous ?? true,
       availableProviders: {
         apple: Platform.OS === "ios" && appleAvailable,
         google: config.hasGoogleAuth,
-        // Gated: Supabase's default SMTP only reaches team members, so
-        // email OTP stays hidden until custom SMTP is configured.
         email: config.hasSupabase && config.emailAuthEnabled,
       },
-      linkWithApple,
-      linkWithGoogle,
-      startEmailLink,
-      verifyEmailLink,
-      signInExistingWithApple,
-      signInExistingWithGoogle,
-      signOut,
-      deleteAccount,
+      linkWithApple: () => runMutation(linkWithApple),
+      linkWithGoogle: () => runMutation(linkWithGoogle),
+      startEmailLink: (email) => runMutation(() => startEmailLink(email)),
+      verifyEmailLink: (email, code) =>
+        runMutation(() => verifyEmailLink(email, code)),
+      signInExistingWithApple: () => runMutation(signInExistingWithApple),
+      signInExistingWithGoogle: () => runMutation(signInExistingWithGoogle),
+      signOut: () => runMutation(signOut),
+      deleteAccount: () => runMutation(deleteAccount),
     }),
     [
       session,
       initializing,
+      initializationError,
+      retryInitialization,
+      recoverPendingDeletion,
+      runMutation,
       appleAvailable,
       linkWithApple,
       linkWithGoogle,

@@ -14,7 +14,7 @@ export default function MainLayout() {
 
   useEffect(() => {
     // Refresh token/timezone/last-seen whenever the main app mounts.
-    registerDevice();
+    void registerDevice().catch(() => {});
   }, []);
 
   if (!onboardingComplete) return <Redirect href="/onboarding" />;
@@ -22,7 +22,11 @@ export default function MainLayout() {
 
   return (
     <Stack
-      screenOptions={{ headerShown: false, animation: "slide_from_bottom" }}
+      screenOptions={{
+        headerShown: false,
+        animation: "none",
+        gestureEnabled: true,
+      }}
     >
       <Stack.Screen name="feed" options={{ animation: "fade" }} />
     </Stack>

@@ -1,15 +1,34 @@
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { SecondaryMotion } from "@/features/nav/SecondaryMotion";
+import { BackButton } from "@/design-system/components/BackButton";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 
 import { AppText, Icon, Screen } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
-import { useAppState } from "@/lib/appState";
+import {
+  captureIdentity,
+  assertCurrentIdentity,
+  isCurrentIdentity,
+  withDeadline,
+  useAppState,
+} from "@/lib/appState";
 import { monitoring } from "@/lib/monitoring";
-import { getSupabase } from "@/lib/supabase";
+import { getIdentitySupabase } from "@/lib/supabase";
 
+import {
+  saveNotificationPreferences,
+  PREFERENCE_KEYS,
+  type PreferenceChanges,
+} from "@/features/notifications/preferences";
 import { DAILY_LIMIT } from "@/features/content/types";
 import {
   getPermissionStatus,
@@ -48,65 +67,351 @@ const DEFAULT_PREFS: Prefs = {
 export default function NotificationSettingsScreen() {
   const colors = useColors();
   const userId = useAppState((s) => s.userId);
+  const [loaded, setLoaded] = useState(false);
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [permission, setPermission] = useState<
     "undetermined" | "granted" | "denied"
   >("granted");
-  const [quietEnabled, setQuietEnabled] = useState(false);
-
+  const quietEnabled = prefs.quiet_start_minutes !== null;
+  const [busy, setBusy] = useState(true);
+  const busyRef = useRef(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const pending = useRef<{
+    changes: PreferenceChanges;
+    needsWrite: boolean;
+  } | null>(null);
   useEffect(() => {
-    getPermissionStatus().then(setPermission);
-    const supabase = getSupabase();
-    if (!supabase || !userId) return;
-    supabase
-      .from("notification_prefs")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setPrefs({ ...DEFAULT_PREFS, ...data });
-          setQuietEnabled(data.quiet_start_minutes !== null);
-        }
+    const identity = captureIdentity();
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset external request state when its identity or retry key changes.
+    setBusy(true);
+    setStatus(null);
+    void (async () => {
+      const client = await getIdentitySupabase(identity);
+      if (!client) throw new Error("Account connection unavailable.");
+      const [permission, result] = await Promise.all([
+        getPermissionStatus(),
+        withDeadline(
+          client
+            .from("notification_prefs")
+            .select("*")
+            .eq("user_id", identity.userId!)
+            .maybeSingle(),
+        ),
+      ]);
+      if (result.error) throw result.error;
+      assertCurrentIdentity(identity);
+      if (alive) {
+        setPermission(permission);
+        setPrefs({ ...DEFAULT_PREFS, ...result.data });
+        setLoaded(true);
+      }
+      await registerDevice(identity);
+    })()
+      .catch(() => {
+        if (alive && isCurrentIdentity(identity))
+          setStatus("Could not load your preferences. Tap Retry.");
+      })
+      .finally(() => {
+        if (alive) setBusy(false);
       });
-  }, [userId]);
-
-  const save = async (next: Prefs) => {
-    setPrefs(next);
-    const supabase = getSupabase();
-    if (!supabase || !userId) return;
+    return () => {
+      alive = false;
+    };
+  }, [userId, retry]);
+  const save = async (next?: Prefs) => {
+    if (busyRef.current || busy) return;
+    const identity = captureIdentity();
+    busyRef.current = true;
+    setBusy(true);
+    setStatus("Saving…");
+    if (next) {
+      const changes: PreferenceChanges = {};
+      for (const key of PREFERENCE_KEYS)
+        if (next[key] !== prefs[key])
+          Object.assign(changes, { [key]: next[key] });
+      if ("quiet_start_minutes" in changes || "quiet_end_minutes" in changes) {
+        changes.quiet_start_minutes = next.quiet_start_minutes;
+        changes.quiet_end_minutes = next.quiet_end_minutes;
+      }
+      if (
+        "window_start_minutes" in changes ||
+        "window_end_minutes" in changes
+      ) {
+        changes.window_start_minutes = next.window_start_minutes;
+        changes.window_end_minutes = next.window_end_minutes;
+      }
+      pending.current = { changes, needsWrite: true };
+    }
+    const operation = pending.current;
     try {
-      const { error } = await supabase
-        .from("notification_prefs")
-        .upsert({ user_id: userId, ...next });
-      if (error) throw error;
-      // Recompute the server's dispatch plan immediately.
-      await supabase.rpc("recalc_my_notification_state");
-      analytics.capture("notification_prefs_changed", {
-        quotes_per_day: next.quotes_per_day,
-        affirmations_per_day: next.affirmations_per_day,
-        streak_reminder: next.streak_reminder,
-      });
+      if (!operation) return;
+      const client = await getIdentitySupabase(identity);
+      if (!client) throw new Error("Account connection unavailable.");
+      if (operation.needsWrite) {
+        const acknowledged = await saveNotificationPreferences(
+          identity,
+          operation.changes,
+        );
+        assertCurrentIdentity(identity);
+        setPrefs({ ...DEFAULT_PREFS, ...acknowledged });
+        operation.needsWrite = false;
+      }
+      const recalculated = await withDeadline(
+        client.rpc("recalc_my_notification_state"),
+      );
+      if (recalculated.error) throw recalculated.error;
+      assertCurrentIdentity(identity);
+      pending.current = null;
+      setStatus(null);
+      analytics.capture("notification_prefs_changed", operation.changes);
     } catch (error) {
-      monitoring.captureError(error, { area: "settings.notificationPrefs" });
+      if (isCurrentIdentity(identity)) {
+        monitoring.captureError(error, { area: "settings.notificationPrefs" });
+        setStatus("Your latest change is not fully synced. Tap Retry.");
+      }
+    } finally {
+      busyRef.current = false;
+      if (isCurrentIdentity(identity)) setBusy(false);
     }
   };
 
-  const stepperRow = (
-    label: string,
-    value: number,
-    onChange: (v: number) => void,
-    max: number,
-    formatter: (v: number) => string = (v) => `${v}x a day`,
-    min = 0,
-    step = 1,
-  ) => (
+  return (
+    <SecondaryMotion>
+      <Screen>
+        <View style={styles.header}>
+          <BackButton />
+          <AppText variant="h3">Notifications</AppText>
+          <View style={styles.spacer} />
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+        >
+          {status ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (pending.current) void save();
+                else setRetry((v) => v + 1);
+              }}
+              disabled={busy}
+              style={styles.permissionBanner}
+            >
+              <AppText accessibilityRole="alert">{status}</AppText>
+            </Pressable>
+          ) : busy ? (
+            <AppText accessibilityRole="alert">Loading preferences…</AppText>
+          ) : null}
+          {permission !== "granted" ? (
+            <Pressable
+              onPress={async () => {
+                const identity = captureIdentity();
+                try {
+                  const status = await requestNotificationPermission();
+                  assertCurrentIdentity(identity);
+                  setPermission(status);
+                  await registerDevice(identity);
+                } catch {
+                  if (isCurrentIdentity(identity))
+                    Alert.alert(
+                      "Device registration pending",
+                      "Your system permission may have changed. Reopen this screen to retry device registration.",
+                    );
+                }
+              }}
+              style={[
+                styles.permissionBanner,
+                {
+                  backgroundColor: colors.bgAlt,
+                  borderColor: colors.borderStrong,
+                },
+              ]}
+            >
+              <AppText variant="body">
+                {permission === "denied"
+                  ? "Notifications are off in system settings. Tap to re-request, or enable them in Settings."
+                  : "Notifications aren't on yet. Tap to allow them."}
+              </AppText>
+            </Pressable>
+          ) : null}
+
+          <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+            Daily words
+          </AppText>
+          {
+            <StepperRow
+              label={"Quotes"}
+              value={prefs.quotes_per_day}
+              onChange={(v) => save({ ...prefs, quotes_per_day: v })}
+              max={DAILY_LIMIT}
+              disabled={busy || !loaded}
+            />
+          }
+          {
+            <StepperRow
+              label={"Affirmations"}
+              value={prefs.affirmations_per_day}
+              onChange={(v) => save({ ...prefs, affirmations_per_day: v })}
+              max={DAILY_LIMIT}
+              disabled={busy || !loaded}
+            />
+          }
+
+          <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+            Delivery window
+          </AppText>
+          {
+            <StepperRow
+              label={"Start"}
+              value={prefs.window_start_minutes}
+              onChange={(v) =>
+                save({
+                  ...prefs,
+                  window_start_minutes: Math.min(
+                    v,
+                    prefs.window_end_minutes - 60,
+                  ),
+                })
+              }
+              max={23 * 60}
+              formatter={formatMinutes}
+              min={0}
+              step={60}
+              disabled={busy || !loaded}
+            />
+          }
+          {
+            <StepperRow
+              label={"End"}
+              value={prefs.window_end_minutes}
+              onChange={(v) =>
+                save({
+                  ...prefs,
+                  window_end_minutes: Math.max(
+                    v,
+                    prefs.window_start_minutes + 60,
+                  ),
+                })
+              }
+              max={23 * 60}
+              formatter={formatMinutes}
+              min={60}
+              step={60}
+              disabled={busy || !loaded}
+            />
+          }
+          <AppText variant="label" tone="ink3" style={styles.hint}>
+            Times are targets, not guarantees. Delivery adapts to your day and
+            timezone.
+          </AppText>
+
+          <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+            Quiet hours
+          </AppText>
+          {
+            <ToggleRow
+              label={"Quiet hours"}
+              sub={
+                "Avoid sending during this window; delayed delivery is possible"
+              }
+              value={quietEnabled}
+              onChange={(v) => {
+                save({
+                  ...prefs,
+                  quiet_start_minutes: v ? 1320 : null,
+                  quiet_end_minutes: v ? 480 : null,
+                });
+              }}
+              disabled={busy || !loaded}
+            />
+          }
+          {quietEnabled ? (
+            <StepperRow
+              label={"From"}
+              value={prefs.quiet_start_minutes ?? 1320}
+              onChange={(v) => save({ ...prefs, quiet_start_minutes: v })}
+              max={23 * 60}
+              formatter={formatMinutes}
+              min={0}
+              step={60}
+              disabled={busy || !loaded}
+            />
+          ) : null}
+          {quietEnabled ? (
+            <StepperRow
+              label={"Until"}
+              value={prefs.quiet_end_minutes ?? 480}
+              onChange={(v) => save({ ...prefs, quiet_end_minutes: v })}
+              max={23 * 60}
+              formatter={formatMinutes}
+              min={0}
+              step={60}
+              disabled={busy || !loaded}
+            />
+          ) : null}
+
+          <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
+            Reminders
+          </AppText>
+          {
+            <ToggleRow
+              label={"Streak at risk"}
+              sub={"One evening nudge when today would break the chain"}
+              value={prefs.streak_reminder}
+              onChange={(v) => save({ ...prefs, streak_reminder: v })}
+              disabled={busy || !loaded}
+            />
+          }
+          {
+            <ToggleRow
+              label={"Before trial ends"}
+              sub={
+                "Optional heads-up before an eligible trial ends; delivery is not guaranteed"
+              }
+              value={prefs.trial_reminder}
+              onChange={(v) => save({ ...prefs, trial_reminder: v })}
+              disabled={busy || !loaded}
+            />
+          }
+        </ScrollView>
+      </Screen>
+    </SecondaryMotion>
+  );
+}
+
+function StepperRow({
+  label,
+  value,
+  onChange,
+  max,
+  formatter = (v: number) => `${v}x a day`,
+  min = 0,
+  step = 1,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  max: number;
+  formatter?: (v: number) => string;
+  min?: number;
+  step?: number;
+  disabled: boolean;
+}) {
+  const colors = useColors();
+  return (
     <View style={[styles.row, { backgroundColor: colors.card }]}>
       <AppText variant="lead" style={styles.rowLabel}>
         {label}
       </AppText>
       <View style={styles.stepper}>
         <Pressable
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: decrease`}
           onPress={() => onChange(Math.max(min, value - step))}
           style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
           hitSlop={6}
@@ -117,6 +422,9 @@ export default function NotificationSettingsScreen() {
           {formatter(value)}
         </AppText>
         <Pressable
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: increase`}
           onPress={() => onChange(Math.min(max, value + step))}
           style={[styles.stepBtn, { borderColor: colors.borderStrong }]}
           hitSlop={6}
@@ -126,13 +434,22 @@ export default function NotificationSettingsScreen() {
       </View>
     </View>
   );
-
-  const toggleRow = (
-    label: string,
-    sub: string,
-    value: boolean,
-    onChange: (v: boolean) => void,
-  ) => (
+}
+function ToggleRow({
+  label,
+  sub,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  sub: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled: boolean;
+}) {
+  const colors = useColors();
+  return (
     <View style={[styles.row, { backgroundColor: colors.card }]}>
       <View style={styles.rowLabel}>
         <AppText variant="lead">{label}</AppText>
@@ -141,156 +458,13 @@ export default function NotificationSettingsScreen() {
         </AppText>
       </View>
       <Switch
+        disabled={disabled}
+        accessibilityLabel={label}
         value={value}
         onValueChange={onChange}
         trackColor={{ true: colors.success }}
       />
     </View>
-  );
-
-  return (
-    <Screen>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Icon name="back" size={22} color={colors.ink3} />
-        </Pressable>
-        <AppText variant="h3">Notifications</AppText>
-        <View style={styles.spacer} />
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
-        {permission !== "granted" ? (
-          <Pressable
-            onPress={async () => {
-              const status = await requestNotificationPermission();
-              setPermission(status);
-              await registerDevice();
-            }}
-            style={[
-              styles.permissionBanner,
-              {
-                backgroundColor: colors.bgAlt,
-                borderColor: colors.borderStrong,
-              },
-            ]}
-          >
-            <AppText variant="body">
-              {permission === "denied"
-                ? "Notifications are off in system settings. Tap to re-request, or enable them in Settings."
-                : "Notifications aren't on yet. Tap to allow them."}
-            </AppText>
-          </Pressable>
-        ) : null}
-
-        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
-          Daily words
-        </AppText>
-        {stepperRow(
-          "Quotes",
-          prefs.quotes_per_day,
-          (v) => save({ ...prefs, quotes_per_day: v }),
-          DAILY_LIMIT,
-        )}
-        {stepperRow(
-          "Affirmations",
-          prefs.affirmations_per_day,
-          (v) => save({ ...prefs, affirmations_per_day: v }),
-          DAILY_LIMIT,
-        )}
-
-        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
-          Delivery window
-        </AppText>
-        {stepperRow(
-          "Start",
-          prefs.window_start_minutes,
-          (v) =>
-            save({
-              ...prefs,
-              window_start_minutes: Math.min(v, prefs.window_end_minutes - 60),
-            }),
-          23 * 60,
-          formatMinutes,
-          0,
-          60,
-        )}
-        {stepperRow(
-          "End",
-          prefs.window_end_minutes,
-          (v) =>
-            save({
-              ...prefs,
-              window_end_minutes: Math.max(v, prefs.window_start_minutes + 60),
-            }),
-          23 * 60,
-          formatMinutes,
-          60,
-          60,
-        )}
-        <AppText variant="label" tone="ink3" style={styles.hint}>
-          Times are targets, not guarantees. Delivery adapts to your day and
-          timezone.
-        </AppText>
-
-        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
-          Quiet hours
-        </AppText>
-        {toggleRow(
-          "Quiet hours",
-          "Nothing arrives inside this window",
-          quietEnabled,
-          (v) => {
-            setQuietEnabled(v);
-            save({
-              ...prefs,
-              quiet_start_minutes: v ? 1320 : null,
-              quiet_end_minutes: v ? 480 : null,
-            });
-          },
-        )}
-        {quietEnabled
-          ? stepperRow(
-              "From",
-              prefs.quiet_start_minutes ?? 1320,
-              (v) => save({ ...prefs, quiet_start_minutes: v }),
-              23 * 60,
-              formatMinutes,
-              0,
-              60,
-            )
-          : null}
-        {quietEnabled
-          ? stepperRow(
-              "Until",
-              prefs.quiet_end_minutes ?? 480,
-              (v) => save({ ...prefs, quiet_end_minutes: v }),
-              23 * 60,
-              formatMinutes,
-              0,
-              60,
-            )
-          : null}
-
-        <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
-          Reminders
-        </AppText>
-        {toggleRow(
-          "Streak at risk",
-          "One evening nudge when today would break the chain",
-          prefs.streak_reminder,
-          (v) => save({ ...prefs, streak_reminder: v }),
-        )}
-        {toggleRow(
-          "Before trial ends",
-          "A single heads-up, no surprises",
-          prefs.trial_reminder,
-          (v) => save({ ...prefs, trial_reminder: v }),
-        )}
-      </ScrollView>
-    </Screen>
   );
 }
 
@@ -322,8 +496,8 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, gap: 2 },
   stepper: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   stepBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: 16,
     borderWidth: 1.5,
     alignItems: "center",

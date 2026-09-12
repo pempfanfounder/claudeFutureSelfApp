@@ -3,7 +3,11 @@ import { Platform } from "react-native";
 
 import { Icon, type IconName } from "@/design-system/components";
 import { ThemeProvider } from "@/design-system/ThemeProvider";
-import { ContentCard } from "@/features/content/ContentCard";
+import {
+  CARD_ACTION_ICON_SIZE,
+  ContentCard,
+  FAVORITE_RED,
+} from "@/features/content/ContentCard";
 import type { ContentItem } from "@/features/content/types";
 
 /**
@@ -28,6 +32,25 @@ const ALL_ICONS: IconName[] = [
   "widget",
   "bell",
   "check",
+  "flame",
+  "chart",
+  "fog",
+  "strength",
+  "brain",
+  "health",
+  "briefcase",
+  "peace",
+  "compass",
+  "hourglass",
+  "phone",
+  "repeat",
+  "spiral",
+  "reflect",
+  "map",
+  "money",
+  "target",
+  "lockOpen",
+  "diamond",
 ];
 
 describe("Icon", () => {
@@ -70,6 +93,45 @@ describe("ContentCard actions", () => {
     );
     expect(screen.getByTestId("share-quote-1")).toBeTruthy();
     expect(screen.getByTestId("favorite-quote-1")).toBeTruthy();
+    screen.unmount();
+  });
+
+  it("renders share and like larger than the 24pt chrome icons", () => {
+    const screen = render(
+      <ThemeProvider>
+        <ContentCard
+          item={item}
+          height={700}
+          isFavorite={false}
+          onToggleFavorite={() => {}}
+        />
+      </ThemeProvider>,
+    );
+    const icons = screen.UNSAFE_getAllByType(Icon);
+    const share = icons.find((node) => node.props.name === "share");
+    const heart = icons.find((node) => node.props.name === "heart");
+    expect(share?.props.size).toBe(CARD_ACTION_ICON_SIZE);
+    expect(heart?.props.size).toBe(CARD_ACTION_ICON_SIZE);
+    expect(CARD_ACTION_ICON_SIZE).toBeGreaterThan(24);
+    screen.unmount();
+  });
+
+  it("fills a liked heart with a bright red, not the dusty theme accent", () => {
+    const screen = render(
+      <ThemeProvider>
+        <ContentCard
+          item={item}
+          height={700}
+          isFavorite
+          onToggleFavorite={() => {}}
+        />
+      </ThemeProvider>,
+    );
+    const heart = screen
+      .UNSAFE_getAllByType(Icon)
+      .find((node) => node.props.name === "heartFill");
+    expect(heart?.props.color).toBe(FAVORITE_RED);
+    expect(heart?.props.color).not.toBe("#E4B5A4");
     screen.unmount();
   });
 });

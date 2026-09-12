@@ -3,6 +3,11 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 
+jest.mock("react-native-view-shot", () => ({
+  __esModule: true,
+  captureRef: jest.fn(async () => "file:///tmp/quote-card.png"),
+}));
+
 // The native date/time picker has no JS fallback under Jest (its module
 // registry throws). Render a plain View that carries the props through so
 // tests can find it by testID and fire `onValueChange` directly; the

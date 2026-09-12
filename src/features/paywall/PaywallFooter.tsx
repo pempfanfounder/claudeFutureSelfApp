@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
 
 import { AppText } from "@/design-system/components";
@@ -7,6 +7,7 @@ import { analytics } from "@/lib/analytics";
 import { LEGAL_URLS } from "@/lib/legal";
 import { restorePurchases } from "@/lib/purchases";
 
+import { AuthSheet } from "@/features/auth/AuthSheet";
 import { PrivacyChoicesSheet } from "./PrivacyChoicesSheet";
 
 interface PaywallFooterProps {
@@ -20,10 +21,15 @@ interface PaywallFooterProps {
  */
 export function PaywallFooter({ onRestored }: PaywallFooterProps) {
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const restoring = useRef(false);
 
   const restore = async () => {
+    if (restoring.current) return;
+    restoring.current = true;
     analytics.capture("restore_tapped", { placement: "paywall" });
     const result = await restorePurchases();
+    restoring.current = false;
     if (result.status === "purchased") {
       onRestored();
     } else if (result.status === "error") {
@@ -72,6 +78,21 @@ export function PaywallFooter({ onRestored }: PaywallFooterProps) {
           Privacy choices
         </AppText>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setSignInOpen(true)}
+        hitSlop={8}
+      >
+        <AppText variant="label" tone="ink3">
+          Already have an account? Sign in
+        </AppText>
+      </Pressable>
+      <AuthSheet
+        visible={signInOpen}
+        mode="switch"
+        headline="Welcome back."
+        onDone={() => setSignInOpen(false)}
+      />
       <PrivacyChoicesSheet
         visible={privacyOpen}
         onClose={() => setPrivacyOpen(false)}

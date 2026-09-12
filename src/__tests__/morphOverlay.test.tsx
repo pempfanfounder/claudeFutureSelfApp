@@ -4,6 +4,7 @@ import { getAnimatedStyle } from "react-native-reanimated";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
 import {
+  MORPH_SPRING,
   MorphProvider,
   useMorph,
   type MorphRect,
@@ -38,7 +39,11 @@ const screens: MorphScreens = {
       <Pressable testID="favorites-close" onPress={onClose} />
     </View>
   ),
-  themes: () => <View testID="screen-themes" />,
+  themes: ({ onClose }) => (
+    <View testID="screen-themes">
+      <Pressable testID="themes-close" onPress={onClose} />
+    </View>
+  ),
 };
 
 const RECT: MorphRect = { x: 300, y: 700, width: 52, height: 52, radius: 16 };
@@ -129,21 +134,23 @@ describe("MorphOverlay", () => {
     },
   );
 
-  it("starts the card exactly at the launcher rect", () => {
+  it("uses the approved bounded C spring", () => {
+    expect(MORPH_SPRING).toMatchObject({
+      mass: 1,
+      stiffness: 320,
+      damping: 30,
+      overshootClamping: true,
+    });
+  });
+  it("presents a full-size surface without launcher geometry expansion", () => {
     const screen = renderHost();
     fireEvent.press(screen.getByTestId("open-themes"));
     const style = getAnimatedStyle(screen.getByTestId("morph-card")) as {
       left: number;
       top: number;
-      width: number;
-      height: number;
-      borderRadius: number;
     };
-    expect(style.left).toBe(RECT.x);
-    expect(style.top).toBe(RECT.y);
-    expect(style.width).toBe(RECT.width);
-    expect(style.height).toBe(RECT.height);
-    expect(style.borderRadius).toBe(RECT.radius);
+    expect(style.left).toBe(0);
+    expect(style.top).toBe(0);
     screen.unmount();
   });
 
@@ -189,7 +196,7 @@ describe("MorphOverlay", () => {
   it("close() reverses the morph and unmounts the overlay", async () => {
     const screen = renderHost();
     fireEvent.press(screen.getByTestId("open-themes"));
-    fireEvent.press(screen.getByTestId("close", behind));
+    fireEvent.press(screen.getByTestId("themes-close"));
     // Content fades first; the container is still on screen right away.
     expect(screen.getByTestId("morph-overlay")).toBeTruthy();
     await settle();
@@ -206,13 +213,12 @@ describe("MorphOverlay", () => {
     screen.unmount();
   });
 
-  it("onNavigate closes first, then pushes the route", async () => {
+  it("onNavigate retains the source screen for detail back navigation", async () => {
     const screen = renderHost();
     fireEvent.press(screen.getByTestId("open-profile"));
     fireEvent.press(screen.getByTestId("profile-notifications"));
-    expect(mockPush).not.toHaveBeenCalled();
     await settle();
-    expect(screen.queryByTestId("morph-overlay")).toBeNull();
+    expect(screen.queryByTestId("morph-overlay")).toBeTruthy();
     expect(mockPush).toHaveBeenCalledWith("/(main)/settings/notifications");
     screen.unmount();
   });
@@ -220,7 +226,7 @@ describe("MorphOverlay", () => {
   it("can open again after closing", async () => {
     const screen = renderHost();
     fireEvent.press(screen.getByTestId("open-themes"));
-    fireEvent.press(screen.getByTestId("close", behind));
+    fireEvent.press(screen.getByTestId("themes-close"));
     await settle();
     fireEvent.press(screen.getByTestId("open-profile"));
     expect(screen.getByTestId("screen-profile")).toBeTruthy();

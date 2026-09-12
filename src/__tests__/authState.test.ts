@@ -1,8 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { useAppState } from "@/lib/appState";
-import { getSupabase } from "@/lib/supabase";
-
+import { getIdentitySupabase } from "@/lib/supabase";
 import {
   completeOnboarding,
   reconcileOnboardingState,
@@ -14,289 +12,189 @@ import {
   getPendingServerSync,
   markOnboardingComplete,
   setPendingServerSync,
+  clearPendingServerSync,
   useOnboardingStore,
 } from "@/features/onboarding/engine/store";
-
-jest.mock("@/lib/supabase", () => ({
-  getSupabase: jest.fn(() => null),
+import { registerDevice } from "@/features/notifications/push";
+jest.mock("@/lib/monitoring", () => ({
+  monitoring: { captureError: jest.fn() },
 }));
-
-// completeOnboarding imports push registration (expo-notifications);
-// none of the code under test needs it.
+jest.mock("@/lib/supabase", () => ({
+  getIdentitySupabase: jest.fn(async () => null),
+}));
 jest.mock("@/features/notifications/push", () => ({
-  registerDevice: jest.fn(),
+  registerDevice: jest.fn(async () => {}),
   deactivateDevice: jest.fn(),
 }));
-
-const getSupabaseMock = getSupabase as unknown as jest.Mock;
-
-type PersonalizationRow = { variant: string | null } | null;
-type QueryOutcome =
-  { data: PersonalizationRow; error: { message: string } | null } | Error;
-
-type RetryOutcome = { error: { message: string } | null };
-
-/**
- * Stubs getSupabase() with the minimal chainable query surface used by
- * reconcileOnboardingState:
- * from("personalization").select("variant").eq("user_id", id).maybeSingle()
- * plus the pending-sync retry path: from("personalization").upsert(row)
- */
-function mockPersonalizationQuery(
-  outcome: QueryOutcome,
-  retryOutcome: RetryOutcome = { error: null },
-) {
-  const maybeSingle =
-    outcome instanceof Error
-      ? jest.fn().mockRejectedValue(outcome)
-      : jest.fn().mockResolvedValue(outcome);
-  const eq = jest.fn(() => ({ maybeSingle }));
-  const select = jest.fn(() => ({ eq }));
-  const upsert = jest.fn().mockResolvedValue(retryOutcome);
-  const from = jest.fn(() => ({ select, upsert }));
-  getSupabaseMock.mockReturnValue({ from });
-  return { from, select, eq, maybeSingle, upsert };
-}
-
-const mockPersonalizationRow = (
-  row: PersonalizationRow,
-  retryOutcome?: RetryOutcome,
-) => mockPersonalizationQuery({ data: row, error: null }, retryOutcome);
-
-const mockPersonalizationError = (error: Error) =>
-  mockPersonalizationQuery(error);
-
-/**
- * Stubs getSupabase() with the surface completeOnboarding touches:
- * auth.getSession(), personalization + notification_prefs upserts,
- * profiles update and rpc(). Everything succeeds unless overridden.
- */
-function mockCompletionSupabase(
-  opts: {
-    sessionUserId?: string | null;
-    personalizationError?: { message: string } | null;
-  } = {},
-) {
-  const { sessionUserId = "user-1", personalizationError = null } = opts;
-  const personalizationUpsert = jest
-    .fn()
-    .mockResolvedValue({ error: personalizationError });
-  const prefsUpsert = jest.fn().mockResolvedValue({ error: null });
-  const profilesEq = jest.fn().mockResolvedValue({ error: null });
-  const from = jest.fn((table: string) => {
-    if (table === "personalization") return { upsert: personalizationUpsert };
-    if (table === "profiles") {
-      return { update: jest.fn(() => ({ eq: profilesEq })) };
-    }
-    return { upsert: prefsUpsert };
-  });
-  getSupabaseMock.mockReturnValue({
-    from,
-    auth: {
-      getSession: jest.fn().mockResolvedValue({
-        data: {
-          session: sessionUserId ? { user: { id: sessionUserId } } : null,
-        },
-      }),
-    },
-    rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
-  });
-  return { from, personalizationUpsert };
-}
-
+const clientMock = getIdentitySupabase as jest.Mock;
 beforeEach(async () => {
   await AsyncStorage.clear();
   useOnboardingStore.getState().reset();
-  useAppState.getState().setOnboardingComplete(false);
-  getSupabaseMock.mockReset();
-  getSupabaseMock.mockReturnValue(null);
+  useAppState.getState().setUserId(null);
+  useAppState.getState().setUserId("fs-local-a");
+  clientMock.mockReset();
+  clientMock.mockResolvedValue(null);
+  (registerDevice as jest.Mock).mockReset();
+  (registerDevice as jest.Mock).mockResolvedValue(undefined);
 });
-
-describe("clearOnboardingState", () => {
-  it("removes the persisted completion flag", async () => {
-    await markOnboardingComplete("iam-claude");
-    await clearOnboardingState();
-    expect(await getCompletedOnboardingVariant()).toBeNull();
-  });
-
-  it("resets in-memory funnel progress", async () => {
-    useOnboardingStore.getState().setVariant("iam-claude");
-    useOnboardingStore.getState().setStepIndex(4);
-    await clearOnboardingState();
-    expect(useOnboardingStore.getState().variant).toBeNull();
-    expect(useOnboardingStore.getState().stepIndex).toBe(0);
-  });
-
-  it("restores notification prefs to their defaults", async () => {
-    useOnboardingStore.getState().setNotificationPrefs({ quotesPerDay: 17 });
-    await clearOnboardingState();
-    expect(useOnboardingStore.getState().notificationPrefs).toEqual({
-      quotesPerDay: 3,
-      affirmationsPerDay: 3,
-      windowStartMinutes: 540,
-      windowEndMinutes: 1260,
+function service(failedStage?: string) {
+  const writes: Record<string, unknown[]> = {};
+  const write = (table: string, row: unknown) => {
+    (writes[table] ??= []).push(row);
+    return Promise.resolve({
+      error: table === failedStage ? new Error("Synthetic offline") : null,
     });
+  };
+  const from = jest.fn((table: string) => ({
+    upsert: (row: unknown) => write(table, row),
+    update: (row: unknown) => ({ eq: () => write(table, row) }),
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({
+          data: {
+            variant: "iam-claude",
+            onboarding_completed_at: "2026-09-08T00:00:00Z",
+          },
+          error: null,
+        }),
+      }),
+    }),
+  }));
+  clientMock.mockResolvedValue({
+    from,
+    rpc: async (name: string, args: any) => {
+      if (name === "save_notification_prefs") {
+        await write("notification_prefs", args.p_changes);
+        return {
+          data: {
+            applied: true,
+            prefs: {
+              user_id: "fs-local-a",
+              trial_reminder: args.p_changes.trial_reminder,
+            },
+          },
+          error:
+            failedStage === "notification_prefs"
+              ? new Error("Synthetic offline")
+              : null,
+        };
+      }
+      return write("recalc", {});
+    },
   });
-
-  it("drops any pending server-sync marker with the completion flag", async () => {
-    await setPendingServerSync("user-1", "iam-claude");
-    await clearOnboardingState();
-    expect(await getPendingServerSync()).toBeNull();
-  });
+  return writes;
+}
+test("clear completion resets only the identified account", async () => {
+  await markOnboardingComplete("iam-claude");
+  useOnboardingStore.getState().setStepIndex(4);
+  await clearOnboardingState();
+  expect(await getCompletedOnboardingVariant()).toBeNull();
+  expect(useOnboardingStore.getState().stepIndex).toBe(0);
 });
-
-describe("clearLocalUserData", () => {
-  it("removes the pinned-widget line", async () => {
-    await AsyncStorage.setItem("fs.widget.pinned.v1", "I show up.");
-    await clearLocalUserData();
-    expect(await AsyncStorage.getItem("fs.widget.pinned.v1")).toBeNull();
-  });
-
-  it("removes the widget prefs", async () => {
-    await AsyncStorage.setItem(
-      "fs.widget.prefs.v1",
-      JSON.stringify({ home: { themeId: "arctic" } }),
-    );
-    await clearLocalUserData();
-    expect(await AsyncStorage.getItem("fs.widget.prefs.v1")).toBeNull();
-  });
+test("legacy unowned widget bytes are preserved, identified account bytes are removed", async () => {
+  await AsyncStorage.multiSet([
+    ["fs.widget.pinned.v1", "Legacy private text"],
+    ["fs.widget.pinned.v2.fs-local-a", "A text"],
+    ["fs.widget.pinned.v2.fs-local-b", "B text"],
+  ]);
+  await clearLocalUserData();
+  expect(await AsyncStorage.getItem("fs.widget.pinned.v1")).toBe(
+    "Legacy private text",
+  );
+  expect(
+    await AsyncStorage.getItem("fs.widget.pinned.v2.fs-local-a"),
+  ).toBeNull();
+  expect(await AsyncStorage.getItem("fs.widget.pinned.v2.fs-local-b")).toBe(
+    "B text",
+  );
 });
-
-describe("reconcileOnboardingState", () => {
-  it("clears the local flag when server has no personalization row", async () => {
-    await markOnboardingComplete("iam-claude");
-    useAppState.getState().setOnboardingComplete(true);
-    mockPersonalizationRow(null); // maybeSingle -> { data: null, error: null }
-    const complete = await reconcileOnboardingState("user-1");
-    expect(complete).toBe(false);
-    expect(await getCompletedOnboardingVariant()).toBeNull();
-    expect(useAppState.getState().onboardingComplete).toBe(false);
-  });
-
-  it("adopts server completion on account switch", async () => {
-    mockPersonalizationRow({ variant: "stella-claude" });
-    const complete = await reconcileOnboardingState("user-2");
-    expect(complete).toBe(true);
-    expect(await getCompletedOnboardingVariant()).toBe("stella-claude");
-    expect(useAppState.getState().onboardingComplete).toBe(true);
-  });
-
-  it("keeps local state on network failure", async () => {
-    await markOnboardingComplete("iam-claude");
-    mockPersonalizationError(new Error("offline"));
-    const complete = await reconcileOnboardingState("user-1");
-    expect(complete).toBe(true);
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-  });
-
-  it("keeps local state when the query returns a PostgrestError", async () => {
-    await markOnboardingComplete("iam-claude");
-    mockPersonalizationQuery({ data: null, error: { message: "JWT expired" } });
-    const complete = await reconcileOnboardingState("user-1");
-    expect(complete).toBe(true);
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-  });
-
-  it("returns the current local flag when Supabase is not configured", async () => {
-    await markOnboardingComplete("iam-claude");
-    getSupabaseMock.mockReturnValue(null);
-    await expect(reconcileOnboardingState("user-1")).resolves.toBe(true);
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-  });
-
-  it("falls back to iam-claude when the server row has a null variant", async () => {
-    mockPersonalizationRow({ variant: null });
-    const complete = await reconcileOnboardingState("user-3");
-    expect(complete).toBe(true);
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-  });
-
-  it("does not reset the funnel store on fresh installs with nothing to clear", async () => {
-    // A brand-new anonymous user reconciles while the funnel may
-    // already be in progress; without a stale completion flag the
-    // in-memory funnel state must survive.
-    useOnboardingStore.getState().setVariant("iam-founder");
-    useOnboardingStore.getState().setStepIndex(2);
-    mockPersonalizationRow(null);
-    const complete = await reconcileOnboardingState("user-4");
-    expect(complete).toBe(false);
-    expect(useOnboardingStore.getState().variant).toBe("iam-founder");
-    expect(useOnboardingStore.getState().stepIndex).toBe(2);
-  });
-});
-
-describe("pending server sync (completion that never reached the server)", () => {
-  it("sets a marker on upsert failure; reconcile re-upserts instead of clearing", async () => {
-    // A paying user finishes onboarding, but the personalization
-    // upsert fails (server hiccup). The local flag flips anyway...
-    mockCompletionSupabase({ personalizationError: { message: "boom" } });
+test.each(["personalization", "profiles", "notification_prefs", "recalc"])(
+  "failure at %s retains the complete durable payload for restart",
+  async (stage) => {
+    service(stage);
+    useOnboardingStore.getState().setName("Synthetic name");
+    useOnboardingStore
+      .getState()
+      .setAnswer("life_goal", " Original authored text ");
+    useOnboardingStore.getState().setAnswer("raw.trial_reminder", "no");
     await completeOnboarding("iam-claude");
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-    expect(await getPendingServerSync()).toEqual({
-      userId: "user-1",
-      variant: "iam-claude",
-    });
-
-    // ...and the next boot's reconcile sees "no server row". The
-    // pending marker must trigger a retry, not bounce the user back
-    // into onboarding.
-    const { upsert } = mockPersonalizationRow(null);
-    const complete = await reconcileOnboardingState("user-1");
-    expect(complete).toBe(true);
-    expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: "user-1", variant: "iam-claude" }),
+    await new Promise((resolve) => setImmediate(resolve));
+    const pending = await getPendingServerSync();
+    expect(pending?.payload?.personalization.life_goal).toBe(
+      " Original authored text ",
     );
+    expect(pending?.payload?.name).toBe("Synthetic name");
     expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-    expect(useAppState.getState().onboardingComplete).toBe(true);
-    expect(await getPendingServerSync()).toBeNull();
-  });
-
-  it("marks a wildcard pending sync when completing without a session", async () => {
-    mockCompletionSupabase({ sessionUserId: null });
-    await completeOnboarding("stella-claude");
-    expect(await getPendingServerSync()).toEqual({
-      userId: null,
-      variant: "stella-claude",
-    });
-
-    // The wildcard marker matches whichever user reconciles next.
-    const { upsert } = mockPersonalizationRow(null);
-    await expect(reconcileOnboardingState("user-9")).resolves.toBe(true);
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: "user-9", variant: "stella-claude" }),
+    useOnboardingStore.getState().reset();
+    const writes = service();
+    await reconcileOnboardingState("fs-local-a");
+    expect(writes.personalization[0]).toEqual(
+      pending?.payload?.personalization,
     );
-    expect(await getPendingServerSync()).toBeNull();
-  });
-
-  it("keeps the local flag and marker when the retry upsert also fails", async () => {
-    await markOnboardingComplete("iam-claude");
-    await setPendingServerSync("user-1", "iam-claude");
-    const { upsert } = mockPersonalizationRow(null, {
-      error: { message: "still down" },
+    expect(writes.notification_prefs[0]).toMatchObject({
+      trial_reminder: false,
     });
-    const complete = await reconcileOnboardingState("user-1");
-    expect(complete).toBe(true);
-    expect(upsert).toHaveBeenCalledTimes(1);
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
-    expect(await getPendingServerSync()).not.toBeNull();
-  });
-
-  it("does not let another user's marker block clearing", async () => {
-    await markOnboardingComplete("iam-claude");
-    await setPendingServerSync("user-A", "iam-claude");
-    const { upsert } = mockPersonalizationRow(null);
-    const complete = await reconcileOnboardingState("user-B");
-    expect(complete).toBe(false);
-    expect(upsert).not.toHaveBeenCalled();
-    expect(await getCompletedOnboardingVariant()).toBeNull();
-  });
-
-  it("clears the marker when completeOnboarding succeeds", async () => {
-    await setPendingServerSync(null, "iam-claude");
-    mockCompletionSupabase();
-    await completeOnboarding("iam-claude");
-    expect(await getCompletedOnboardingVariant()).toBe("iam-claude");
     expect(await getPendingServerSync()).toBeNull();
+  },
+);
+test("registration failure keeps payload even after all data writes", async () => {
+  service();
+  (registerDevice as jest.Mock).mockRejectedValueOnce(
+    new Error("Synthetic failure"),
+  );
+  await completeOnboarding("iam-claude");
+  expect(await getPendingServerSync()).not.toBeNull();
+});
+test("old acknowledgement cannot erase a newer payload revision", async () => {
+  const old = await setPendingServerSync("fs-local-a", "iam-claude");
+  const latest = await setPendingServerSync("fs-local-a", "stella-claude");
+  await clearPendingServerSync("fs-local-a", old.revision);
+  expect((await getPendingServerSync())?.revision).toBe(latest.revision);
+});
+test("an unassigned draft does not become the next user completion", async () => {
+  useAppState.getState().setUserId(null);
+  await markOnboardingComplete("iam-claude");
+  await setPendingServerSync(null, "iam-claude");
+  useAppState.getState().setUserId("fs-local-b");
+  expect(await reconcileOnboardingState("fs-local-b")).toBe(false);
+  expect(await getPendingServerSync()).toBeNull();
+});
+test("an offline query preserves only this account completion", async () => {
+  await markOnboardingComplete("iam-claude");
+  clientMock.mockRejectedValue(new Error("Synthetic offline"));
+  expect(await reconcileOnboardingState("fs-local-a")).toBe(true);
+  useAppState.getState().setUserId("fs-local-b");
+  expect(await reconcileOnboardingState("fs-local-b")).toBe(false);
+});
+test("a partial server row without completed timestamp cannot finish onboarding", async () => {
+  clientMock.mockResolvedValue({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: { variant: "iam-claude", onboarding_completed_at: null },
+            error: null,
+          }),
+        }),
+      }),
+    }),
   });
+  expect(await reconcileOnboardingState("fs-local-a")).toBe(false);
+});
+
+test("crash after pending payload but before completion flag still recovers offline", async () => {
+  const original = (AsyncStorage.setItem as jest.Mock).getMockImplementation()!;
+  (AsyncStorage.setItem as jest.Mock)
+    .mockImplementationOnce(original)
+    .mockRejectedValueOnce(new Error("Synthetic local write failure"));
+  useOnboardingStore
+    .getState()
+    .setAnswer("life_goal", "Keep this complete draft");
+  await completeOnboarding("iam-claude").catch(() => {});
+  (AsyncStorage.setItem as jest.Mock).mockImplementation(original);
+  clientMock.mockRejectedValue(new Error("Synthetic offline"));
+  expect(
+    (await getPendingServerSync())?.payload?.personalization.life_goal,
+  ).toBe("Keep this complete draft");
+  expect(await reconcileOnboardingState("fs-local-a")).toBe(true);
 });

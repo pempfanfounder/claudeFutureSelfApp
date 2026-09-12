@@ -45,6 +45,7 @@ export function NotePaywall({
   }, []);
 
   const buy = async () => {
+    if (purchasing || data.loading) return;
     if (data.unavailable) {
       Alert.alert(
         "Purchases unavailable",
@@ -52,7 +53,7 @@ export function NotePaywall({
       );
       return;
     }
-    if (!data.pkg && !data.devMock) return;
+    if (!data.pkg) return;
     setPurchasing(true);
     const result = await purchasePackage(data.pkg!);
     setPurchasing(false);
@@ -64,7 +65,10 @@ export function NotePaywall({
   };
 
   const trial = data.trialLength;
-  const disclosure = subscriptionDisclosure(data.pkg);
+  const disclosure = subscriptionDisclosure(
+    data.pkg,
+    data.pkg ? data.eligibility?.[data.pkg.product.identifier] : "unknown",
+  );
   const header =
     voice === "team"
       ? "A note before you begin"
@@ -112,7 +116,10 @@ export function NotePaywall({
             <View style={styles.planSelector}>
               {data.allPackages.map((p) => {
                 const isSelected = data.pkg?.identifier === p.identifier;
-                const pTrial = trialInfo(p);
+                const pTrial = trialInfo(
+                  p,
+                  data.eligibility?.[p.product.identifier],
+                );
                 return (
                   <View key={p.identifier} style={styles.planWrapper}>
                     <Button
@@ -135,9 +142,16 @@ export function NotePaywall({
               }
             </AppText>
           ) : null}
+          {data.unavailable ? (
+            <Button
+              label="Retry store connection"
+              variant="secondary"
+              onPress={() => data.retry?.()}
+            />
+          ) : null}
           {data.devMock ? (
             <AppText variant="label" tone="ink3" center>
-              Development mode: purchases are mocked
+              Development preview
             </AppText>
           ) : null}
 
@@ -145,7 +159,7 @@ export function NotePaywall({
             label={cta}
             onPress={buy}
             loading={purchasing}
-            disabled={data.loading || (data.unavailable && !data.devMock)}
+            disabled={data.loading || data.unavailable || !data.pkg}
             style={styles.cta}
             testID="paywall-cta"
           />
@@ -204,4 +218,3 @@ const styles = StyleSheet.create({
   price: { marginTop: spacing.md },
   disclosure: { marginTop: spacing.sm },
 });
-

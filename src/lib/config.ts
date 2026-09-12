@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { z } from "zod";
 
 /**
@@ -11,6 +12,9 @@ import { z } from "zod";
  * a crash so the project still boots in a fresh checkout.
  */
 const envSchema = z.object({
+  EXPO_PUBLIC_APP_ENV: z
+    .enum(["development", "staging", "production"])
+    .optional(),
   EXPO_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   EXPO_PUBLIC_SUPABASE_ANON_KEY: z.string().min(20).optional(),
   EXPO_PUBLIC_REVENUECAT_IOS_KEY: z.string().min(1).optional(),
@@ -44,6 +48,7 @@ const envSchema = z.object({
 });
 
 const parsed = envSchema.safeParse({
+  EXPO_PUBLIC_APP_ENV: process.env.EXPO_PUBLIC_APP_ENV,
   EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   EXPO_PUBLIC_REVENUECAT_IOS_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
@@ -67,15 +72,30 @@ const parsed = envSchema.safeParse({
 if (!parsed.success) {
   // Invalid values are a configuration bug worth failing loudly over in
   // development, but production should never crash on config parsing.
-  console.error(
-    "[config] Invalid environment configuration:",
-    parsed.error.flatten().fieldErrors,
-  );
+  console.error("[config] Invalid environment configuration.");
 }
 
 const env = parsed.success ? parsed.data : ({} as z.infer<typeof envSchema>);
 
+/** Staging Simulator builds may mock the store; production never can. */
+export function resolveDevMockPurchases(options: {
+  enabled?: string;
+  appEnvironment?: string;
+  isDev: boolean;
+}): boolean {
+  if (options.enabled !== "true") return false;
+  if (options.appEnvironment === "production") return false;
+  if (
+    options.appEnvironment === "staging" ||
+    options.appEnvironment === "development"
+  )
+    return true;
+  return options.isDev;
+}
+
 export const config = {
+  appEnvironment:
+    env.EXPO_PUBLIC_APP_ENV ?? (__DEV__ ? "development" : "production"),
   supabaseUrl: env.EXPO_PUBLIC_SUPABASE_URL,
   supabaseAnonKey: env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   revenueCatIosKey: env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
@@ -86,7 +106,11 @@ export const config = {
   googleWebClientId: env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   googleIosClientId: env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   onboardingVariantOverride: env.EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE,
-  devMockPurchases: __DEV__ && env.EXPO_PUBLIC_DEV_MOCK_PURCHASES === "true",
+  devMockPurchases: resolveDevMockPurchases({
+    enabled: env.EXPO_PUBLIC_DEV_MOCK_PURCHASES,
+    appEnvironment: env.EXPO_PUBLIC_APP_ENV,
+    isDev: __DEV__,
+  }),
   rcEntitlementId: env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
   useRcPaywallGate: env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE === "true",
   emailAuthEnabled: env.EXPO_PUBLIC_EMAIL_AUTH_ENABLED === "true",
@@ -95,7 +119,10 @@ export const config = {
   ),
   hasPosthog: Boolean(env.EXPO_PUBLIC_POSTHOG_API_KEY),
   hasSentry: Boolean(env.EXPO_PUBLIC_SENTRY_DSN),
-  hasGoogleAuth: Boolean(env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID),
+  hasGoogleAuth: Boolean(
+    env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID &&
+    (Platform.OS !== "ios" || env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID),
+  ),
 } as const;
 
 export type AppConfig = typeof config;

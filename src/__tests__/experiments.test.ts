@@ -26,3 +26,12 @@ describe("localFallbackVariant", () => {
     }
   });
 });
+
+test("fresh release assignment is selected iam-claude while stored assignments survive", async () => {
+  const storage = require("@react-native-async-storage/async-storage");
+  const { getOnboardingVariant } = require("@/lib/experiments");
+  await storage.clear();
+  expect((await getOnboardingVariant()).variant).toBe("iam-claude");
+  await storage.setItem("fs.onboarding-variant.v1", "stella-founder");
+  expect((await getOnboardingVariant()).variant).toBe("stella-founder");
+});

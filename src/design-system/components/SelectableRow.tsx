@@ -1,9 +1,11 @@
 import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { resolveOptionIcon } from "../optionIcon";
 import { useColors } from "../ThemeProvider";
 import { radii, spacing } from "../tokens";
 import { AppText } from "./AppText";
+import { Icon } from "./Icon";
 
 interface SelectableRowProps {
   label: string;
@@ -29,6 +31,7 @@ export function SelectableRow({
   testID,
 }: SelectableRowProps) {
   const colors = useColors();
+  const iconName = emoji ? resolveOptionIcon(emoji) : null;
   const handlePress = () => {
     Haptics.selectionAsync().catch(() => {});
     onPress();
@@ -49,7 +52,11 @@ export function SelectableRow({
         pressed && { transform: [{ scale: 0.99 }] },
       ]}
     >
-      {emoji ? <AppText variant="lead">{emoji}</AppText> : null}
+      {iconName ? (
+        <View testID={testID ? `${testID}-icon` : "option-icon"}>
+          <Icon name={iconName} size={22} color={colors.ink} />
+        </View>
+      ) : null}
       <AppText variant="lead" style={styles.label}>
         {label}
       </AppText>

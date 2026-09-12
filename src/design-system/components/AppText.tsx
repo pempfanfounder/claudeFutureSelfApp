@@ -1,4 +1,5 @@
-import { Text, type TextProps, type TextStyle } from "react-native";
+import { useBrandFonts } from "../FontAvailability";
+import { Platform, Text, type TextProps, type TextStyle } from "react-native";
 
 import { useColors } from "../ThemeProvider";
 import { type } from "../tokens";
@@ -72,14 +73,23 @@ const variantStyles: Record<Variant, TextStyle> = {
   },
 };
 
+function isEmojiOnly(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const text = value.trim();
+  return text.length > 0 && text.length <= 8 && !/[A-Za-z0-9]/.test(text);
+}
+
 export function AppText({
   variant = "body",
   tone = "ink",
   center,
   style,
+  children,
   ...rest
 }: AppTextProps) {
   const colors = useColors();
+  const fontsReady = useBrandFonts();
+  const emojiOnly = isEmojiOnly(children);
   const color =
     tone === "ink"
       ? colors.ink
@@ -96,11 +106,22 @@ export function AppText({
     <Text
       {...rest}
       style={[
-        variantStyles[variant],
+        emojiOnly
+          ? {
+              fontSize: variantStyles[variant].fontSize,
+              lineHeight: variantStyles[variant].lineHeight,
+            }
+          : variantStyles[variant],
         { color },
         center && { textAlign: "center" },
         style,
+        !emojiOnly &&
+          !fontsReady && {
+            fontFamily: Platform.OS === "ios" ? "System" : "sans-serif",
+          },
       ]}
-    />
+    >
+      {children}
+    </Text>
   );
 }

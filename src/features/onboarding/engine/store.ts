@@ -1,7 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { serializedStorage as stored } from "@/lib/accountStorage";
 
 import type { OnboardingVariant } from "@/lib/experiments";
+import {
+  captureIdentity,
+  isCurrentIdentity,
+  useAppState,
+} from "@/lib/appState";
 
 /**
  * Onboarding progress + collected answers. Answers are held locally
@@ -66,93 +72,138 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
     }),
 }));
 
-const COMPLETE_KEY = "fs.onboarding-complete.v1";
-const PENDING_SYNC_KEY = "fs.onboarding-pending-sync.v1";
+// v1 global keys have no provable owner. Preserve them without adopting their
+// contents for a different account. Server reconciliation recovers known users.
+const owner = () => useAppState.getState().userId;
+const key = (kind: string, userId: string | null) =>
+  `fs.onboarding.${kind}.v2.${userId ?? "unassigned"}`;
 
-export async function markOnboardingComplete(variant: OnboardingVariant) {
-  await AsyncStorage.setItem(COMPLETE_KEY, variant);
+function persistFor<T>(
+  userId: string | null,
+  work: () => Promise<T>,
+): Promise<T> {
+  const identity = captureIdentity();
+  if (identity.userId !== userId)
+    return Promise.reject(new Error("Account changed. Please retry."));
+  return stored(async () => {
+    if (!isCurrentIdentity(identity))
+      throw new Error("Account changed. Please retry.");
+    return work();
+  });
 }
 
-export async function getCompletedOnboardingVariant(): Promise<string | null> {
-  return AsyncStorage.getItem(COMPLETE_KEY);
+export async function markOnboardingComplete(
+  variant: OnboardingVariant,
+  userId = owner(),
+) {
+  await persistFor(userId, () =>
+    AsyncStorage.setItem(key("complete", userId), variant),
+  );
+}
+export async function getCompletedOnboardingVariant(
+  userId = owner(),
+): Promise<string | null> {
+  return stored(() => AsyncStorage.getItem(key("complete", userId)));
 }
 
-/**
- * A completion whose `personalization` upsert never reached the server
- * (write failed, or there was no session at that moment). While this
- * marker exists, reconciliation must retry the write instead of
- * treating "no server row" as "never finished onboarding".
- */
+export interface OnboardingPayload {
+  personalization: Record<string, unknown>;
+  name: string | null;
+  notificationPrefs: OnboardingState["notificationPrefs"];
+  trialReminder: boolean;
+}
 export interface PendingServerSync {
-  /** Null when completion happened without a session: matches any user. */
   userId: string | null;
   variant: OnboardingVariant;
+  revision: string;
+  payload?: OnboardingPayload;
 }
-
 export async function setPendingServerSync(
   userId: string | null,
   variant: OnboardingVariant,
-): Promise<void> {
-  await AsyncStorage.setItem(
-    PENDING_SYNC_KEY,
-    JSON.stringify({ userId, variant }),
+  payload?: OnboardingPayload,
+): Promise<PendingServerSync> {
+  const pending = {
+    userId,
+    variant,
+    payload,
+    revision: `${Date.now()}:${++pendingSequence}`,
+  };
+  await persistFor(userId, () =>
+    AsyncStorage.setItem(key("pending", userId), JSON.stringify(pending)),
   );
+  return pending;
 }
-
-export async function getPendingServerSync(): Promise<PendingServerSync | null> {
+let pendingSequence = 0;
+export async function getPendingServerSync(
+  userId = owner(),
+): Promise<PendingServerSync | null> {
+  const raw = await stored(() => AsyncStorage.getItem(key("pending", userId)));
+  if (!raw) return null;
   try {
-    const raw = await AsyncStorage.getItem(PENDING_SYNC_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<PendingServerSync> | null;
-    if (!parsed || typeof parsed.variant !== "string") return null;
-    return {
-      userId: typeof parsed.userId === "string" ? parsed.userId : null,
-      variant: parsed.variant,
-    };
+    const parsed = JSON.parse(raw) as PendingServerSync;
+    if (
+      parsed.userId !== userId ||
+      typeof parsed.revision !== "string" ||
+      typeof parsed.variant !== "string"
+    )
+      return null;
+    return parsed;
   } catch {
-    // A corrupt marker must never wedge reconciliation.
     return null;
   }
 }
-
-export async function clearPendingServerSync(): Promise<void> {
-  await AsyncStorage.removeItem(PENDING_SYNC_KEY);
+export async function clearPendingServerSync(
+  userId = owner(),
+  revision?: string,
+): Promise<void> {
+  await stored(async () => {
+    if (revision) {
+      const raw = await AsyncStorage.getItem(key("pending", userId));
+      if (!raw || (JSON.parse(raw) as PendingServerSync).revision !== revision)
+        return;
+    }
+    await AsyncStorage.removeItem(key("pending", userId));
+  });
 }
-
-/**
- * Forgets that onboarding ever finished on this device: removes the
- * persisted completion flag and resets the in-memory funnel state.
- * Runs on sign-out and account deletion (the sign-out copy promises
- * "this device returns to a fresh start"), so it must NOT be
- * `__DEV__`-gated.
- */
-export async function clearOnboardingState(): Promise<void> {
-  await AsyncStorage.removeItem(COMPLETE_KEY);
-  // The pending-sync marker is a shadow of the completion flag: left
-  // behind, a wildcard marker would let the NEXT (fresh) user's
-  // reconcile adopt this user's completion.
-  await clearPendingServerSync();
-  useOnboardingStore.getState().reset();
+export async function clearOnboardingState(userId = owner()): Promise<void> {
+  await stored(() => AsyncStorage.removeItem(key("complete", userId)));
+  await clearPendingServerSync(userId);
+  if (owner() === userId) useOnboardingStore.getState().reset();
 }
-
 export async function devClearOnboarding() {
   if (!__DEV__) return;
   await clearOnboardingState();
 }
 
-// Owned by src/features/widgets/pinned.ts; the string is duplicated
-// here (rather than imported) to keep account teardown free of widget
-// module side effects.
-const PINNED_WIDGET_KEY = "fs.widget.pinned.v1";
-// Owned by src/features/widgets/widgetPrefs.ts; duplicated for the
-// same reason as the pinned key above.
-const WIDGET_PREFS_KEY = "fs.widget.prefs.v1";
+/** Delete only the identified account's local caches. Ambiguous legacy data
+ * stays preserved until its owner can be established. */
+export async function clearLocalUserData(userId = owner()): Promise<void> {
+  if (!userId) return;
+  await stored(async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    const suffix = `.${userId}`;
+    const prefixes = [
+      `fs.viewed.${userId}.`,
+      `fs.daily.${userId}.`,
+      `fs.feed.${userId}.`,
+    ];
+    await AsyncStorage.multiRemove(
+      keys.filter(
+        (k) =>
+          (k.startsWith("fs.") && k.endsWith(suffix)) ||
+          prefixes.some((prefix) => k.startsWith(prefix)),
+      ),
+    );
+  });
+}
 
-/**
- * Removes per-user local caches that must not survive sign-out or
- * account deletion — currently the pinned widget line and the widget
- * appearance/content prefs.
- */
-export async function clearLocalUserData(): Promise<void> {
-  await AsyncStorage.multiRemove([PINNED_WIDGET_KEY, WIDGET_PREFS_KEY]);
+export async function hasLegacyDeviceProgress(): Promise<boolean> {
+  const keys = await AsyncStorage.getAllKeys();
+  return [
+    "fs.onboarding-complete.v1",
+    "fs.onboarding-pending-sync.v1",
+    "fs.widget.pinned.v1",
+    "fs.widget.prefs.v1",
+  ].some((key) => keys.includes(key));
 }

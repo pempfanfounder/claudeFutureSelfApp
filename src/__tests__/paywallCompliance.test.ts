@@ -54,7 +54,7 @@ describe("subscriptionDisclosure", () => {
       priceString: "$59.99",
       introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 },
     });
-    const text = subscriptionDisclosure(pkg);
+    const text = subscriptionDisclosure(pkg, "eligible");
     expect(text).not.toBeNull();
     expect(text).toContain("3 days free, then $59.99 per year.");
     expect(text).toContain("renews automatically");
@@ -92,7 +92,7 @@ describe("ctaLabel", () => {
     expect(ctaLabel("a while")).toBe("Start your a while free trial");
   });
 
-  it("falls back to a generic trial label when the length is unknown", () => {
-    expect(ctaLabel(null)).toBe("Start free trial");
+  it("does not promise a trial when the length is unknown", () => {
+    expect(ctaLabel(null)).toBe("Continue");
   });
 });

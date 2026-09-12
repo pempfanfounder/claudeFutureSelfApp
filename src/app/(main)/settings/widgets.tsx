@@ -1,5 +1,6 @@
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { SecondaryMotion } from "@/features/nav/SecondaryMotion";
+import { BackButton } from "@/design-system/components/BackButton";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -11,8 +12,9 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  FadeInRight,
-  FadeOutLeft,
+  FadeIn,
+  FadeOut,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -21,13 +23,18 @@ import Animated, {
 import {
   AppText,
   Button,
-  Icon,
   Screen,
   SelectableRow,
 } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { THEMES } from "@/design-system/themes";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
+import {
+  CONTROLLED_SPRING,
+  MOTION,
+  useMotionPreference,
+} from "@/design-system/motion";
+import { captureIdentity, isCurrentIdentity } from "@/lib/appState";
 import { analytics } from "@/lib/analytics";
 
 import { useFeedStore } from "@/features/content/feedStore";
@@ -61,7 +68,7 @@ const STEPS: Record<Tab, string[]> = {
   lock: [
     "Long-press your Lock Screen, then tap “Customize”",
     "Tap the widget area and add it",
-    "Tap the widget to customize content, font, and refresh rate",
+    "Choose your content and appearance here in Future Self",
   ],
 };
 
@@ -74,41 +81,86 @@ const SEG_PAD = 3;
  */
 export default function WidgetSettingsScreen() {
   const colors = useColors();
+  const reduced = useMotionPreference();
   const { lifeGoal, pinnedAffirmation } = useFeedStore();
   const prefs = useWidgetPrefs((s) => s.prefs);
   const [tab, setTab] = useState<Tab>("home");
   const [pinned, setPinned] = useState(DEFAULT_PINNED);
+  const [saving, setSaving] = useState(false);
+  const busyRef = useRef(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const syncError = useWidgetPrefs((s) => s.error);
   const [saved, setSaved] = useState(false);
   const [segW, setSegW] = useState(0);
   const indicator = useSharedValue(0);
 
   useEffect(() => {
-    loadWidgetPrefs().catch(() => {});
+    loadWidgetPrefs().catch(() =>
+      setFailure(
+        "Could not load widget preferences. Reopen this screen to retry.",
+      ),
+    );
   }, []);
 
   useEffect(() => {
-    getPinnedText(pinnedAffirmation ?? lifeGoal).then(setPinned);
+    let alive = true;
+    const identity = captureIdentity();
+    void getPinnedText(pinnedAffirmation ?? lifeGoal, identity)
+      .then((value) => {
+        if (alive && isCurrentIdentity(identity)) setPinned(value);
+      })
+      .catch(() => {
+        if (alive)
+          setFailure("Could not load your pinned line. Reopen to retry.");
+      });
+    return () => {
+      alive = false;
+    };
   }, [lifeGoal, pinnedAffirmation]);
 
+  const selectedTab = useRef<Tab>("home");
   const selectTab = (next: Tab) => {
+    selectedTab.current = next;
     setTab(next);
-    indicator.value = withSpring(next === "home" ? 0 : 1, {
-      damping: 22,
-      stiffness: 260,
-    });
+    cancelAnimation(indicator);
+    indicator.value = reduced
+      ? next === "home"
+        ? 0
+        : 1
+      : withSpring(next === "home" ? 0 : 1, CONTROLLED_SPRING);
   };
 
+  useEffect(() => {
+    cancelAnimation(indicator);
+    indicator.set(selectedTab.current === "home" ? 0 : 1);
+  }, [reduced, indicator]);
   const indicatorW = Math.max(0, (segW - SEG_PAD * 2) / 2);
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: indicator.value * indicatorW }],
   }));
 
   const save = async () => {
-    await setPinnedText(pinned);
-    await syncWidgets();
-    analytics.capture("widget_pinned_updated");
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setSaving(true);
+    setFailure(null);
+    const identity = captureIdentity();
+    try {
+      await setPinnedText(pinned);
+      await syncWidgets(identity);
+      if (isCurrentIdentity(identity)) {
+        analytics.capture("widget_pinned_updated");
+        setSaved(true);
+      }
+    } catch {
+      if (isCurrentIdentity(identity))
+        setFailure(
+          "Could not finish saving to the widget. Your text is kept here; tap Save to retry.",
+        );
+    } finally {
+      busyRef.current = false;
+      if (isCurrentIdentity(identity)) setSaving(false);
+    }
   };
 
   const install = async () => {
@@ -134,73 +186,89 @@ export default function WidgetSettingsScreen() {
   };
 
   return (
-    <Screen>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.headerSide}
-          testID="widgets-back"
-        >
-          <Icon name="back" color={colors.ink} size={22} />
-        </Pressable>
-        <AppText variant="h3">Widgets</AppText>
-        <View style={styles.headerSide} />
-      </View>
+    <SecondaryMotion>
+      <Screen>
+        <View style={styles.header}>
+          <BackButton />
+          <AppText variant="h3">Widgets</AppText>
+          <View style={styles.headerSide} />
+        </View>
 
-      <View
-        style={[styles.segment, { backgroundColor: colors.card }, shadows.sm]}
-        onLayout={(e) => setSegW(e.nativeEvent.layout.width)}
-      >
-        <Animated.View
-          style={[
-            styles.indicator,
-            { backgroundColor: colors.ctaBg, width: indicatorW },
-            indicatorStyle,
-          ]}
-        />
-        {TABS.map((t) => (
-          <Pressable
-            key={t.id}
-            onPress={() => selectTab(t.id)}
-            style={styles.segmentBtn}
-            testID={`tab-${t.id}`}
-          >
-            <AppText variant="label" tone={tab === t.id ? "ctaInk" : "ink2"}>
-              {t.label}
-            </AppText>
-          </Pressable>
-        ))}
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
-        <Animated.View
-          key={tab}
-          entering={FadeInRight.duration(220)}
-          exiting={FadeOutLeft.duration(220)}
+        <View
+          style={[styles.segment, { backgroundColor: colors.card }, shadows.sm]}
+          onLayout={(e) => setSegW(e.nativeEvent.layout.width)}
         >
-          <TabContent
-            tab={tab}
-            prefs={prefs}
-            pinned={pinned}
-            onChangePinned={setPinned}
-            saved={saved}
-            onSave={save}
-            lifeGoal={lifeGoal}
+          <Animated.View
+            style={[
+              styles.indicator,
+              { backgroundColor: colors.ctaBg, width: indicatorW },
+              indicatorStyle,
+            ]}
           />
-        </Animated.View>
-      </ScrollView>
+          {TABS.map((t) => (
+            <Pressable
+              key={t.id}
+              onPress={() => selectTab(t.id)}
+              style={styles.segmentBtn}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityState={{ selected: tab === t.id }}
+              testID={`tab-${t.id}`}
+            >
+              <AppText variant="label" tone={tab === t.id ? "ctaInk" : "ink2"}>
+                {t.label}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
 
-      <Button
-        label="Install widget"
-        onPress={install}
-        style={styles.install}
-        testID="install-widget"
-      />
-    </Screen>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+        >
+          <Animated.View
+            key={tab}
+            entering={FadeIn.duration(
+              reduced ? MOTION.reducedFade : MOTION.tabFade,
+            )}
+            exiting={FadeOut.duration(
+              reduced ? MOTION.reducedFade : MOTION.tabFade,
+            )}
+          >
+            {failure || syncError ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void syncWidgets().catch(() => {})}
+              >
+                <AppText accessibilityRole="alert">
+                  {failure ?? syncError}
+                </AppText>
+              </Pressable>
+            ) : null}
+            <TabContent
+              tab={tab}
+              prefs={prefs}
+              pinned={pinned}
+              onChangePinned={(text) => {
+                setPinned(text);
+                setSaved(false);
+              }}
+              saved={saved}
+              saving={saving}
+              onSave={save}
+              lifeGoal={lifeGoal}
+            />
+          </Animated.View>
+        </ScrollView>
+
+        <Button
+          label="Install widget"
+          onPress={install}
+          style={styles.install}
+          testID="install-widget"
+        />
+      </Screen>
+    </SecondaryMotion>
   );
 }
 
@@ -210,6 +278,7 @@ function TabContent({
   pinned,
   onChangePinned,
   saved,
+  saving,
   onSave,
   lifeGoal,
 }: {
@@ -218,14 +287,19 @@ function TabContent({
   pinned: string;
   onChangePinned: (text: string) => void;
   saved: boolean;
+  saving: boolean;
   onSave: () => void;
   lifeGoal: string | null;
 }) {
   const colors = useColors();
   const isHome = tab === "home";
   const source = isHome ? prefs.home.source : prefs.lock.source;
+  const updatePrefs = (partial: Parameters<typeof setWidgetPrefs>[0]) =>
+    void setWidgetPrefs(partial).catch(() =>
+      Alert.alert("Not saved", "Could not save that preference. Please retry."),
+    );
   const setSource = (s: "daily" | "pinned") =>
-    setWidgetPrefs(isHome ? { home: { source: s } } : { lock: { source: s } });
+    updatePrefs(isHome ? { home: { source: s } } : { lock: { source: s } });
 
   return (
     <>
@@ -267,7 +341,7 @@ function TabContent({
             return (
               <Pressable
                 key={t.id}
-                onPress={() => setWidgetPrefs({ home: { themeId: t.id } })}
+                onPress={() => updatePrefs({ home: { themeId: t.id } })}
                 style={[
                   styles.swatchRing,
                   { borderColor: active ? t.ink : "transparent" },
@@ -311,7 +385,7 @@ function TabContent({
           </AppText>
           <Switch
             value={prefs.home.showAuthor}
-            onValueChange={(v) => setWidgetPrefs({ home: { showAuthor: v } })}
+            onValueChange={(v) => updatePrefs({ home: { showAuthor: v } })}
             trackColor={{ false: colors.borderStrong, true: colors.ink }}
             thumbColor="#FFFFFF"
             testID="show-authors"
@@ -353,6 +427,7 @@ function TabContent({
       ) : null}
       <Button
         label={saved ? "Saved ✓" : "Save to widget"}
+        loading={saving}
         variant="secondary"
         size="md"
         onPress={onSave}

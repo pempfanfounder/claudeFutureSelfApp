@@ -1,3 +1,4 @@
+import { useAppState } from "@/lib/appState";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { themeById } from "@/design-system/themes";
@@ -23,6 +24,8 @@ const resetStore = () => {
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  useAppState.getState().setUserId(null);
+  useAppState.getState().setUserId("fs-local-widget-a");
   resetStore();
   jest.clearAllMocks();
 });
@@ -91,7 +94,9 @@ describe("widgetPrefs store", () => {
     await setWidgetPrefs({ home: { showAuthor: false } });
     expect(syncWidgets).toHaveBeenCalledTimes(1);
 
-    const stored = await AsyncStorage.getItem("fs.widget.prefs.v1");
+    const stored = await AsyncStorage.getItem(
+      "fs.widget.prefs.v2.fs-local-widget-a",
+    );
     expect(stored).not.toBeNull();
     expect(JSON.parse(stored!).home.showAuthor).toBe(false);
   });
@@ -121,4 +126,26 @@ describe("paletteForWidget", () => {
     );
     expect(paletteForWidget("nonsense").bg).toBe("#EDE0D6");
   });
+});
+
+test("widget preferences never hydrate a departed account into the new account", async () => {
+  await setWidgetPrefs({ home: { source: "pinned" } });
+  useAppState.getState().setUserId("fs-local-widget-b");
+  resetStore();
+  await loadWidgetPrefs();
+  expect(useWidgetPrefs.getState().prefs.home.source).toBe("daily");
+  useAppState.getState().setUserId("fs-local-widget-a");
+  resetStore();
+  await loadWidgetPrefs();
+  expect(useWidgetPrefs.getState().prefs.home.source).toBe("pinned");
+});
+test("storage rejection cannot claim a widget preference was saved", async () => {
+  const prior = useWidgetPrefs.getState().prefs;
+  (AsyncStorage.setItem as jest.Mock).mockRejectedValueOnce(
+    new Error("Synthetic disk full"),
+  );
+  await expect(
+    setWidgetPrefs({ home: { source: "pinned" } }),
+  ).rejects.toThrow();
+  expect(useWidgetPrefs.getState().prefs).toEqual(prior);
 });

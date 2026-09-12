@@ -1,5 +1,12 @@
 import { Platform } from "react-native";
 
+import {
+  captureIdentity,
+  assertCurrentIdentity,
+  useAppState,
+  type Identity,
+} from "@/lib/appState";
+import { getLocalDate } from "@/features/content/dailySet";
 import { monitoring } from "@/lib/monitoring";
 
 import { useFeedStore } from "@/features/content/feedStore";
@@ -11,6 +18,8 @@ import {
   loadWidgetPrefs,
   paletteForWidget,
   useWidgetPrefs,
+  setWidgetSyncError,
+  type WidgetPrefs,
 } from "./widgetPrefs";
 
 /**
@@ -28,23 +37,82 @@ import {
  * Voltra's native modules only exist in dev/production builds (never
  * Expo Go or Jest), so everything loads lazily and fails soft.
  */
-export async function syncWidgets(): Promise<void> {
-  try {
-    // Idempotent: guarantees a cold-start sync uses persisted prefs.
-    await loadWidgetPrefs();
-    const { quotes, affirmations, lifeGoal, pinnedAffirmation } =
-      useFeedStore.getState();
-    const items = interleave(quotes, affirmations);
-    const pinned = await getPinnedText(pinnedAffirmation ?? lifeGoal);
+let nativeQueue: Promise<unknown> = Promise.resolve();
+let nativeStalled = false;
+function queueNative<T>(work: () => Promise<T>, clearing = false): Promise<T> {
+  if (nativeStalled && !clearing)
+    return Promise.reject(
+      new Error("Widget service is still busy. Restart the app to recover."),
+    );
+  const next = nativeQueue.then(work, work);
+  nativeQueue = next.catch(() => {});
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      nativeStalled = true;
+      reject(
+        new Error("Widget service did not finish. Restart the app to recover."),
+      );
+    }, 8000);
+  });
+  // Keep the actual write on the queue even when the UI deadline expires.
+  // Releasing its lock early would let it overwrite a newer neutral clear.
+  void next
+    .finally(() => {
+      clearTimeout(timer);
+      nativeStalled = false;
+    })
+    .catch(() => {});
+  return Promise.race([next, timeout]);
+}
 
-    if (Platform.OS === "ios") {
-      await syncIos(items, pinned);
-    } else if (Platform.OS === "android") {
-      await syncAndroid(items, pinned);
-    }
+function valid(identity: Identity, day: string, version?: number) {
+  assertCurrentIdentity(identity);
+  const feed = useFeedStore.getState();
+  if (
+    !useAppState.getState().isPremium ||
+    day !== getLocalDate() ||
+    feed.loading ||
+    feed.ownerGeneration !== identity.generation ||
+    feed.contentDay !== day ||
+    (version !== undefined && feed.contentVersion !== version)
+  )
+    throw new Error("Widget source changed.");
+}
+export async function syncWidgets(identity = captureIdentity()): Promise<void> {
+  const day = getLocalDate();
+  try {
+    valid(identity, day);
+    await loadWidgetPrefs(identity);
+    const {
+      quotes,
+      affirmations,
+      lifeGoal,
+      pinnedAffirmation,
+      contentVersion,
+    } = useFeedStore.getState();
+    const items = interleave(quotes, affirmations);
+    const pinned = await getPinnedText(pinnedAffirmation ?? lifeGoal, identity);
+    valid(identity, day);
+    const prefs = useWidgetPrefs.getState().prefs;
+    await queueNative(async () => {
+      const check = () => valid(identity, day, contentVersion);
+      check();
+      const link = (item: ContentItem) =>
+        `futureself://content/${item.id}?kind=${item.type}&source=daily&day=${day}&owner=${identity.userId}`;
+      if (Platform.OS === "ios")
+        await syncIos(items, pinned, prefs, check, link);
+      else if (Platform.OS === "android")
+        await syncAndroid(items, pinned, prefs, check, link);
+    });
+    setWidgetSyncError(identity, null);
   } catch (error) {
-    // Widget sync must never break the app (e.g. running in Expo Go).
     monitoring.captureError(error, { area: "widgets.sync" });
+    setWidgetSyncError(
+      identity,
+      "Saved in the app. Widget refresh failed; tap Retry.",
+    );
+    throw error;
   }
 }
 
@@ -60,15 +128,12 @@ const CLEARED_DAILY_TEXT = "Your daily words return here.";
  * failure is swallowed into monitoring.
  */
 export async function clearWidgets(): Promise<void> {
-  try {
-    if (Platform.OS === "ios") {
-      await clearIos();
-    } else if (Platform.OS === "android") {
-      await clearAndroid();
-    }
-  } catch (error) {
-    monitoring.captureError(error, { area: "widgets.clear" });
-  }
+  // Always queue neutral content after an in-flight departed-account write.
+  // A native call already in progress cannot be canceled by JavaScript.
+  await queueNative(async () => {
+    if (Platform.OS === "ios") await clearIos();
+    else if (Platform.OS === "android") await clearAndroid();
+  }, true);
 }
 
 function interleave(a: ContentItem[], b: ContentItem[]): ContentItem[] {
@@ -81,26 +146,36 @@ function interleave(a: ContentItem[], b: ContentItem[]): ContentItem[] {
   return out;
 }
 
-/** Widget rotation window: 07:00 → 22:00 local. */
-function slotDates(count: number): Date[] {
-  const dates: Date[] = [];
-  const start = new Date();
-  start.setHours(7, 0, 0, 0);
-  const end = new Date();
+/** Current entry first, then strictly increasing future entries through 22:00. */
+export function slotDates(count: number, now = new Date()): Date[] {
+  if (count <= 0) return [];
+  const end = new Date(now);
   end.setHours(22, 0, 0, 0);
-  const stepMs =
-    count > 1 ? (end.getTime() - start.getTime()) / (count - 1) : 0;
-  for (let i = 0; i < count; i++) {
-    dates.push(new Date(start.getTime() + stepMs * i));
-  }
-  return dates;
+  if (now >= end) return [new Date(now.getTime() - 1000)];
+  const start = Math.max(now.getTime(), new Date(now).setHours(7, 0, 0, 0));
+  return Array.from(
+    { length: count },
+    (_, i) =>
+      new Date(
+        i === 0
+          ? now.getTime() - 1000
+          : start + ((end.getTime() - start) * i) / Math.max(1, count - 1),
+      ),
+  );
 }
 
-async function syncIos(items: ContentItem[], pinned: string) {
+async function syncIos(
+  items: ContentItem[],
+  pinned: string,
+  prefs: WidgetPrefs,
+  check: () => void,
+  link: (item: ContentItem) => string,
+) {
   const { Voltra } = await import("@use-voltra/ios");
   const { scheduleWidget, updateWidget } =
     await import("@use-voltra/ios-client");
-  const { home, lock } = useWidgetPrefs.getState().prefs;
+  check();
+  const { home, lock } = prefs;
   const colors = paletteForWidget(home.themeId);
 
   const card = (text: string, author: string | null, fontSize: number) => (
@@ -126,17 +201,28 @@ async function syncIos(items: ContentItem[], pinned: string) {
   // Lock Screen accessories follow their own source preference.
   const lockLine = (item: ContentItem | undefined) =>
     lock.source === "pinned" ? pinned : (item?.body ?? pinned);
+  const lockLink = (item: ContentItem | undefined) =>
+    lock.source === "pinned" || !item?.id
+      ? "futureself://widget-setup"
+      : link(item);
   const accessories = (item: ContentItem | undefined) => ({
     accessoryRectangular: (
-      <Voltra.Text style={{ fontSize: 12 }}>
-        {truncate(lockLine(item), 70)}
-      </Voltra.Text>
+      <Voltra.Link destination={lockLink(item)}>
+        <Voltra.Text style={{ fontSize: 12 }}>
+          {truncate(lockLine(item), 70)}
+        </Voltra.Text>
+      </Voltra.Link>
     ),
-    accessoryInline: <Voltra.Text>{truncate(lockLine(item), 40)}</Voltra.Text>,
+    accessoryInline: (
+      <Voltra.Link destination={lockLink(item)}>
+        <Voltra.Text>{truncate(lockLine(item), 40)}</Voltra.Text>
+      </Voltra.Link>
+    ),
   });
 
   if (home.source === "pinned") {
     // Static content: a single always-current entry is enough.
+    check();
     await scheduleWidget("daily", [
       {
         date: new Date(Date.now() - 60_000),
@@ -149,15 +235,28 @@ async function syncIos(items: ContentItem[], pinned: string) {
         },
       },
     ]);
-  } else if (items.length > 0) {
+  } else {
+    if (!items.length)
+      items = [
+        {
+          id: "",
+          type: "quote",
+          body: CLEARED_DAILY_TEXT,
+          author: null,
+          categories: [],
+          tags: [],
+          priority: 0,
+        },
+      ];
     const dates = slotDates(items.length);
     // A past-dated first entry makes item 0 the current state.
-    dates[0] = new Date(Date.now() - 60_000);
+    items = items.slice(0, dates.length);
+    check();
     await scheduleWidget(
       "daily",
       items.map((item, i) => ({
         date: dates[i]!,
-        deepLinkUrl: `futureself://content/${item.id}?kind=${item.type}`,
+        deepLinkUrl: item.id ? link(item) : "futureself://widget-setup",
         variants: {
           systemSmall: card(truncate(item.body, 90), null, 13),
           systemMedium: card(
@@ -176,6 +275,7 @@ async function syncIos(items: ContentItem[], pinned: string) {
     );
   }
 
+  check();
   await updateWidget(
     "future_self",
     {
@@ -245,10 +345,17 @@ async function clearIos() {
   );
 }
 
-async function syncAndroid(items: ContentItem[], pinned: string) {
+async function syncAndroid(
+  items: ContentItem[],
+  pinned: string,
+  prefs: WidgetPrefs,
+  check: () => void,
+  link: (item: ContentItem) => string,
+) {
   const { VoltraAndroid } = await import("@use-voltra/android");
   const { updateAndroidWidget } = await import("@use-voltra/android-client");
-  const { home } = useWidgetPrefs.getState().prefs;
+  check();
+  const { home } = prefs;
   const colors = paletteForWidget(home.themeId);
 
   const card = (text: string, author: string | null, fontSize: number) => (
@@ -273,11 +380,17 @@ async function syncAndroid(items: ContentItem[], pinned: string) {
   );
 
   const usePinned = home.source === "pinned";
-  const current = items[0];
+  const current = items[0] ?? {
+    id: "",
+    type: "quote",
+    body: CLEARED_DAILY_TEXT,
+    author: null,
+  };
   if (usePinned || current) {
     const body = usePinned ? pinned : current!.body;
     const author =
       usePinned || !home.showAuthor ? null : (current!.author ?? null);
+    check();
     await updateAndroidWidget(
       "daily",
       [
@@ -291,13 +404,15 @@ async function syncAndroid(items: ContentItem[], pinned: string) {
         },
       ],
       {
-        deepLinkUrl: usePinned
-          ? "futureself://widget-setup"
-          : `futureself://content/${current!.id}?kind=${current!.type}`,
+        deepLinkUrl:
+          usePinned || !current.id
+            ? "futureself://widget-setup"
+            : link(current as ContentItem),
       },
     );
   }
 
+  check();
   await updateAndroidWidget(
     "future_self",
     [

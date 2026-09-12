@@ -1,50 +1,30 @@
-// push-dispatch: pgmq 'push_jobs' consumer, invoked every minute by pg_cron
-// via pg_net. Picks content at dispatch time (campaigns first, then a
-// personalized rotation), records an idempotent delivery row, and sends
-// through Expo. Deploy with --no-verify-jwt: auth is the x-dispatch-secret.
+// S4: logical delivery leases and per-device send attempts. Transport can be
+// uncertain; only SQL finalization may acknowledge queue progress.
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createAdminClient } from "../_shared/admin.ts";
+import { requireDispatchSecret } from "../_shared/auth.ts";
+import { json } from "../_shared/http.ts";
+import { readBoundedJson, record, boundedString } from "../_shared/input.ts";
+import type {
+  CampaignRow,
+  PersonalizationRow,
+  PushJob,
+  PushKind,
+} from "../_shared/types.ts";
 
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { createAdminClient } from '../_shared/admin.ts';
-import { requireDispatchSecret } from '../_shared/auth.ts';
-import { json } from '../_shared/http.ts';
-import {
-  EXPO_SEND_CHUNK,
-  type ExpoPushMessage,
-  type ExpoPushTicket,
-  formatTicketError,
-  sendExpoChunk,
-} from '../_shared/expo.ts';
-import {
-  type CampaignRow,
-  type DeviceRow,
-  type NotificationPrefsRow,
-  type PersonalizationRow,
-  PUSH_KINDS,
-  type PushJob,
-  type PushKind,
-  type QueueMessage,
-} from '../_shared/types.ts';
-
-const BATCH_SIZE = 50;
-// Longer than the runtime budget so in-flight messages are never redelivered
-// to a concurrent invocation mid-run.
-const VISIBILITY_TIMEOUT_S = 90;
-const RUNTIME_BUDGET_MS = 50_000;
-const MAX_READS = 5;
+const APP_TITLE = "Future Self";
 const RECENT_CONTENT_DAYS = 14;
-
-const APP_TITLE = 'Future Self';
-
 const STREAK_BODIES: Array<(n: number) => string> = [
-  (n) => `${n}-day streak, one small read from safety. Three words before midnight.`,
-  (n) => `Your ${n}-day streak ends at midnight. One quick read keeps it alive.`,
-  (n) => `Day ${n + 1} is still yours to claim. One short read before midnight.`,
+  (n) =>
+    `${n}-day streak, one small read from safety. Three words before midnight.`,
+  (n) =>
+    `Your ${n}-day streak ends at midnight. One quick read keeps it alive.`,
+  (n) =>
+    `Day ${n + 1} is still yours to claim. One short read before midnight.`,
 ];
-
-const TRIAL_TITLE = 'Your trial ends soon';
+const TRIAL_TITLE = "Your trial ends soon";
 const TRIAL_BODY =
-  "Your free trial ends tomorrow. Nothing to do if you're staying — cancel anytime in Settings.";
-
+  "Your free trial ends soon. Review your subscription in Settings.";
 interface NotificationContent {
   title: string;
   body: string;
@@ -53,265 +33,280 @@ interface NotificationContent {
   campaignId: string | null;
   snapshot: { body: string; author: string | null; type: string };
 }
-
-interface PreparedSend {
-  msgId: number;
-  deliveryId: string;
-  job: PushJob;
-  devices: DeviceRow[];
-  messages: ExpoPushMessage[];
+interface Attempt {
+  id: string;
+  device_id: string;
+  registration_version: number;
+  push_token: string;
 }
+interface SendResult {
+  attempt_id: string;
+  state: "ticket_ok" | "ticket_error" | "uncertain";
+  ticket_id?: string;
+  error_code?: string;
+}
+const ERROR_CODES = new Set([
+  "DeviceNotRegistered",
+  "MessageTooBig",
+  "MessageRateExceeded",
+  "MismatchSenderId",
+  "InvalidCredentials",
+]);
+const deadlines = new WeakMap<object, number>();
 
-interface Stats {
-  read: number;
-  sent: number;
-  ticket_error: number;
-  archived: number;
-  deferred: number;
+async function boundedDb(
+  db: SupabaseClient,
+  request: {
+    abortSignal(
+      signal: AbortSignal,
+    ): PromiseLike<{ data: any; error: unknown }>;
+  },
+): Promise<{ data: any; error: unknown }> {
+  const remaining = (deadlines.get(db) ?? 0) - Date.now();
+  if (remaining <= 0) throw new Error("worker deadline reached");
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.min(3_000, remaining),
+  );
+  try {
+    return await request.abortSignal(controller.signal);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function rpc(
+  db: SupabaseClient,
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<unknown> {
+  const { data, error } = await boundedDb(db, db.rpc(name, args));
+  if (error) throw new Error("database operation failed");
+  return data;
+}
+async function send(
+  attempts: Attempt[],
+  content: NotificationContent,
+  deliveryId: string,
+  kind: string,
+): Promise<SendResult[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify(
+        attempts.map((a) => ({
+          to: a.push_token,
+          title: content.title,
+          body: content.body,
+          data: {
+            url: content.url,
+            content_id: content.contentId,
+            kind,
+            delivery_id: deliveryId,
+          },
+          sound: "default",
+          priority: "default",
+        })),
+      ),
+    });
+    if (!response.ok) throw new Error("provider outcome uncertain");
+    const payload = record(await readBoundedJson(response, 65_536), "tickets");
+    if (!Array.isArray(payload.data) || payload.data.length !== attempts.length)
+      throw new Error("invalid ticket count");
+    const ids = new Set<string>();
+    return payload.data.map((raw, i) => {
+      const ticket = record(raw, "ticket");
+      if (ticket.status === "ok") {
+        const id = boundedString(ticket.id, "ticket id", 128);
+        if (ids.has(id)) throw new Error("duplicate ticket id");
+        ids.add(id);
+        return {
+          attempt_id: attempts[i].id,
+          state: "ticket_ok",
+          ticket_id: id,
+        };
+      }
+      if (ticket.status !== "error") throw new Error("invalid ticket status");
+      const details =
+        ticket.details === undefined
+          ? {}
+          : record(ticket.details, "ticket details");
+      const code =
+        typeof details.error === "string" && ERROR_CODES.has(details.error)
+          ? details.error
+          : "unknown_ticket_error";
+      return {
+        attempt_id: attempts[i].id,
+        state: "ticket_error",
+        error_code: code,
+      };
+    });
+  } catch {
+    // Includes timeouts, HTTP errors, malformed/truncated responses. Provider
+    // acceptance may already have happened; these attempts must never auto-resend.
+    return attempts.map((a) => ({
+      attempt_id: a.id,
+      state: "uncertain",
+      error_code: "provider_outcome_uncertain",
+    }));
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 Deno.serve(async (req) => {
+  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   const denied = requireDispatchSecret(req);
   if (denied) return denied;
-
-  const admin = createAdminClient();
-  const deadline = Date.now() + RUNTIME_BUDGET_MS;
-
-  const { data: rawMessages, error: readError } = await admin.rpc('queue_read', {
-    n: BATCH_SIZE,
-    vt: VISIBILITY_TIMEOUT_S,
-  });
-  if (readError) return json({ error: readError.message }, 500);
-
-  const queueMessages = (rawMessages ?? []) as QueueMessage[];
-  const stats: Stats = {
-    read: queueMessages.length,
-    sent: 0,
-    ticket_error: 0,
+  const db = createAdminClient();
+  const deadline = Date.now() + 40_000;
+  deadlines.set(db, deadline);
+  const stats = {
+    read: 0,
     archived: 0,
     deferred: 0,
+    ticket_ok: 0,
+    ticket_error: 0,
+    uncertain: 0,
+    retry_wait: 0,
+    queue_deleted: 0,
+    persistence_errors: 0,
   };
-
-  // Phase 1: resolve each job to a claimed delivery + Expo messages.
-  const prepared: PreparedSend[] = [];
-  for (const msg of queueMessages) {
-    if (Date.now() > deadline) {
-      stats.deferred += queueMessages.length - stats.archived - stats.deferred - prepared.length;
-      break;
-    }
-    try {
-      const result = await prepareMessage(admin, msg);
-      if (result === 'archived') stats.archived++;
-      else if (result === 'deferred') stats.deferred++;
-      else prepared.push(result);
-    } catch (err) {
-      console.error(`push-dispatch: msg ${msg.msg_id} failed to prepare:`, err);
-      if (msg.read_ct > MAX_READS) {
-        await exhaustMessage(admin, msg);
-        stats.archived++;
-      } else {
-        stats.deferred++; // visibility timeout redelivers it
-      }
-    }
+  let messages;
+  try {
+    messages = await rpc(db, "queue_read", { n: 10, vt: 90 });
+  } catch {
+    return json({ error: "queue unavailable" }, 503);
   }
-
-  // Phase 2: send, packing whole jobs into Expo-sized chunks so a transport
-  // failure never leaves a single job half-sent across chunk boundaries.
-  for (const batch of packIntoChunks(prepared)) {
-    if (Date.now() > deadline) {
-      stats.deferred += batch.length;
+  if (!Array.isArray(messages) || messages.length > 10)
+    return json({ error: "invalid queue batch" }, 503);
+  stats.read = messages.length;
+  for (const msg of messages) {
+    if (Date.now() + 18_000 > deadline) {
+      stats.deferred++;
       continue;
     }
-    let tickets: ExpoPushTicket[];
+    let deliveryId: string | null = null,
+      lease: string | null = null,
+      begun = false;
     try {
-      tickets = await sendExpoChunk(batch.flatMap((p) => p.messages));
-    } catch (err) {
-      // Transport failure: leave every queue message in the batch; its
-      // delivery row stays 'queued' and is reused on redelivery.
-      console.error('push-dispatch: expo send failed:', err);
-      stats.deferred += batch.length;
-      continue;
-    }
-    let offset = 0;
-    for (const p of batch) {
-      const jobTickets = tickets.slice(offset, offset + p.messages.length);
-      offset += p.messages.length;
-      try {
-        const ok = await finalizeSend(admin, p, jobTickets);
-        if (ok) stats.sent++;
-        else stats.ticket_error++;
-      } catch (err) {
-        console.error(`push-dispatch: msg ${p.msgId} failed to finalize:`, err);
-        stats.deferred++;
+      const claim = record(
+        await rpc(db, "claim_push_job", { p_msg_id: msg.msg_id }),
+        "claim",
+      );
+      if (claim.outcome !== "claimed") {
+        if (claim.outcome === "archived") stats.archived++;
+        else stats.deferred++;
+        continue;
       }
+      deliveryId = boundedString(claim.delivery_id, "delivery id");
+      lease = boundedString(claim.lease_token, "lease");
+      const job = claim.job as PushJob;
+      const content = claim.content
+        ? (claim.content as NotificationContent)
+        : await buildNotification(db, job);
+      if (!content) {
+        const released = record(
+          await rpc(db, "release_push_delivery", {
+            p_delivery_id: deliveryId,
+            p_lease_token: lease,
+            p_reason: "no_content",
+          }),
+          "release",
+        );
+        if (released.queue_archived === true) stats.archived++;
+        else stats.deferred++;
+        continue;
+      }
+      await rpc(db, "prepare_push_delivery", {
+        p_delivery_id: deliveryId,
+        p_lease_token: lease,
+        p_content: content,
+      });
+      // Leave time for one transport call and two idempotent persistence calls.
+      // A preparation that consumes the time allowance stays unsent/recoverable.
+      if (Date.now() + 18_000 > deadline)
+        throw new Error("insufficient send time");
+      const ready = record(
+        await rpc(db, "begin_push_send", {
+          p_delivery_id: deliveryId,
+          p_lease_token: lease,
+        }),
+        "send claim",
+      );
+      if (ready.outcome !== "sending") {
+        if (ready.queue_archived === true) stats.archived++;
+        else stats.deferred++;
+        continue;
+      }
+      begun = true;
+      if (
+        !Array.isArray(ready.attempts) ||
+        ready.attempts.length < 1 ||
+        ready.attempts.length > 8
+      )
+        throw new Error("invalid attempts");
+      const attempts = ready.attempts as Attempt[];
+      const results = await send(
+        attempts,
+        ready.content as NotificationContent,
+        deliveryId,
+        job.kind,
+      );
+      let persisted: Record<string, unknown> | null = null;
+      // Retry only the idempotent persistence call, never the provider send.
+      for (let retry = 0; retry < 2 && !persisted; retry++) {
+        try {
+          persisted = record(
+            await rpc(db, "finish_push_send", {
+              p_delivery_id: deliveryId,
+              p_lease_token: lease,
+              p_results: results,
+            }),
+            "send result",
+          );
+        } catch {
+          if (retry === 1) throw new Error("send persistence unavailable");
+        }
+      }
+      if (persisted?.outcome !== "persisted")
+        throw new Error("send finalizer superseded");
+      stats.ticket_ok += Number(persisted.ticket_ok ?? 0);
+      stats.ticket_error += Number(persisted.ticket_error ?? 0);
+      stats.uncertain += Number(persisted.uncertain ?? 0);
+      stats.retry_wait += Number(persisted.retry_wait ?? 0);
+      if (persisted.queue_deleted === true) stats.queue_deleted++;
+    } catch {
+      stats.persistence_errors++;
+      if (deliveryId && lease && !begun) {
+        try {
+          await rpc(db, "release_push_delivery", {
+            p_delivery_id: deliveryId,
+            p_lease_token: lease,
+            p_reason: "preparation_failed",
+          });
+        } catch {
+          /* Expiring unsent lease remains recoverable. */
+        }
+      }
+      // Once begun, lease recovery marks unknown outcomes uncertain. No payload logs.
     }
   }
-
-  return json(stats);
+  return json(stats, stats.persistence_errors ? 503 : 200);
 });
-
-// ---------------------------------------------------------------------------
-// Phase 1: per-message preparation
-// ---------------------------------------------------------------------------
-
-async function prepareMessage(
-  admin: SupabaseClient,
-  msg: QueueMessage,
-): Promise<PreparedSend | 'archived' | 'deferred'> {
-  const job = msg.message;
-  if (!job?.user_id || !job.local_date || !PUSH_KINDS.includes(job.kind)) {
-    await archiveMessage(admin, msg.msg_id);
-    return 'archived';
-  }
-
-  if (msg.read_ct > MAX_READS) {
-    await exhaustMessage(admin, msg);
-    return 'archived';
-  }
-
-  const [devicesRes, prefsRes] = await Promise.all([
-    admin
-      .from('devices')
-      .select('id, push_token, platform')
-      .eq('user_id', job.user_id)
-      .eq('active', true)
-      .eq('permission_status', 'granted')
-      .not('push_token', 'is', null),
-    admin
-      .from('notification_prefs')
-      .select('quotes_per_day, affirmations_per_day, streak_reminder, trial_reminder')
-      .eq('user_id', job.user_id)
-      .maybeSingle(),
-  ]);
-  if (devicesRes.error) throw devicesRes.error;
-  if (prefsRes.error) throw prefsRes.error;
-
-  // Cap defensively at the Expo chunk size; one user never has 100 devices.
-  const devices = ((devicesRes.data ?? []) as DeviceRow[]).slice(0, EXPO_SEND_CHUNK);
-  if (devices.length === 0) {
-    await archiveMessage(admin, msg.msg_id);
-    return 'archived';
-  }
-
-  // Prefs may have changed since the job was enqueued; honor the latest.
-  if (prefsRes.data && !kindAllowed(job.kind, prefsRes.data as NotificationPrefsRow)) {
-    await archiveMessage(admin, msg.msg_id);
-    return 'archived';
-  }
-
-  const deliveryId = await claimDelivery(admin, job);
-  if (deliveryId === null) {
-    // Already delivered (or terminally recorded) by a previous run.
-    await archiveMessage(admin, msg.msg_id);
-    return 'archived';
-  }
-
-  const content = await buildNotification(admin, job);
-  if (content === null) {
-    await admin
-      .from('notification_deliveries')
-      .update({ status: 'skipped', error_detail: 'no content available' })
-      .eq('id', deliveryId);
-    await archiveMessage(admin, msg.msg_id);
-    return 'archived';
-  }
-
-  const messages: ExpoPushMessage[] = devices.map((d) => ({
-    to: d.push_token,
-    title: content.title,
-    body: content.body,
-    data: {
-      url: content.url,
-      content_id: content.contentId,
-      kind: job.kind,
-      delivery_id: deliveryId,
-    },
-    sound: 'default',
-    priority: 'default',
-  }));
-
-  // Persist what will be sent before sending, so a crash mid-send leaves an
-  // inspectable 'queued' row that the retry reuses.
-  const { error: updateError } = await admin
-    .from('notification_deliveries')
-    .update({
-      device_id: devices[0].id,
-      content_id: content.contentId,
-      campaign_id: content.campaignId,
-      title: content.title,
-      body: content.body,
-      content_snapshot: content.snapshot,
-    })
-    .eq('id', deliveryId);
-  if (updateError) throw updateError;
-
-  return { msgId: msg.msg_id, deliveryId, job, devices, messages };
-}
-
-/**
- * Claims the idempotency slot. Returns the delivery id to use, or null when
- * this slot was already handled (status advanced past 'queued').
- */
-async function claimDelivery(admin: SupabaseClient, job: PushJob): Promise<string | null> {
-  const key = idempotencyKey(job);
-  const { data: inserted, error } = await admin
-    .from('notification_deliveries')
-    .upsert(
-      {
-        user_id: job.user_id,
-        kind: job.kind,
-        local_date: job.local_date,
-        slot: job.slot ?? 0,
-        idempotency_key: key,
-        status: 'queued',
-      },
-      { onConflict: 'idempotency_key', ignoreDuplicates: true },
-    )
-    .select('id');
-  if (error) throw error;
-  if (inserted && inserted.length > 0) return inserted[0].id as string;
-
-  const { data: existing, error: existingError } = await admin
-    .from('notification_deliveries')
-    .select('id, status')
-    .eq('idempotency_key', key)
-    .maybeSingle();
-  if (existingError) throw existingError;
-  // 'queued' means a previous invocation crashed between claim and send:
-  // reuse the row and try again.
-  if (existing && existing.status === 'queued') return existing.id as string;
-  return null;
-}
-
-function idempotencyKey(job: PushJob): string {
-  return `${job.user_id}:${job.local_date}:${job.kind}:${job.slot ?? 0}`;
-}
-
-function kindAllowed(kind: PushKind, prefs: NotificationPrefsRow): boolean {
-  switch (kind) {
-    case 'quote':
-      return prefs.quotes_per_day > 0;
-    case 'affirmation':
-      return prefs.affirmations_per_day > 0;
-    case 'streak_risk':
-      return prefs.streak_reminder;
-    case 'trial_reminder':
-      return prefs.trial_reminder ?? true;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Content selection (dispatch time — dashboard edits apply to future sends)
-// ---------------------------------------------------------------------------
 
 async function buildNotification(
   admin: SupabaseClient,
   job: PushJob,
 ): Promise<NotificationContent | null> {
   switch (job.kind) {
-    case 'streak_risk':
+    case "streak_risk":
       return await buildStreakRisk(admin, job);
-    case 'trial_reminder':
+    case "trial_reminder":
       return buildTrialReminder();
     default:
       return await buildContentNotification(admin, job);
@@ -322,11 +317,14 @@ async function buildStreakRisk(
   admin: SupabaseClient,
   job: PushJob,
 ): Promise<NotificationContent | null> {
-  const { data: streak, error } = await admin
-    .from('streaks')
-    .select('current_streak')
-    .eq('user_id', job.user_id)
-    .maybeSingle();
+  const { data: streak, error } = await boundedDb(
+    admin,
+    admin
+      .from("streaks")
+      .select("current_streak")
+      .eq("user_id", job.user_id)
+      .maybeSingle(),
+  );
   if (error) throw error;
 
   const n = streak?.current_streak ?? 0;
@@ -334,12 +332,12 @@ async function buildStreakRisk(
 
   const body = STREAK_BODIES[n % STREAK_BODIES.length](n);
   return {
-    title: 'Your streak is on the line',
+    title: "Your streak is on the line",
     body,
-    url: 'futureself://feed',
+    url: "futureself://feed",
     contentId: null,
     campaignId: null,
-    snapshot: { body, author: null, type: 'streak_risk' },
+    snapshot: { body, author: null, type: "streak_risk" },
   };
 }
 
@@ -347,10 +345,10 @@ function buildTrialReminder(): NotificationContent {
   return {
     title: TRIAL_TITLE,
     body: TRIAL_BODY,
-    url: 'futureself://settings',
+    url: "futureself://settings",
     contentId: null,
     campaignId: null,
-    snapshot: { body: TRIAL_BODY, author: null, type: 'trial_reminder' },
+    snapshot: { body: TRIAL_BODY, author: null, type: "trial_reminder" },
   };
 }
 
@@ -358,14 +356,22 @@ async function buildContentNotification(
   admin: SupabaseClient,
   job: PushJob,
 ): Promise<NotificationContent | null> {
-  const { data: personalization, error: pErr } = await admin
-    .from('personalization')
-    .select('variant, primary_goals, obstacles, future_traits, quote_interests, affirmation_interests')
-    .eq('user_id', job.user_id)
-    .maybeSingle();
+  const { data: personalization, error: pErr } = await boundedDb(
+    admin,
+    admin
+      .from("personalization")
+      .select(
+        "variant, primary_goals, obstacles, future_traits, quote_interests, affirmation_interests",
+      )
+      .eq("user_id", job.user_id)
+      .maybeSingle(),
+  );
   if (pErr) throw pErr;
 
-  const interests = interestsFor(job.kind, personalization as PersonalizationRow | null);
+  const interests = interestsFor(
+    job.kind,
+    personalization as PersonalizationRow | null,
+  );
 
   const campaign = await matchCampaign(
     admin,
@@ -378,16 +384,25 @@ async function buildContentNotification(
   // Personalized rotation; if every eligible item went out in the last
   // 14 days, relax the exclusion rather than sending nothing.
   for (const days of [RECENT_CONTENT_DAYS, 0]) {
-    const { data, error } = await admin.rpc('pick_notification_content', {
-      p_user: job.user_id,
-      p_kind: job.kind,
-      p_interests: interests,
-      p_exclude_days: days,
-    });
+    const { data, error } = await boundedDb(
+      admin,
+      admin.rpc("pick_notification_content", {
+        p_user: job.user_id,
+        p_kind: job.kind,
+        p_interests: interests,
+        p_exclude_days: days,
+      }),
+    );
     if (error) throw error;
     const row = data?.[0];
     if (row) {
-      return formatContent(row.content_id, row.body, row.author ?? null, job.kind, null);
+      return formatContent(
+        row.content_id,
+        row.body,
+        row.author ?? null,
+        job.kind,
+        null,
+      );
     }
   }
   return null;
@@ -400,14 +415,20 @@ async function matchCampaign(
   variant: string | null,
 ): Promise<NotificationContent | null> {
   const nowIso = new Date().toISOString();
-  const { data: campaigns, error } = await admin
-    .from('campaigns')
-    .select('id, kind, content_id, override_title, override_body, audience, priority')
-    .eq('active', true)
-    .eq('kind', kind)
-    .lte('starts_at', nowIso)
-    .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
-    .order('priority', { ascending: false });
+  const { data: campaigns, error } = await boundedDb(
+    admin,
+    admin
+      .from("campaigns")
+      .select(
+        "id, kind, content_id, override_title, override_body, audience, priority",
+      )
+      .eq("active", true)
+      .eq("kind", kind)
+      .lte("starts_at", nowIso)
+      .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+      .order("priority", { ascending: false })
+      .limit(100),
+  );
   if (error) throw error;
 
   for (const campaign of (campaigns ?? []) as CampaignRow[]) {
@@ -423,12 +444,12 @@ function matchesAudience(
   interests: string[],
   variant: string | null,
 ): boolean {
-  if (!audience || typeof audience !== 'object') return false;
+  if (!audience || typeof audience !== "object") return false;
   if (audience.all === true) return true;
   if (Array.isArray(audience.categories)) {
     return audience.categories.some((c) => interests.includes(String(c)));
   }
-  if (typeof audience.variant === 'string') {
+  if (typeof audience.variant === "string") {
     return audience.variant === variant;
   }
   return false;
@@ -441,11 +462,14 @@ async function resolveCampaign(
 ): Promise<NotificationContent | null> {
   let item: { id: string; body: string; author: string | null } | null = null;
   if (campaign.content_id) {
-    const { data, error } = await admin
-      .from('content_items')
-      .select('id, body, author, active')
-      .eq('id', campaign.content_id)
-      .maybeSingle();
+    const { data, error } = await boundedDb(
+      admin,
+      admin
+        .from("content_items")
+        .select("id, body, author, active")
+        .eq("id", campaign.content_id)
+        .maybeSingle(),
+    );
     if (error) throw error;
     if (data?.active) item = data;
   }
@@ -453,8 +477,18 @@ async function resolveCampaign(
   let content: NotificationContent;
   if (campaign.override_body) {
     // Overrides are sent verbatim (no author suffix).
-    content = formatContent(item?.id ?? null, campaign.override_body, null, kind, campaign.id);
-    content.snapshot = { body: campaign.override_body, author: null, type: kind };
+    content = formatContent(
+      item?.id ?? null,
+      campaign.override_body,
+      null,
+      kind,
+      campaign.id,
+    );
+    content.snapshot = {
+      body: campaign.override_body,
+      author: null,
+      type: kind,
+    };
   } else if (item) {
     content = formatContent(item.id, item.body, item.author, kind, campaign.id);
   } else {
@@ -472,11 +506,13 @@ function formatContent(
   kind: PushKind,
   campaignId: string | null,
 ): NotificationContent {
-  const displayBody = kind === 'quote' && author ? `${body} — ${author}` : body;
+  const displayBody = kind === "quote" && author ? `${body} — ${author}` : body;
   return {
     title: APP_TITLE,
     body: displayBody,
-    url: contentId ? `futureself://content/${contentId}?kind=${kind}` : 'futureself://feed',
+    url: contentId
+      ? `futureself://content/${contentId}?kind=${kind}`
+      : "futureself://feed",
     contentId,
     campaignId,
     snapshot: { body, author, type: kind },
@@ -485,7 +521,8 @@ function formatContent(
 
 function interestsFor(kind: PushKind, p: PersonalizationRow | null): string[] {
   if (!p) return [];
-  const primary = (kind === 'quote' ? p.quote_interests : p.affirmation_interests) ?? [];
+  const primary =
+    (kind === "quote" ? p.quote_interests : p.affirmation_interests) ?? [];
   if (primary.length > 0) return primary;
   // No explicit interests: fall back to broader onboarding signals so the
   // scoring in pick_notification_content still has something to match.
@@ -494,109 +531,4 @@ function interestsFor(kind: PushKind, p: PersonalizationRow | null): string[] {
     ...(p.future_traits ?? []),
     ...(p.obstacles ?? []),
   ];
-}
-
-// ---------------------------------------------------------------------------
-// Phase 2 helpers: sending + finalization
-// ---------------------------------------------------------------------------
-
-/** Packs whole jobs into chunks of <= EXPO_SEND_CHUNK messages. */
-function packIntoChunks(prepared: PreparedSend[]): PreparedSend[][] {
-  const batches: PreparedSend[][] = [];
-  let current: PreparedSend[] = [];
-  let count = 0;
-  for (const p of prepared) {
-    if (count + p.messages.length > EXPO_SEND_CHUNK && current.length > 0) {
-      batches.push(current);
-      current = [];
-      count = 0;
-    }
-    current.push(p);
-    count += p.messages.length;
-  }
-  if (current.length > 0) batches.push(current);
-  return batches;
-}
-
-/** Records tickets on the delivery row and deletes the queue message. Returns true when at least one ticket is ok. */
-async function finalizeSend(
-  admin: SupabaseClient,
-  p: PreparedSend,
-  tickets: ExpoPushTicket[],
-): Promise<boolean> {
-  let okTicketId: string | null = null;
-  const errors: string[] = [];
-
-  for (let i = 0; i < tickets.length; i++) {
-    const ticket = tickets[i];
-    const device = p.devices[i];
-    if (ticket.status === 'ok') {
-      okTicketId ??= ticket.id ?? null;
-    } else {
-      errors.push(formatTicketError(ticket));
-      if (ticket.details?.error === 'DeviceNotRegistered' && device) {
-        await admin
-          .from('devices')
-          .update({ active: false, push_token: null })
-          .eq('push_token', device.push_token);
-      }
-    }
-  }
-
-  const { error } = await admin
-    .from('notification_deliveries')
-    .update({
-      status: okTicketId ? 'ticket_ok' : 'ticket_error',
-      expo_ticket_id: okTicketId,
-      error_detail: errors.length > 0 ? errors.join('; ') : null,
-      sent_at: new Date().toISOString(),
-    })
-    .eq('id', p.deliveryId);
-  if (error) throw error;
-
-  await deleteMessage(admin, p.msgId);
-  return okTicketId !== null;
-}
-
-// ---------------------------------------------------------------------------
-// Queue plumbing
-// ---------------------------------------------------------------------------
-
-async function deleteMessage(admin: SupabaseClient, msgId: number): Promise<void> {
-  const { error } = await admin.rpc('queue_delete', { msg_id: msgId });
-  if (error) throw error;
-}
-
-async function archiveMessage(admin: SupabaseClient, msgId: number): Promise<void> {
-  const { error } = await admin.rpc('queue_archive', { msg_id: msgId });
-  if (error) throw error;
-}
-
-/** A message that exceeded MAX_READS: record why, then archive it. */
-async function exhaustMessage(admin: SupabaseClient, msg: QueueMessage): Promise<void> {
-  const job = msg.message;
-  if (job?.user_id && job.local_date && PUSH_KINDS.includes(job.kind)) {
-    const key = idempotencyKey(job);
-    // Create the record if it never got claimed...
-    await admin.from('notification_deliveries').upsert(
-      {
-        user_id: job.user_id,
-        kind: job.kind,
-        local_date: job.local_date,
-        slot: job.slot ?? 0,
-        idempotency_key: key,
-        status: 'skipped',
-        error_detail: 'max retries',
-      },
-      { onConflict: 'idempotency_key', ignoreDuplicates: true },
-    );
-    // ...and flip it to skipped only if it is still stuck in 'queued'
-    // (never clobber a delivery that actually went out).
-    await admin
-      .from('notification_deliveries')
-      .update({ status: 'skipped', error_detail: 'max retries' })
-      .eq('idempotency_key', key)
-      .eq('status', 'queued');
-  }
-  await archiveMessage(admin, msg.msg_id);
 }

@@ -6,13 +6,59 @@ import { Platform } from "react-native";
 
 import { getInstallId } from "@/lib/experiments";
 import { monitoring } from "@/lib/monitoring";
-import { getSupabase } from "@/lib/supabase";
+import { getIdentitySupabase } from "@/lib/supabase";
+import {
+  assertCurrentIdentity,
+  captureIdentity,
+  type Identity,
+  withDeadline,
+} from "@/lib/appState";
 
 /**
  * Push registration client. All scheduling lives on the server
  * (Supabase Cron + Edge Functions + Expo Push); the device only
  * registers its token, permission status, locale and timezone.
  */
+
+let deviceQueue: Promise<unknown> = Promise.resolve();
+let suspendedGeneration: number | null = null;
+export function pauseDeviceRegistration(identity: Identity) {
+  suspendedGeneration = identity.generation;
+}
+export function resumeDeviceRegistration(identity: Identity) {
+  if (suspendedGeneration === identity.generation) suspendedGeneration = null;
+}
+function registrationAllowed(identity: Identity) {
+  assertCurrentIdentity(identity);
+  if (suspendedGeneration === identity.generation)
+    throw new Error("This account is signing out.");
+}
+function serializeDevice(work: (check: () => void) => Promise<void>) {
+  let expired = false;
+  const check = () => {
+    if (expired)
+      throw new Error("Device registration timed out. Please retry.");
+  };
+  const result = deviceQueue.then(
+    () => work(check),
+    () => work(check),
+  );
+  deviceQueue = result.catch(() => {});
+  return withDeadline(result).finally(() => {
+    expired = true;
+  });
+}
+export async function registerDevice(
+  identity: Identity = captureIdentity(),
+): Promise<void> {
+  registrationAllowed(identity);
+  return serializeDevice((check) => registerDeviceWork(identity, check));
+}
+export async function deactivateDevice(
+  identity: Identity = captureIdentity(),
+): Promise<void> {
+  return serializeDevice((check) => deactivateDeviceWork(identity, check));
+}
 
 export type PermissionStatus = "undetermined" | "granted" | "denied";
 
@@ -63,7 +109,7 @@ async function getPushToken(): Promise<string | null> {
     return token.data;
   } catch (error) {
     monitoring.captureError(error, { area: "push.getToken" });
-    return null;
+    throw error;
   }
 }
 
@@ -71,52 +117,56 @@ async function getPushToken(): Promise<string | null> {
  * Registers (or refreshes) this install's device row. Safe to call
  * often: on launch, after permission changes, and after auth changes.
  */
-export async function registerDevice(): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) return;
-
-  try {
-    const permissionStatus = await getPermissionStatus();
-    const token = permissionStatus === "granted" ? await getPushToken() : null;
-    const installId = await getInstallId();
-    const timezone = getCalendars()[0]?.timeZone ?? "UTC";
-    const locale = getLocales()[0]?.languageTag ?? null;
-
-    // The SQL function treats empty strings as null (nullif) — the
-    // generated arg types are non-nullable, so coerce here.
-    const { error } = await supabase.rpc("register_device", {
-      p_install_id: installId,
-      p_push_token: token ?? "",
-      p_platform: Platform.OS === "ios" ? "ios" : "android",
-      p_permission_status: permissionStatus,
-      p_locale: locale ?? "",
-      p_timezone: timezone,
-      p_app_version: Constants.expoConfig?.version ?? "",
-    });
-    if (error) throw error;
-  } catch (error) {
-    monitoring.captureError(error, { area: "push.registerDevice" });
-  }
+async function registerDeviceWork(
+  identity: Identity,
+  check: () => void,
+): Promise<void> {
+  registrationAllowed(identity);
+  check();
+  const supabase = await getIdentitySupabase(identity);
+  if (!supabase) throw new Error("Device registration is unavailable.");
+  const permissionStatus = await getPermissionStatus();
+  registrationAllowed(identity);
+  check();
+  const token = permissionStatus === "granted" ? await getPushToken() : null;
+  const installId = await getInstallId();
+  registrationAllowed(identity);
+  check();
+  const { error } = await supabase.rpc("register_device", {
+    p_install_id: installId,
+    p_push_token: token ?? "",
+    p_platform: Platform.OS === "ios" ? "ios" : "android",
+    p_permission_status: permissionStatus,
+    p_locale: getLocales()[0]?.languageTag ?? "",
+    p_timezone: getCalendars()[0]?.timeZone ?? "UTC",
+    p_app_version: Constants.expoConfig?.version ?? "",
+  });
+  if (error) throw error;
+  assertCurrentIdentity(identity);
+  check();
 }
 
-/** Marks this install's device row inactive (sign-out). */
-export async function deactivateDevice(): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  try {
-    const installId = await getInstallId();
-    await supabase.rpc("deactivate_device", { p_install_id: installId });
-  } catch (error) {
-    monitoring.captureError(error, { area: "push.deactivateDevice" });
-  }
+/** Resolves only after the server acknowledges this captured account's row. */
+async function deactivateDeviceWork(
+  identity: Identity,
+  check: () => void,
+): Promise<void> {
+  assertCurrentIdentity(identity);
+  check();
+  const supabase = await getIdentitySupabase(identity);
+  if (!supabase) throw new Error("Device deactivation is unavailable.");
+  const installId = await getInstallId();
+  assertCurrentIdentity(identity);
+  check();
+  const { error } = await supabase.rpc("deactivate_device", {
+    p_install_id: installId,
+  });
+  if (error) throw error;
+  assertCurrentIdentity(identity);
+  check();
 }
 
-/**
- * Extracts the deep-link target from a tapped notification. The server
- * always includes { url, content_id, kind } in the payload data.
- */
+/** Only fixed destinations and a validated owned delivery context may navigate. */
 export function getNotificationDeepLink(
   response: Notifications.NotificationResponse,
 ): string | null {
@@ -124,6 +174,41 @@ export function getNotificationDeepLink(
     string,
     unknown
   > | null;
-  const url = data?.["url"];
-  return typeof url === "string" ? url : null;
+  const url = data?.url;
+  if (typeof url !== "string" || url.length > 300) return null;
+  if (/^futureself:\/\/(?:feed|settings|paywall|widget-setup)$/i.test(url))
+    return url;
+  const match =
+    /^futureself:\/\/content\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\?kind=(quote|affirmation))?$/i.exec(
+      url,
+    );
+  if (!match) return null;
+  const id = match[1]!.toLowerCase(),
+    urlKind = match[2]?.toLowerCase();
+  if (
+    data?.content_id !== undefined &&
+    (typeof data.content_id !== "string" ||
+      data.content_id.toLowerCase() !== id)
+  )
+    return null;
+  if (
+    data?.kind !== undefined &&
+    data.kind !== "quote" &&
+    data.kind !== "affirmation"
+  )
+    return null;
+  if (urlKind && data?.kind !== undefined && data.kind !== urlKind) return null;
+  if (data?.delivery_id === undefined) return url; // Legacy links show current text.
+  const uuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const owner = captureIdentity().userId;
+  if (
+    typeof data.delivery_id !== "string" ||
+    !uuid.test(data.delivery_id) ||
+    !owner ||
+    !uuid.test(owner)
+  )
+    return null;
+  const kind = urlKind ?? data.kind;
+  return `futureself://content/${id}?${kind ? `kind=${kind}&` : ""}source=delivery&delivery=${data.delivery_id.toLowerCase()}&owner=${owner.toLowerCase()}`;
 }
