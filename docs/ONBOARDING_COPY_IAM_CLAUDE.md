@@ -182,7 +182,8 @@ stays the source of truth.
   interaction as before, restyled away from the reference app's look. The
   two count pills with solid dark round buttons and "3x" are now one grouped
   card (`GroupCard`) with Quotes / Affirmations rows, each ending in a single
-  outlined stepper capsule (− · serif numeral · +). The Start at / End at
+  narrow outlined stepper capsule (− · numeral in the system font · +) with
+  a small "per day" caption after it. The Start at / End at
   card sits on the same chrome (hairline edge, short accent rule at the
   left). Both cards' rows are 52 pt so the whole screen, CTA included, fits
   an iPhone 14/15/16 Pro without scrolling. The "Between {start} and {end} ·

@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
@@ -17,16 +17,21 @@ interface CountRowProps {
 }
 
 export const COUNT_ROW_HEIGHT = 52;
-const STEPPER_HEIGHT = 34;
-const STEP_BUTTON_WIDTH = 36;
+const STEPPER_HEIGHT = 32;
+/** Narrow halves: the capsule reads as one control, about 80 pt wide. */
+const STEP_BUTTON_WIDTH = 28;
+const VALUE_MIN_WIDTH = 24;
+/** Same size as the iOS compact time picker's chip text. */
+export const VALUE_FONT_SIZE = 17;
 const DISABLED_OPACITY = 0.35;
 
 /**
- * "How many" row inside a `GroupCard`: label at left, a single joined
- * stepper capsule at right. The capsule is outlined (hairline edge, faint
- * fill) with plain − / + glyphs and the count as a serif numeral between
- * them: no solid dark circular buttons, no "3x". At a bound the
- * corresponding half dims and does nothing.
+ * "How many" row inside a `GroupCard`: label at left; at right a narrow
+ * joined stepper capsule (outlined, faint fill, plain − / + glyphs) with
+ * the count in the platform system font, followed by a small "per day"
+ * caption in secondary ink so the number reads as a rate. No solid dark
+ * circular buttons, no "3x". At a bound the corresponding half dims and
+ * does nothing.
  */
 export function CountRow({
   label,
@@ -75,22 +80,29 @@ export function CountRow({
       <AppText variant="lead" style={styles.label}>
         {label}
       </AppText>
-      <View
-        style={[
-          styles.stepper,
-          { backgroundColor: colors.bgAlt, borderColor: colors.borderStrong },
-        ]}
-      >
-        {button("minus")}
-        <AppText
-          variant="h3"
-          style={styles.value}
-          testID={`${id}-value`}
-          accessibilityLabel={`${value} ${lower} a day`}
+      <View style={styles.control}>
+        <View
+          style={[
+            styles.stepper,
+            { backgroundColor: colors.bgAlt, borderColor: colors.borderStrong },
+          ]}
         >
-          {value}
+          {button("minus")}
+          {/* Plain Text on purpose: no fontFamily, so the numeral is set
+              in the platform system font (SF Pro on iOS), the same face
+              and size as the compact time picker one card below. */}
+          <Text
+            style={[styles.value, { color: colors.ink }]}
+            testID={`${id}-value`}
+            accessibilityLabel={`${value} ${lower} per day`}
+          >
+            {value}
+          </Text>
+          {button("plus")}
+        </View>
+        <AppText variant="label" tone="ink3" style={styles.unit}>
+          per day
         </AppText>
-        {button("plus")}
       </View>
     </View>
   );
@@ -103,6 +115,7 @@ const styles = StyleSheet.create({
     minHeight: COUNT_ROW_HEIGHT,
   },
   label: { flex: 1 },
+  control: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
@@ -118,10 +131,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonDisabled: { opacity: DISABLED_OPACITY },
+  // Matches the iOS compact picker's chip text: 17 pt regular, system face.
   value: {
-    minWidth: 30,
+    minWidth: VALUE_MIN_WIDTH,
     textAlign: "center",
+    fontSize: VALUE_FONT_SIZE,
+    lineHeight: VALUE_FONT_SIZE * 1.3,
+    fontWeight: "400",
     fontVariant: ["tabular-nums"],
-    paddingHorizontal: spacing.xs,
   },
+  unit: { minWidth: 44 },
 });

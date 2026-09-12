@@ -1,6 +1,6 @@
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { AppState, Linking, Platform } from "react-native";
+import { AppState, Linking, Platform, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -17,6 +17,7 @@ import {
   roundToInterval,
 } from "@/features/notifications/time";
 import { NotificationsStep } from "@/features/onboarding/engine/steps/NotificationsStep";
+import { VALUE_FONT_SIZE } from "@/features/onboarding/engine/steps/notifications/CountRow";
 import { useOnboardingStore } from "@/features/onboarding/engine/store";
 import type {
   OnboardingContext,
@@ -108,6 +109,24 @@ describe("NotificationsStep (iam)", () => {
     expect(screen.getByText(STEP.mockLine!)).toBeTruthy();
     expect(screen.getByText("Future Self")).toBeTruthy();
     expect(screen.getByText("Now")).toBeTruthy();
+  });
+
+  it("sets the count in the system font with a 'per day' caption after it", () => {
+    const { screen } = renderStep();
+    const value = screen.getByTestId("quotes-value");
+    const style = StyleSheet.flatten(value.props.style) as {
+      fontFamily?: string;
+      fontSize?: number;
+      fontWeight?: string;
+    };
+    // No brand face: the platform system font, like the compact time
+    // picker's chip one card below (SF Pro on iOS).
+    expect(style.fontFamily).toBeUndefined();
+    expect(style.fontSize).toBe(VALUE_FONT_SIZE);
+    expect(style.fontWeight).toBe("400");
+    expect(value.props.accessibilityLabel).toBe("3 quotes per day");
+    // One caption per count row, outside the capsule.
+    expect(screen.getAllByText("per day")).toHaveLength(2);
   });
 
   it("never restates the window as a sentence (feedback 2026-09-12)", () => {
