@@ -9,11 +9,12 @@ export interface PreviewNotification {
  * Real Future Self-voice lines from the shipped content pack, front card
  * first. Ids are looked up so the paywall never drifts from the catalog;
  * `time` mirrors iOS's relative stamps to read as a day of deliveries.
+ * The two older cards are one-liners because only their top strip shows.
  */
 const PREVIEW: { id: string; time: string }[] = [
   { id: "local:q11", time: "Now" },
-  { id: "local:a06", time: "3h ago" },
-  { id: "local:q12", time: "Yesterday" },
+  { id: "local:a02", time: "3h ago" },
+  { id: "local:a01", time: "Yesterday" },
 ];
 
 export function paywallPreviewNotifications(): PreviewNotification[] {

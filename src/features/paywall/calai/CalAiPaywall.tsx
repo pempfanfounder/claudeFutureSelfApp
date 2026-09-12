@@ -110,7 +110,12 @@ export function CalAiPaywall({
           style={StyleSheet.absoluteFill}
         />
         <View style={{ paddingTop: heroTop }}>
-          <NotificationStack items={notifications} mode="fan" overlap={30} />
+          <NotificationStack
+            items={notifications}
+            mode="fan"
+            overlap={14}
+            scrimColor={colors.ctaBg}
+          />
         </View>
         <LinearGradient
           // Fades the stack's lower edge into the surface so the headline
@@ -129,7 +134,8 @@ export function CalAiPaywall({
         <View style={{ paddingTop: heroTop }}>
           <NotificationStack
             items={notifications}
-            overlap={version === 3 ? 42 : 34}
+            overlap={version === 3 ? 20 : 16}
+            scrimColor={colors.bgAlt}
           />
         </View>
       </View>
@@ -258,16 +264,17 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { flexGrow: 1 },
   hero: { paddingBottom: spacing.xl },
-  heroDark: { paddingBottom: spacing.xxxl + spacing.lg },
+  heroDark: { paddingBottom: spacing.xxxl + spacing.sm },
   heroFade: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: 120,
+    height: 96,
   },
   headlineWrap: { paddingHorizontal: spacing.xxl, marginTop: spacing.md },
-  headlineOverlap: { marginTop: -(spacing.xxxl + spacing.sm) },
+  // Pulls the headline up over the front card's faded lower edge.
+  headlineOverlap: { marginTop: -(spacing.xxxl + spacing.xs) },
   headlineTight: { marginTop: 0 },
   eyebrow: { marginBottom: spacing.sm },
   plans: { paddingHorizontal: spacing.xl, marginTop: spacing.xxl },

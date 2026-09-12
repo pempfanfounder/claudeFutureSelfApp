@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { FadeInUp } from "react-native-reanimated";
 
-import { spacing } from "@/design-system/tokens";
+import { radii, spacing } from "@/design-system/tokens";
 import { NotificationCard } from "@/features/onboarding/engine/steps/notifications/MockNotification";
 
 import type { PreviewNotification } from "./previewQuotes";
@@ -13,10 +13,13 @@ interface NotificationStackProps {
   mode?: "cascade" | "fan";
   /** Pixels each card overlaps the one behind it. */
   overlap?: number;
+  /** Backdrop colour the older cards fade toward (the hero's surface). */
+  scrimColor: string;
 }
 
 const SCALE_STEP = 0.06;
-const OPACITY = [1, 0.72, 0.46];
+/** Scrim opacity per depth: cards stay opaque so nothing bleeds through. */
+const SCRIM = [0, 0.3, 0.55];
 const TILT = ["0deg", "-2.5deg", "2deg"];
 const SHIFT = [0, -6, 8];
 
@@ -30,6 +33,7 @@ export function NotificationStack({
   items,
   mode = "cascade",
   overlap = 34,
+  scrimColor,
 }: NotificationStackProps) {
   const ordered = [...items].reverse();
   return (
@@ -39,12 +43,11 @@ export function NotificationStack({
         return (
           <View
             // Depth styling lives on a plain wrapper so the card's own
-            // entering animation never fights the static opacity/transform.
+            // entering animation never fights the static transform.
             key={item.body}
             style={[
               index > 0 && { marginTop: -overlap },
               {
-                opacity: OPACITY[depth] ?? 0.4,
                 transform: [
                   { scale: 1 - depth * SCALE_STEP },
                   { translateX: mode === "fan" ? (SHIFT[depth] ?? 0) : 0 },
@@ -59,6 +62,15 @@ export function NotificationStack({
               testID={`notification-card-${depth}`}
               entering={FadeInUp.duration(360).delay(depth * 90)}
             />
+            {depth > 0 ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.scrim,
+                  { backgroundColor: scrimColor, opacity: SCRIM[depth] ?? 0.6 },
+                ]}
+              />
+            ) : null}
           </View>
         );
       })}
@@ -68,4 +80,12 @@ export function NotificationStack({
 
 const styles = StyleSheet.create({
   root: { paddingHorizontal: spacing.xl },
+  scrim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: radii.lg,
+  },
 });
