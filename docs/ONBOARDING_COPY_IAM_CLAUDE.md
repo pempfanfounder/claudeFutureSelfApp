@@ -159,9 +159,9 @@ Owner feedback on the live funnel; `src/features/onboarding/variants/iamClaude.t
 stays the source of truth.
 
 - **`habit-helper`**: "What would keep this going day after day?" was too
-  vague → "What would help you show up every day?". Options use plain
-  language: "Reminders at the right moments" (was "Nudges…"), "Quotes that
-  match my goals" (was "Words…").
+  vague → "What would help make Future Self a habit you keep?" (owner's
+  pick). Options use plain language: "Reminders through my day" (was
+  "Nudges…"), "Quotes that match my goals" (was "Words…").
 - **Vocabulary**: the delivered content is always "quotes", never "words"
   (theme, widget promos, every variant's notification copy); "nudge" does not
   appear anywhere in the app. Guarded by a test in
@@ -169,10 +169,10 @@ stays the source of truth.
 - **Numerals everywhere**: "1 quiet minute / 3 focused minutes / 10 unhurried
   minutes", "3 readings a day…", and the same treatment in the other variants.
   Narrative numbers ("five years", "One last thing") stay spelled out.
-- **`time-devotion`** sub: "Pick something you'd still do on a bad day" (was
+- **`time-devotion`** sub: "Even 1 minute counts, if it's every day" (was
   "Small and daily beats big and rare").
-- **`streak-goal`**: "How many days in a row are you aiming for first?" (was
-  "How long a streak do you want to chase first?").
+- **`streak-goal`**: "What's your first streak goal?" (was "How long a streak
+  do you want to chase first?").
 - **`traits`**: the 4-trait cap is gone; every trait is selectable.
 - **`achieve`**: every option is a first-person answer to "A year in, what
   should have changed?": "I'm the person I imagined to be" · "I am finally

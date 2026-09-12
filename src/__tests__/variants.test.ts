@@ -417,6 +417,22 @@ describe("iam-claude conversion refinements", () => {
     expect(goal.options?.map((o) => o.slug)).toEqual(["3", "7", "21"]);
   });
 
+  it("carries the owner's final copy picks (2026-09-12)", () => {
+    const helper = stepById("habit-helper");
+    expect(resolveText(helper.headline, dummyCtx)).toBe(
+      "What would help make Future Self a habit you keep?",
+    );
+    expect(helper.options?.find((o) => o.slug === "reminders")?.label).toBe(
+      "Reminders through my day",
+    );
+    expect(resolveText(stepById("time-devotion").sub, dummyCtx)).toBe(
+      "Even 1 minute counts, if it's every day",
+    );
+    expect(resolveText(stepById("streak-goal").headline, dummyCtx)).toBe(
+      "What's your first streak goal?",
+    );
+  });
+
   it("lets every future trait be picked (no cap)", () => {
     const traits = stepById("traits");
     expect(traits.type).toBe("chips");

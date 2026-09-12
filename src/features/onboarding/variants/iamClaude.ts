@@ -107,12 +107,12 @@ export const iamClaude: VariantConfig = {
       // Feedback 2026-09-12: the old "What would keep this going day
       // after day?" was too vague. Plain language only: no "nudges", and
       // the content is always called "quotes", never "words".
-      headline: "What would help you show up every day?",
+      headline: "What would help make Future Self a habit you keep?",
       sub: "Choose all that apply",
       minSelect: 1,
       // Every option maps to a real Future Self feature.
       options: [
-        { slug: "reminders", label: "Reminders at the right moments" },
+        { slug: "reminders", label: "Reminders through my day" },
         { slug: "progress", label: "Watching my streak build" },
         { slug: "widget", label: "A widget on my Home or Lock Screen" },
         { slug: "fit", label: "Quotes that match my goals" },
@@ -191,7 +191,7 @@ export const iamClaude: VariantConfig = {
       id: "time-devotion",
       type: "single",
       headline: "How much time will you give your future self each day?",
-      sub: "Pick something you'd still do on a bad day",
+      sub: "Even 1 minute counts, if it's every day",
       // Numerals everywhere (the streak screens already use them).
       options: [
         { slug: "1", label: "1 quiet minute" },
@@ -204,7 +204,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "streak-goal",
       type: "single",
-      headline: "How many days in a row are you aiming for first?",
+      headline: "What's your first streak goal?",
       sub: "Pick what feels doable. Your streak keeps counting either way",
       options: [
         { slug: "3", label: "3 days straight" },
