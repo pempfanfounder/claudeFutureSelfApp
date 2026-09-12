@@ -8,8 +8,6 @@ import { radii, shadows, spacing } from "@/design-system/tokens";
 interface MockNotificationProps {
   /** Notification body — the quote/affirmation preview. */
   body: string;
-  /** Timestamp at the right of the title, "Now" by default. */
-  time?: string;
 }
 
 const ICON_SIZE = 24;
@@ -22,10 +20,7 @@ const PEEK = 8;
  * slightly narrower second card peeking out below it. The front card
  * drops in from above once on mount, like a real banner.
  */
-export function MockNotification({
-  body,
-  time = "Now",
-}: MockNotificationProps) {
+export function MockNotification({ body }: MockNotificationProps) {
   const colors = useColors();
   return (
     <View style={styles.stack} testID="mock-notification">
@@ -56,12 +51,8 @@ export function MockNotification({
         <View style={styles.text}>
           <View style={styles.titleRow}>
             <AppText variant="label">Future Self</AppText>
-            <AppText
-              variant="label"
-              tone="ink3"
-              testID="mock-notification-time"
-            >
-              {time}
+            <AppText variant="label" tone="ink3">
+              Now
             </AppText>
           </View>
           <AppText variant="body" style={styles.body}>

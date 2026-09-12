@@ -190,20 +190,6 @@ stays the source of truth.
   your future self won't wake you" sentence is removed. (An earlier
   big-tile + 24-hour-band design was tried and rejected by the owner as too
   tall.)
-- **`result`** (the answers summary, the last screen before the paywall
-  run-up) redesigned: one serif line ("We listened, {name}. Here's the
-  plan."), then a swipeable, snapping carousel of cards with about three
-  points each instead of one long list. Cards: **Every day** (count-up
-  numbers for quotes, affirmations and the streak goal; the window as a day
-  band; what the quotes lean toward), **You committed to** (streak goal,
-  minutes, practice modes; only when made), **Who you're building**
-  (affirmation focus, traits as chips, the written life goal in serif
-  italic) and **First up** (the first quote as a notification banner stamped
-  with the window start time; only when the library loaded). The active card
-  sits at full scale while neighbours peek in smaller and dimmer; a card's
-  points cascade in the first time it comes into view; page dots track the
-  card; the CTA stays put. Reduce motion flattens the scroll effects and
-  skips the entrances. Skipped steps still add nothing.
 - **Progress bar (trial)**: a thin animated bar now runs above every
   question in both families, advancing one segment per answer; hidden on the
   welcome, auth, paywall, result and widget screens. Toggle per family in
