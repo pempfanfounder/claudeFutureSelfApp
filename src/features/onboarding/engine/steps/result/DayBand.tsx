@@ -17,6 +17,8 @@ interface DayBandProps {
   endMinutes: number;
   /** Delay before the band grows in, so it lands after its card. */
   delayMs?: number;
+  /** Times under the ends; off when the caller labels the band itself. */
+  showLabels?: boolean;
 }
 
 const TRACK_HEIGHT = 6;
@@ -34,6 +36,7 @@ export function DayBand({
   startMinutes,
   endMinutes,
   delayMs = 0,
+  showLabels = true,
 }: DayBandProps) {
   const colors = useColors();
   const start = pct(startMinutes);
@@ -87,14 +90,16 @@ export function DayBand({
           ]}
         />
       </View>
-      <View style={styles.labels}>
-        <AppText variant="label" tone="ink2" testID="day-band-start">
-          {formatMinutes(startMinutes)}
-        </AppText>
-        <AppText variant="label" tone="ink2" testID="day-band-end">
-          {formatMinutes(endMinutes)}
-        </AppText>
-      </View>
+      {showLabels ? (
+        <View style={styles.labels}>
+          <AppText variant="label" tone="ink2" testID="day-band-start">
+            {formatMinutes(startMinutes)}
+          </AppText>
+          <AppText variant="label" tone="ink2" testID="day-band-end">
+            {formatMinutes(endMinutes)}
+          </AppText>
+        </View>
+      ) : null}
     </View>
   );
 }

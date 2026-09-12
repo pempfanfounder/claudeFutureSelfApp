@@ -1,4 +1,5 @@
 import { render, act, fireEvent, waitFor } from "@testing-library/react-native";
+import { Dimensions } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -268,10 +269,11 @@ describe("OnboardingFlow smoke render", () => {
     screen.unmount();
   });
 
-  it("shows the plan as a preview, a day band, count-up tiles and chips", async () => {
+  it("sums the answers up as a swipeable carousel of ~3-point cards", async () => {
     const answers = {
       "raw.streak_goal": "7",
       "raw.daily_minutes": "1",
+      "raw.practice_modes": ["phone", "aloud", "unsure"],
       quote_interests: ["discipline", "stoic-calm", "focus"],
       affirmation_interests: ["self-belief"],
       future_traits: ["calm", "free"],
@@ -289,26 +291,15 @@ describe("OnboardingFlow smoke render", () => {
       windowEndMinutes: 20 * 60,
     });
     // One serif line in the app's voice; no name in this test context.
-    expect(screen.getByText("Here's how your days will go.")).toBeTruthy();
+    expect(screen.getByText("We listened. Here's the plan.")).toBeTruthy();
     expect(screen.queryByText("Your daily plan")).toBeNull();
-    expect(screen.getByTestId("result-life-goal")).toHaveTextContent(
-      "“someone who shows up”",
-    );
-    // The first quote previews as a notification at the chosen start time.
-    expect(screen.getByTestId("mock-notification")).toBeTruthy();
-    expect(screen.getByTestId("mock-notification-time")).toHaveTextContent(
-      "8:00 AM",
-    );
-    // The window as a band with the two times under its ends.
-    expect(screen.getByTestId("day-band-start")).toHaveTextContent("8:00 AM");
-    expect(screen.getByTestId("day-band-end")).toHaveTextContent("8:00 PM");
-    // Count-up tiles land on the real numbers (immediately under reduce
-    // motion, within a second otherwise).
+
+    // Card 1 is live on mount: count-ups, the window, the quote leaning.
+    expect(screen.getByTestId("result-carousel")).toBeTruthy();
+    expect(screen.getByTestId("result-card-everyday")).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByTestId("stat-quotes-value")).toHaveTextContent(/^4$/),
     );
-    expect(screen.getByText("quotes")).toBeTruthy();
-    expect(screen.getByText("Every day")).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByTestId("stat-affirmations-value")).toHaveTextContent(
         /^2$/,
@@ -317,32 +308,56 @@ describe("OnboardingFlow smoke render", () => {
     await waitFor(() =>
       expect(screen.getByTestId("stat-streak-value")).toHaveTextContent(/^7$/),
     );
-    expect(screen.getByText("day goal")).toBeTruthy();
-    // The streak goal wins the third tile; minutes only stand in for it.
-    expect(screen.queryByTestId("stat-minutes")).toBeNull();
-    // Chips: two quote leanings, the affirmation focus, then traits; capped
-    // at four so they stay on one line, and never the raw slugs.
-    const chips = screen.getByTestId("result-chips");
-    expect(chips).toHaveTextContent("DisciplineStoic calmSelf-beliefCalm");
-    expect(screen.queryByText("Free")).toBeNull();
-    expect(screen.queryByText("stoic-calm")).toBeNull();
+    expect(screen.getByText("8:00 AM to 8:00 PM")).toBeTruthy();
+    expect(screen.getByTestId("day-band")).toBeTruthy();
+    expect(
+      screen.getByText("Quotes lean toward discipline and stoic calm"),
+    ).toBeTruthy();
+
+    // Later cards exist (title visible as they peek in) but hold their
+    // points back until swiped into view, so the cascade plays on arrival.
+    expect(screen.getByTestId("result-card-commitments")).toBeTruthy();
+    expect(screen.getByTestId("result-card-you")).toBeTruthy();
+    expect(screen.queryByText("7 days in a row to start")).toBeNull();
+    expect(screen.queryByTestId("result-life-goal")).toBeNull();
+    // No library in tests: no preview card.
+    expect(screen.queryByTestId("result-card-preview")).toBeNull();
+
+    // Dots: one per card, the first active.
+    expect(screen.getByTestId("result-dots").props.children).toHaveLength(3);
+    expect(screen.getByTestId("result-dot-active")).toBeTruthy();
+
+    // Swipe to card 2: commitments, only the ones made; "unsure" never
+    // echoed; then card 3: affirmations, traits as chips, the life goal.
+    // Mirrors the component: viewport minus peek, plus the gap.
+    const snap = Dimensions.get("window").width - 40 - 28 + 12;
+    fireEvent.scroll(screen.getByTestId("result-carousel"), {
+      nativeEvent: { contentOffset: { x: snap, y: 0 } },
+    });
+    expect(screen.getByText("7 days in a row to start")).toBeTruthy();
+    expect(screen.getByText("About 1 minute a day")).toBeTruthy();
+    expect(
+      screen.getByText("Reading them in the app and saying them out loud"),
+    ).toBeTruthy();
+    fireEvent.scroll(screen.getByTestId("result-carousel"), {
+      nativeEvent: { contentOffset: { x: snap * 2, y: 0 } },
+    });
+    expect(
+      screen.getByText("Affirmations centered on self-belief"),
+    ).toBeTruthy();
+    expect(screen.getByTestId("result-traits")).toHaveTextContent("CalmFree");
+    expect(screen.getByTestId("result-life-goal")).toHaveTextContent(
+      "“someone who shows up”",
+    );
     expect(screen.queryByText(/\bmix\b/i)).toBeNull();
-    // Nothing to swipe any more.
-    expect(screen.queryByTestId("result-carousel")).toBeNull();
-    expect(screen.queryByTestId("result-dots")).toBeNull();
     screen.unmount();
   });
 
-  it("keeps the plan honest when steps were skipped", async () => {
+  it("keeps the summary honest when steps were skipped", async () => {
     const resultIndex = indexOfStep("iam-claude", (s) => s.type === "result");
     const screen = renderVariant("iam-claude", resultIndex);
-    expect(screen.getByText("Here's how your days will go.")).toBeTruthy();
-    expect(screen.queryByTestId("result-life-goal")).toBeNull();
-    // Defaults from the store: 3 / 3 between 9 AM and 9 PM.
-    expect(screen.getByTestId("mock-notification-time")).toHaveTextContent(
-      "9:00 AM",
-    );
-    expect(screen.getByTestId("day-band-end")).toHaveTextContent("9:00 PM");
+    expect(screen.getByText("We listened. Here's the plan.")).toBeTruthy();
+    // Defaults from the store: 3 / 3 between 9 AM and 9 PM; no goal column.
     await waitFor(() =>
       expect(screen.getByTestId("stat-quotes-value")).toHaveTextContent(/^3$/),
     );
@@ -351,29 +366,26 @@ describe("OnboardingFlow smoke render", () => {
         /^3$/,
       ),
     );
-    // No streak goal and no minutes were picked: no third tile, no chips.
     expect(screen.queryByTestId("stat-streak")).toBeNull();
-    expect(screen.queryByTestId("stat-minutes")).toBeNull();
-    expect(screen.queryByTestId("result-chips")).toBeNull();
+    expect(screen.getByText("9:00 AM to 9:00 PM")).toBeTruthy();
+    expect(screen.getByText("A balanced set of quotes to start")).toBeTruthy();
+    // No commitments were made: that card is absent entirely.
+    expect(screen.queryByTestId("result-card-commitments")).toBeNull();
+    expect(screen.getByTestId("result-card-you")).toBeTruthy();
+    expect(screen.getByTestId("result-dots").props.children).toHaveLength(2);
+    // Card 3 without traits or a life goal still says what affirmations do.
+    fireEvent.scroll(screen.getByTestId("result-carousel"), {
+      nativeEvent: {
+        contentOffset: {
+          x: Dimensions.get("window").width - 40 - 28 + 12,
+          y: 0,
+        },
+      },
+    });
+    expect(screen.getByText("Affirmations that build steadiness")).toBeTruthy();
+    expect(screen.queryByTestId("result-traits")).toBeNull();
+    expect(screen.queryByTestId("result-life-goal")).toBeNull();
     expect(screen.queryByText(/\bmix\b/i)).toBeNull();
-    screen.unmount();
-  });
-
-  it("falls back to the minutes tile when only the time commitment was made", async () => {
-    const answers = { "raw.daily_minutes": "10" };
-    const resultIndex = indexOfStep(
-      "iam-claude",
-      (s) => s.type === "result",
-      answers,
-    );
-    const screen = renderVariant("iam-claude", resultIndex, answers);
-    await waitFor(() =>
-      expect(screen.getByTestId("stat-minutes-value")).toHaveTextContent(
-        /^10$/,
-      ),
-    );
-    expect(screen.getByText("minutes")).toBeTruthy();
-    expect(screen.queryByTestId("stat-streak")).toBeNull();
     screen.unmount();
   });
 
