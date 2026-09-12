@@ -12,7 +12,12 @@ import { useAppState } from "@/lib/appState";
 
 import { useAuth } from "@/features/auth/AuthProvider";
 import { AuthSheet } from "@/features/auth/AuthSheet";
+import { CalAiPaywall } from "@/features/paywall/calai/CalAiPaywall";
 import { NotePaywall } from "@/features/paywall/NotePaywall";
+import {
+  PAYWALL_VARIANT,
+  calAiVersion,
+} from "@/features/paywall/paywallVariant";
 import { TimelinePaywall } from "@/features/paywall/TimelinePaywall";
 import { useOffering } from "@/features/paywall/useOffering";
 
@@ -49,8 +54,9 @@ export function OnboardingFlow() {
   const { isAnonymous } = useAuth();
 
   const config = variant ? getVariantConfig(variant) : null;
+  const calAi = calAiVersion(PAYWALL_VARIANT);
   const offering = useOffering(
-    config?.paywallStyle === "note" ? "monthly" : "annual",
+    config?.paywallStyle === "note" && !calAi ? "monthly" : "annual",
   );
   const [trialReminder, setTrialReminder] = useState(true);
   const [switchAuthVisible, setSwitchAuthVisible] = useState(false);
@@ -214,6 +220,26 @@ export function OnboardingFlow() {
         );
       }
       case "paywall":
+        if (calAi) {
+          return (
+            <CalAiPaywall
+              data={offering}
+              version={calAi}
+              placement="onboarding"
+              closeDelayMs={config.paywallCloseDelayMs}
+              onPurchased={() => {
+                advance();
+              }}
+              onClose={() => {
+                analytics.capture("paywall_dismissed", {
+                  variant,
+                  placement: "onboarding",
+                });
+                void finish();
+              }}
+            />
+          );
+        }
         if (config.paywallStyle === "note") {
           return (
             <NotePaywall
@@ -270,7 +296,9 @@ export function OnboardingFlow() {
     }
   };
 
-  const isFullBleed = step.type === "paywall" && config.paywallStyle === "note";
+  const isFullBleed =
+    step.type === "paywall" &&
+    (calAi !== null || config.paywallStyle === "note");
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
