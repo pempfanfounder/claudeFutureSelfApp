@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  AppState,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 
 import { AppText, Button } from "@/design-system/components";
@@ -12,7 +19,6 @@ import {
 } from "@/features/notifications/push";
 import {
   applyWindowChange,
-  formatMinutes,
   type WindowKey,
 } from "@/features/notifications/time";
 
@@ -21,6 +27,7 @@ import { useOnboardingStore } from "../store";
 import { StreamedLines } from "../StreamedLines";
 import type { OnboardingContext, OnboardingStep } from "../types";
 import { CountRow } from "./notifications/CountRow";
+import { GroupCard } from "./notifications/GroupCard";
 import { MockNotification } from "./notifications/MockNotification";
 import { TimeWindowCard } from "./notifications/TimeWindowCard";
 
@@ -33,10 +40,12 @@ interface NotificationsStepProps {
 
 /**
  * Notification education before the OS dialog.
- * iam family: the config screen. A mock notification banner, one
- * count pill per type (Quotes / Affirmations, 0..DAILY_LIMIT; the server
- * enforces the cap too), a Start at / End at card with the native time
- * pickers, then "Turn on reminders".
+ * iam family: the config screen. A mock notification banner, then two
+ * grouped cards on shared chrome: Quotes / Affirmations count rows
+ * (0..DAILY_LIMIT; the server enforces the cap too) and Start at / End at
+ * rows with the native time pickers, then "Turn on reminders". No
+ * sentence restates the window (feedback 2026-09-12). The whole screen
+ * fits a 6.1" phone without scrolling: keep the card rows at 52 pt.
  * stella family: streamed voice + a single contextual ask.
  */
 export function NotificationsStep({
@@ -53,16 +62,31 @@ export function NotificationsStep({
   // dialog on the next request. Saying "Allow" then would promise a
   // prompt that never appears; the button only saves the counts.
   const [alreadyGranted, setAlreadyGranted] = useState(false);
+  // A previously denied permission makes the request resolve "denied"
+  // with no dialog at all. Advancing silently there reads as "the prompt
+  // doesn't work", so the iam screen switches to an inline explanation
+  // with an Open Settings action instead (feedback 2026-09-12).
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getPermissionStatus()
-      .then((status) => {
-        if (!cancelled) setAlreadyGranted(status === "granted");
-      })
-      .catch(() => {});
+    const sync = () =>
+      getPermissionStatus()
+        .then((status) => {
+          if (cancelled) return;
+          setAlreadyGranted(status === "granted");
+          // Coming back from Settings with reminders switched on clears
+          // the denied panel and offers the plain "Save".
+          if (status === "granted") setDenied(false);
+        })
+        .catch(() => {});
+    void sync();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void sync();
+    });
     return () => {
       cancelled = true;
+      sub.remove();
     };
   }, []);
 
@@ -71,7 +95,15 @@ export function NotificationsStep({
     const status = await requestNotificationPermission();
     setPermissionStatus(status);
     setRequesting(false);
+    if (status === "denied" && family === "iam") {
+      setDenied(true);
+      return;
+    }
     onDone();
+  };
+
+  const openSettings = () => {
+    Linking.openSettings().catch(() => {});
   };
 
   if (family === "stella") {
@@ -123,57 +155,80 @@ export function NotificationsStep({
         </View>
 
         <View style={styles.rows}>
-          <CountRow
-            id="quotes"
-            label="Quotes"
-            value={notificationPrefs.quotesPerDay}
-            max={DAILY_LIMIT}
-            onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
-          />
-          <CountRow
-            id="affirmations"
-            label="Affirmations"
-            value={notificationPrefs.affirmationsPerDay}
-            max={DAILY_LIMIT}
-            onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
-          />
+          <GroupCard testID="count-card">
+            <CountRow
+              id="quotes"
+              label="Quotes"
+              value={notificationPrefs.quotesPerDay}
+              max={DAILY_LIMIT}
+              onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
+            />
+            <CountRow
+              id="affirmations"
+              label="Affirmations"
+              value={notificationPrefs.affirmationsPerDay}
+              max={DAILY_LIMIT}
+              onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
+            />
+          </GroupCard>
           <TimeWindowCard range={notificationPrefs} onChange={changeWindow} />
         </View>
-
-        <AppText
-          variant="label"
-          tone="ink3"
-          center
-          style={styles.windowHint}
-          testID="window-hint"
-        >
-          {`Between ${formatMinutes(notificationPrefs.windowStartMinutes)} and ${formatMinutes(
-            notificationPrefs.windowEndMinutes,
-          )} · your future self won't wake you`}
-        </AppText>
       </ScrollView>
       <View style={styles.footer}>
-        <Button
-          label={
-            alreadyGranted
-              ? "Save"
-              : (resolveText(step.cta, ctx) ?? "Turn on reminders")
-          }
-          onPress={ask}
-          loading={requesting}
-          testID="notif-allow"
-        />
-        <Pressable
-          onPress={onDone}
-          style={styles.maybeLater}
-          hitSlop={8}
-          accessibilityRole="button"
-          testID="notif-not-now"
-        >
-          <AppText variant="body" tone="ink3" center>
-            Not now
-          </AppText>
-        </Pressable>
+        {denied ? (
+          <Animated.View entering={FadeIn.duration(220)}>
+            <AppText
+              variant="label"
+              tone="ink2"
+              center
+              style={styles.deniedNote}
+              testID="notif-denied"
+            >
+              Reminders are off for Future Self in Settings. Turn them on there
+              and your quotes will find you.
+            </AppText>
+            <Button
+              label="Open Settings"
+              onPress={openSettings}
+              testID="notif-open-settings"
+            />
+            <Pressable
+              onPress={onDone}
+              style={styles.maybeLater}
+              hitSlop={8}
+              accessibilityRole="button"
+              testID="notif-continue-without"
+            >
+              <AppText variant="body" tone="ink3" center>
+                Continue without reminders
+              </AppText>
+            </Pressable>
+          </Animated.View>
+        ) : (
+          <>
+            <Button
+              label={
+                alreadyGranted
+                  ? "Save"
+                  : (resolveText(step.cta, ctx) ?? "Turn on reminders")
+              }
+              onPress={ask}
+              loading={requesting}
+              testID="notif-allow"
+            />
+            <Pressable
+              onPress={onDone}
+              style={styles.maybeLater}
+              hitSlop={8}
+              accessibilityRole="button"
+              testID="notif-not-now"
+            >
+              <AppText variant="body" tone="ink3" center>
+                Not now
+              </AppText>
+            </Pressable>
+          </>
+        )}
       </View>
     </Animated.View>
   );
@@ -186,7 +241,9 @@ const styles = StyleSheet.create({
   sub: { marginTop: spacing.md },
   mock: { marginTop: spacing.xl },
   rows: { marginTop: spacing.xxl, gap: spacing.md },
-  windowHint: { marginTop: spacing.md },
   footer: { paddingBottom: spacing.sm },
+  // Two label lines at most, so the denied state still fits without
+  // scrolling on a 6.1" phone.
+  deniedNote: { marginBottom: spacing.md, paddingHorizontal: spacing.md },
   maybeLater: { marginTop: spacing.lg },
 });

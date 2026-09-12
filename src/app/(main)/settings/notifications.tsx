@@ -359,7 +359,7 @@ export default function NotificationSettingsScreen() {
           {
             <ToggleRow
               label={"Streak at risk"}
-              sub={"One evening nudge when today would break the chain"}
+              sub={"One evening reminder when today would break the chain"}
               value={prefs.streak_reminder}
               onChange={(v) => save({ ...prefs, streak_reminder: v })}
               disabled={busy || !loaded}

@@ -1,6 +1,6 @@
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Platform } from "react-native";
+import { AppState, Linking, Platform, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -17,6 +17,7 @@ import {
   roundToInterval,
 } from "@/features/notifications/time";
 import { NotificationsStep } from "@/features/onboarding/engine/steps/NotificationsStep";
+import { VALUE_FONT_SIZE } from "@/features/onboarding/engine/steps/notifications/CountRow";
 import { useOnboardingStore } from "@/features/onboarding/engine/store";
 import type {
   OnboardingContext,
@@ -94,16 +95,45 @@ afterEach(() => {
 });
 
 describe("NotificationsStep (iam)", () => {
-  it("shows the store defaults: 3x / 3x and the 9 AM – 9 PM hint", () => {
+  it("shows the store defaults: 3 / 3 a day and 9 AM – 9 PM", () => {
     const { screen } = renderStep();
-    expect(screen.getByTestId("quotes-value")).toHaveTextContent("3x");
-    expect(screen.getByTestId("affirmations-value")).toHaveTextContent("3x");
-    expect(screen.getByTestId("window-hint")).toHaveTextContent(
-      `Between ${formatMinutes(540)} and ${formatMinutes(1260)} · your future self won't wake you`,
+    // Plain numerals, not the reference app's "3x".
+    expect(screen.getByTestId("quotes-value")).toHaveTextContent(/^3$/);
+    expect(screen.getByTestId("affirmations-value")).toHaveTextContent(/^3$/);
+    expect(dateToMinutes(screen.getByTestId("start-picker").props.value)).toBe(
+      540,
+    );
+    expect(dateToMinutes(screen.getByTestId("end-picker").props.value)).toBe(
+      1260,
     );
     expect(screen.getByText(STEP.mockLine!)).toBeTruthy();
     expect(screen.getByText("Future Self")).toBeTruthy();
     expect(screen.getByText("Now")).toBeTruthy();
+  });
+
+  it("sets the count in the system font with a 'per day' caption after it", () => {
+    const { screen } = renderStep();
+    const value = screen.getByTestId("quotes-value");
+    const style = StyleSheet.flatten(value.props.style) as {
+      fontFamily?: string;
+      fontSize?: number;
+      fontWeight?: string;
+    };
+    // No brand face: the platform system font, like the compact time
+    // picker's chip one card below (SF Pro on iOS).
+    expect(style.fontFamily).toBeUndefined();
+    expect(style.fontSize).toBe(VALUE_FONT_SIZE);
+    expect(style.fontWeight).toBe("400");
+    expect(value.props.accessibilityLabel).toBe("3 quotes per day");
+    // One caption per count row, outside the capsule.
+    expect(screen.getAllByText("per day")).toHaveLength(2);
+  });
+
+  it("never restates the window as a sentence (feedback 2026-09-12)", () => {
+    const { screen } = renderStep();
+    expect(screen.queryByTestId("window-hint")).toBeNull();
+    expect(screen.queryByText(/won't wake you/i)).toBeNull();
+    expect(screen.queryByText(/^Between /)).toBeNull();
   });
 
   it("plus / minus write through to the store", () => {
@@ -111,12 +141,12 @@ describe("NotificationsStep (iam)", () => {
     fireEvent.press(screen.getByTestId("quotes-plus"));
     fireEvent.press(screen.getByTestId("quotes-plus"));
     expect(prefs().quotesPerDay).toBe(5);
-    expect(screen.getByTestId("quotes-value")).toHaveTextContent("5x");
+    expect(screen.getByTestId("quotes-value")).toHaveTextContent(/^5$/);
 
     fireEvent.press(screen.getByTestId("affirmations-minus"));
     expect(prefs().affirmationsPerDay).toBe(2);
-    expect(screen.getByTestId("affirmations-value")).toHaveTextContent("2x");
-    // The other row is untouched.
+    expect(screen.getByTestId("affirmations-value")).toHaveTextContent(/^2$/);
+    // The other tile is untouched.
     expect(prefs().quotesPerDay).toBe(5);
   });
 
@@ -132,7 +162,7 @@ describe("NotificationsStep (iam)", () => {
     expect(minus).toBeDisabled();
     fireEvent.press(minus);
     expect(prefs().affirmationsPerDay).toBe(0);
-    expect(screen.getByTestId("affirmations-value")).toHaveTextContent("0x");
+    expect(screen.getByTestId("affirmations-value")).toHaveTextContent(/^0$/);
     // Plus is still live.
     expect(screen.getByTestId("affirmations-plus")).not.toHaveStyle({
       opacity: 0.35,
@@ -156,7 +186,7 @@ describe("NotificationsStep (iam)", () => {
     fireEvent.press(plus);
     expect(prefs().quotesPerDay).toBe(DAILY_LIMIT);
     expect(screen.getByTestId("quotes-value")).toHaveTextContent(
-      `${DAILY_LIMIT}x`,
+      new RegExp(`^${DAILY_LIMIT}$`),
     );
   });
 
@@ -173,15 +203,12 @@ describe("NotificationsStep (iam)", () => {
     fireEvent(start, "valueChange", pickerEvent(at(10, 30)), at(10, 30));
     expect(prefs().windowStartMinutes).toBe(630);
     expect(prefs().windowEndMinutes).toBe(21 * 60);
-    expect(screen.getByTestId("window-hint")).toHaveTextContent(
-      /^Between 10:30 AM and 9:00 PM/,
-    );
 
     fireEvent(end, "valueChange", pickerEvent(at(18, 0)), at(18, 0));
     expect(prefs().windowEndMinutes).toBe(18 * 60);
     expect(prefs().windowStartMinutes).toBe(630);
-    expect(screen.getByTestId("window-hint")).toHaveTextContent(
-      /^Between 10:30 AM and 6:00 PM/,
+    expect(dateToMinutes(screen.getByTestId("end-picker").props.value)).toBe(
+      18 * 60,
     );
   });
 
@@ -212,12 +239,12 @@ describe("NotificationsStep (iam)", () => {
       windowEndMinutes: 23 * 60 + 30,
     });
 
-    // The picker value re-renders from the store.
+    // The picker values re-render from the store.
     expect(dateToMinutes(screen.getByTestId("start-picker").props.value)).toBe(
       22 * 60 + 30,
     );
-    expect(screen.getByTestId("window-hint")).toHaveTextContent(
-      /^Between 10:30 PM and 11:30 PM/,
+    expect(dateToMinutes(screen.getByTestId("end-picker").props.value)).toBe(
+      23 * 60 + 30,
     );
   });
 
@@ -290,6 +317,76 @@ describe("NotificationsStep (iam)", () => {
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
     expect(requestNotificationPermission).toHaveBeenCalledTimes(1);
     expect(useOnboardingStore.getState().permissionStatus).toBe("granted");
+  });
+
+  it("on denied: stays put, explains, offers Settings and a way on", async () => {
+    // Previously denied on iOS: the request resolves "denied" with no
+    // dialog. The step must not advance silently.
+    (
+      requestNotificationPermission as jest.MockedFunction<
+        typeof requestNotificationPermission
+      >
+    ).mockResolvedValueOnce("denied");
+    const openSettings = jest
+      .spyOn(Linking, "openSettings")
+      .mockResolvedValue(undefined);
+    const { screen, onDone } = renderStep();
+
+    fireEvent.press(screen.getByTestId("notif-allow"));
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-denied")).toBeTruthy(),
+    );
+    expect(onDone).not.toHaveBeenCalled();
+    expect(useOnboardingStore.getState().permissionStatus).toBe("denied");
+    expect(screen.getByTestId("notif-denied")).toHaveTextContent(
+      "Reminders are off for Future Self in Settings. Turn them on there and your quotes will find you.",
+    );
+    expect(screen.getByTestId("notif-denied").props.children).not.toMatch(
+      /[—–]/,
+    );
+    // The ask button is gone; the counts are still on screen.
+    expect(screen.queryByTestId("notif-allow")).toBeNull();
+    expect(screen.queryByTestId("notif-not-now")).toBeNull();
+    expect(screen.getByTestId("quotes-value")).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId("notif-open-settings"));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId("notif-continue-without"));
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the denied panel once Settings granted permission", async () => {
+    (
+      requestNotificationPermission as jest.MockedFunction<
+        typeof requestNotificationPermission
+      >
+    ).mockResolvedValueOnce("denied");
+    const listeners: ((state: string) => void)[] = [];
+    jest
+      .spyOn(AppState, "addEventListener")
+      .mockImplementation((_type, handler) => {
+        listeners.push(handler as (state: string) => void);
+        return { remove: jest.fn() };
+      });
+    const { screen, onDone } = renderStep();
+    fireEvent.press(screen.getByTestId("notif-allow"));
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-denied")).toBeTruthy(),
+    );
+
+    // The user flips the switch in Settings and comes back.
+    mockPermissionStatus.mockResolvedValueOnce("granted");
+    expect(listeners.length).toBeGreaterThan(0);
+    act(() => {
+      for (const listener of listeners) listener("active");
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("notif-allow")).toHaveTextContent("Save"),
+    );
+    expect(screen.queryByTestId("notif-denied")).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   it("Not now advances without asking", () => {

@@ -151,6 +151,25 @@ describe("OnboardingFlow smoke render", () => {
     });
   }
 
+  it("draws the progress bar on iam-claude questions, not on the welcome or paywall", async () => {
+    const welcome = renderVariant("iam-claude", 0);
+    expect(welcome.queryByTestId("onboarding-progress")).toBeNull();
+    welcome.unmount();
+
+    const nameIndex = indexOfStep("iam-claude", (s) => s.id === "name");
+    const name = renderVariant("iam-claude", nameIndex);
+    expect(name.getByTestId("onboarding-progress")).toBeTruthy();
+    expect(
+      name.UNSAFE_getByProps({ accessibilityRole: "progressbar" }),
+    ).toBeTruthy();
+    name.unmount();
+
+    const paywallIndex = indexOfStep("iam-claude", (s) => s.type === "paywall");
+    const paywall = renderVariant("iam-claude", paywallIndex);
+    expect(paywall.queryByTestId("onboarding-progress")).toBeNull();
+    paywall.unmount();
+  });
+
   it("commits to 21 days from the streak step CTA when no goal was picked", async () => {
     const streakIndex = indexOfStep(
       "iam-claude",

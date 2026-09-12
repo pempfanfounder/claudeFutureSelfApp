@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeInRight } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
 
 import {
   APP_ICON_IDS,
   APP_ICON_SOURCES,
+  applyAppIcon,
   DEFAULT_APP_ICON_ID,
 } from "@/design-system/appIcons";
 import { AppText, Button } from "@/design-system/components";
@@ -26,19 +27,67 @@ const TILE_SIZE = 64;
 const TILE_RADIUS = 16;
 const RING_WIDTH = 2;
 const RING_GAP = 2;
+/** Rapid taps across tiles collapse into one icon change. */
+export const APPLY_DEBOUNCE_MS = 400;
 
 /**
  * I Am-style app-icon picker (screen 33): 4-column grid of icon tiles,
  * first tile pre-selected, ring on the selection, Continue below.
  *
- * Only *records* the choice — iOS shows a system alert whenever the icon
- * changes, so the icon is applied once, at onboarding completion.
+ * The icon is applied on tap (debounced, last tap wins) so the change is
+ * visible right away; Continue flushes any pending apply and records the
+ * choice, and onboarding completion re-applies as a no-op safety net.
+ * When the change fails, a small hint says so instead of staying silent.
  */
 export function AppIconStep({ step, ctx, onAnswer }: AppIconStepProps) {
   const colors = useColors();
   const { theme } = useTheme();
   const [selected, setSelected] = useState(() =>
     APP_ICON_IDS.includes(theme.id) ? theme.id : DEFAULT_APP_ICON_ID,
+  );
+  const [failed, setFailed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const applied = useRef<string | null>(null);
+  const inFlight = useRef<Promise<void> | null>(null);
+  const latest = useRef(selected);
+
+  /**
+   * Applies the most recent selection once, serialising behind any apply
+   * still in flight so two native icon changes never overlap.
+   */
+  const flush = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    const run = async () => {
+      const target = latest.current;
+      if (applied.current === target) return;
+      const ok = await applyAppIcon(target);
+      applied.current = ok ? target : null;
+      setFailed(!ok);
+      // A newer tap landed while this one was in flight.
+      if (latest.current !== target) await run();
+    };
+    if (inFlight.current) return;
+    inFlight.current = run().finally(() => {
+      inFlight.current = null;
+    });
+  }, []);
+
+  const select = (id: string) => {
+    latest.current = id;
+    setSelected(id);
+    setFailed(false);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(flush, APPLY_DEBOUNCE_MS);
+  };
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
   );
 
   return (
@@ -62,7 +111,7 @@ export function AppIconStep({ step, ctx, onAnswer }: AppIconStepProps) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={themeById(id)?.name ?? id}
-                  onPress={() => setSelected(id)}
+                  onPress={() => select(id)}
                   style={[
                     styles.ring,
                     { borderColor: active ? colors.ink : "transparent" },
@@ -87,6 +136,20 @@ export function AppIconStep({ step, ctx, onAnswer }: AppIconStepProps) {
             );
           })}
         </View>
+
+        {failed ? (
+          <Animated.View entering={FadeIn.duration(200)}>
+            <AppText
+              variant="label"
+              tone="ink3"
+              center
+              style={styles.hint}
+              testID="app-icon-failed"
+            >
+              {"Couldn't change the icon. You can try again from Themes later."}
+            </AppText>
+          </Animated.View>
+        ) : null}
       </ScrollView>
       <View style={styles.footer}>
         {step.trialCaption ? (
@@ -101,7 +164,11 @@ export function AppIconStep({ step, ctx, onAnswer }: AppIconStepProps) {
         ) : null}
         <Button
           label={resolveText(step.cta, ctx) ?? "Continue"}
-          onPress={() => onAnswer(selected)}
+          onPress={() => {
+            // Don't let a pending debounce die with the step: apply now.
+            flush();
+            onAnswer(selected);
+          }}
           testID="continue"
         />
       </View>
@@ -127,6 +194,7 @@ const styles = StyleSheet.create({
   },
   tile: { width: TILE_SIZE, height: TILE_SIZE, borderRadius: TILE_RADIUS },
   tileName: { marginTop: spacing.sm, fontSize: 11, lineHeight: 14 },
+  hint: { marginTop: spacing.lg },
   footer: { paddingBottom: spacing.sm },
   trialCaption: { marginBottom: spacing.sm },
 });

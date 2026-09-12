@@ -132,6 +132,16 @@ describe("onboarding variant configs", () => {
         }
       });
 
+      it("calls the content 'quotes' and never 'nudges' (feedback 2026-09-12)", () => {
+        for (const text of userFacingStrings(config)) {
+          expect(text).not.toMatch(/nudge/i);
+          // "words" is fine only when it literally means words the user
+          // picks or types ("Three words, ...", "Your own line"); the
+          // delivered content is always "quotes".
+          expect(text).not.toMatch(/\b(daily|right|your|our) words\b/i);
+        }
+      });
+
       it("uses only known personalization model keys", () => {
         for (const step of config.steps) {
           if (!step.modelKey) continue;
@@ -405,6 +415,60 @@ describe("iam-claude conversion refinements", () => {
     expect(goal.modelKey).toBe("raw.streak_goal");
     expect(streak.modelKey).toBe("raw.streak_goal");
     expect(goal.options?.map((o) => o.slug)).toEqual(["3", "7", "21"]);
+  });
+
+  it("carries the owner's final copy picks (2026-09-12)", () => {
+    const helper = stepById("habit-helper");
+    expect(resolveText(helper.headline, dummyCtx)).toBe(
+      "What would help make Future Self a habit you keep?",
+    );
+    expect(helper.options?.find((o) => o.slug === "reminders")?.label).toBe(
+      "Reminders through my day",
+    );
+    expect(resolveText(stepById("time-devotion").sub, dummyCtx)).toBe(
+      "Even 1 minute counts, if it's every day",
+    );
+    expect(resolveText(stepById("streak-goal").headline, dummyCtx)).toBe(
+      "What's your first streak goal?",
+    );
+  });
+
+  it("lets every future trait be picked (no cap)", () => {
+    const traits = stepById("traits");
+    expect(traits.type).toBe("chips");
+    expect(traits.maxSelect).toBeUndefined();
+    expect(traits.minSelect).toBe(1);
+  });
+
+  it("phrases every 'a year in' outcome as a first-person answer", () => {
+    const achieve = stepById("achieve");
+    expect(resolveText(achieve.headline, dummyCtx)).toBe(
+      "A year in, what should have changed?",
+    );
+    for (const option of achieve.options ?? []) {
+      expect(option.label).toMatch(/^(I|My)\b/);
+    }
+    const byslug = Object.fromEntries(
+      (achieve.options ?? []).map((o) => [o.slug, o.label]),
+    );
+    expect(byslug["best-self"]).toBe("I'm the person I imagined to be");
+    expect(byslug["discipline"]).toBe("I am finally disciplined");
+    expect(byslug["mindset"]).toBe("My thinking got clearer");
+  });
+
+  it("writes counts as numerals, matching the streak screens", () => {
+    const minutes = stepById("time-devotion");
+    expect(minutes.options?.map((o) => o.label)).toEqual([
+      "1 quiet minute",
+      "3 focused minutes",
+      "10 unhurried minutes",
+    ]);
+    expect(resolveText(stepById("streak").headline, dummyCtx)).toMatch(
+      /^3 readings/,
+    );
+    for (const text of userFacingStrings(config)) {
+      expect(text).not.toMatch(/\b(one|three|ten) (minute|reading|quote)/i);
+    }
   });
 
   it("stores every new answer under a raw.* key (no schema change)", () => {
