@@ -15,44 +15,39 @@ import {
   type WindowKey,
 } from "@/features/notifications/time";
 
+import { GroupCard } from "./GroupCard";
+
 interface TimeWindowCardProps {
   range: NotificationWindow;
   /** Raw picker minutes; the caller applies the gap/grid rules. */
   onChange: (key: WindowKey, minutes: number) => void;
 }
 
-const ROW_HEIGHT = 52;
+export const TIME_ROW_HEIGHT = 52;
 
 /**
- * I Am "Start at" / "End at" grouped card. The time control is the OS
- * one: on iOS the compact date picker draws its own grey capsule and
- * opens the wheel popover natively; on Android we draw the capsule and
- * open the platform time dialog through the library's imperative API
- * (its recommended Android path — the dialog is not a view).
+ * "Start at" / "End at" rows on the shared `GroupCard` chrome. The time
+ * control is the OS one: on iOS the compact date picker draws its own
+ * value chip and opens the wheel popover natively; on Android we draw an
+ * outlined capsule (same family as the count stepper) and open the
+ * platform time dialog through the library's imperative API.
  */
 export function TimeWindowCard({ range, onChange }: TimeWindowCardProps) {
-  const { palette: colors } = useTheme();
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
+    <GroupCard testID="time-window">
       <TimeRow
         label="Start at"
         minutes={range.windowStartMinutes}
         onChange={(m) => onChange("windowStartMinutes", m)}
         testID="start-picker"
       />
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
       <TimeRow
         label="End at"
         minutes={range.windowEndMinutes}
         onChange={(m) => onChange("windowEndMinutes", m)}
         testID="end-picker"
       />
-    </View>
+    </GroupCard>
   );
 }
 
@@ -105,11 +100,13 @@ function TimeRow({ label, minutes, onChange, testID }: TimeRowProps) {
         testID={testID}
         style={({ pressed }) => [
           styles.capsule,
-          { backgroundColor: colors.bgAlt },
+          { backgroundColor: colors.bgAlt, borderColor: colors.borderStrong },
           pressed && styles.capsulePressed,
         ]}
       >
-        <AppText variant="lead">{formatMinutes(minutes)}</AppText>
+        <AppText variant="body" style={styles.capsuleText}>
+          {formatMinutes(minutes)}
+        </AppText>
       </Pressable>
     );
 
@@ -124,27 +121,20 @@ function TimeRow({ label, minutes, onChange, testID }: TimeRowProps) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: radii.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.lg,
-    // The compact picker's popover is presented by UIKit above the row;
-    // nothing here may clip it.
-    overflow: "visible",
-  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: ROW_HEIGHT,
+    minHeight: TIME_ROW_HEIGHT,
     overflow: "visible",
   },
   label: { flex: 1 },
-  divider: { height: StyleSheet.hairlineWidth },
   capsule: {
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm - 2,
+    borderRadius: radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   capsulePressed: { opacity: 0.7 },
+  capsuleText: { fontVariant: ["tabular-nums"] },
 });

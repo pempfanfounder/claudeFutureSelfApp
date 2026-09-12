@@ -115,6 +115,17 @@ store-console product setup and the real per-platform keys before release.
    URL `https://ykgswczatkspryetstor.supabase.co/functions/v1/revenuecat-webhook`,
    Authorization header value = a secret you generate. Then:
    `supabase secrets set REVENUECAT_WEBHOOK_SECRET=<that secret>`.
+   The webhook also refuses events outside its configured scope, so set the
+   RevenueCat **app IDs** (one per platform, from RevenueCat → Project →
+   Apps; comma-separated, whitespace ignored) and the exact environment:
+
+   ```bash
+   supabase secrets set REVENUECAT_WEBHOOK_APP_ID=app6bb4e06e68,app6bbf4b6d0c   # iOS, Android
+   supabase secrets set REVENUECAT_WEBHOOK_ENVIRONMENT=PRODUCTION
+   ```
+
+   Listing only one app ID is still valid, but events from the other
+   platform's app are then rejected with `400 event scope mismatch`.
 6. **Server API key** (fallback entitlement sync when the webhook lags):
    `supabase secrets set REVENUECAT_SECRET_API_KEY=<RevenueCat secret key>`.
    `sync-entitlement` treats the user as premium if *any* entitlement in the
@@ -216,5 +227,7 @@ locally, so users never switch funnels either way.
 | `EXPO_PUBLIC_DEV_MOCK_PURCHASES`                             | `.env` (dev only)        | mock paywall           |
 | `DISPATCH_SECRET`                                            | supabase secrets + vault | cron → dispatcher auth |
 | `REVENUECAT_WEBHOOK_SECRET`                                  | supabase secrets         | webhook auth           |
+| `REVENUECAT_WEBHOOK_APP_ID`                                  | supabase secrets         | accepted RC app IDs (comma-separated, e.g. `app6bb4e06e68,app6bbf4b6d0c`) |
+| `REVENUECAT_WEBHOOK_ENVIRONMENT`                             | supabase secrets         | accepted RC environment (`PRODUCTION` / `SANDBOX`) |
 | `REVENUECAT_SECRET_API_KEY`                                  | supabase secrets         | entitlement sync       |
 | `SENTRY_AUTH_TOKEN` (+ org/project)                          | EAS secrets              | source maps            |

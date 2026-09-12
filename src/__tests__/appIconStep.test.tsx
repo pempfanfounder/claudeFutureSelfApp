@@ -8,12 +8,49 @@ import { THEMES } from "@/design-system/themes";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { OnboardingFlow } from "@/features/onboarding/engine/OnboardingFlow";
 import { useOnboardingStore } from "@/features/onboarding/engine/store";
-import { AppIconStep } from "@/features/onboarding/engine/steps/AppIconStep";
+import {
+  APPLY_DEBOUNCE_MS,
+  AppIconStep,
+} from "@/features/onboarding/engine/steps/AppIconStep";
+
 import type {
   OnboardingContext,
   OnboardingStep,
 } from "@/features/onboarding/engine/types";
 import { VARIANT_CONFIGS } from "@/features/onboarding/variants";
+
+// A device that supports alternate icons, with the primary icon active.
+const mockSetAlternateAppIcon = jest.fn(async (name: string | null) => name);
+const mockGetAppIconName = jest.fn<string | null, []>(() => null);
+let mockSupports = true;
+jest.mock("expo-alternate-app-icons", () => ({
+  get supportsAlternateIcons() {
+    return mockSupports;
+  },
+  setAlternateAppIcon: (name: string | null) => mockSetAlternateAppIcon(name),
+  getAppIconName: () => mockGetAppIconName(),
+  resetAppIcon: () => mockSetAlternateAppIcon(null),
+}));
+
+beforeEach(() => {
+  mockSupports = true;
+  mockSetAlternateAppIcon.mockClear();
+  mockGetAppIconName.mockReset();
+  mockGetAppIconName.mockReturnValue(null);
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+/** Lets the debounce fire and the async apply settle. */
+async function settleApply() {
+  await act(async () => {
+    jest.advanceTimersByTime(APPLY_DEBOUNCE_MS + 1);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
 
 // The flow-level cases below mount OnboardingFlow, which pulls in the
 // purchase/notification/auth surfaces; mock their native edges the same
@@ -148,13 +185,83 @@ describe("AppIconStep", () => {
     expect(ringColor(screen.getByTestId("app-icon-minimal_sand"))).toBe(
       "transparent",
     );
-    // Only Continue records the choice — tapping never calls onAnswer,
-    // so the iOS "You have changed the icon" alert cannot fire mid-flow.
+    // Only Continue records the choice; tapping applies the icon but
+    // never advances.
     expect(onAnswer).not.toHaveBeenCalled();
 
     fireEvent.press(screen.getByTestId("continue"));
     expect(onAnswer).toHaveBeenCalledTimes(1);
     expect(onAnswer).toHaveBeenCalledWith("midnight_focus");
+    screen.unmount();
+  });
+
+  it("applies the tapped icon after the debounce, last tap wins", async () => {
+    jest.useFakeTimers();
+    const { screen } = renderStep();
+    fireEvent.press(screen.getByTestId("app-icon-midnight_focus"));
+    fireEvent.press(screen.getByTestId("app-icon-arctic"));
+    fireEvent.press(screen.getByTestId("app-icon-evergreen"));
+    // Nothing yet: rapid taps are collapsed.
+    expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
+
+    await settleApply();
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledTimes(1);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Evergreen");
+    expect(screen.queryByTestId("app-icon-failed")).toBeNull();
+    screen.unmount();
+  });
+
+  it("resets to the primary icon when Minimal Sand is picked after another icon", async () => {
+    jest.useFakeTimers();
+    mockGetAppIconName.mockReturnValue("Arctic");
+    const { screen } = renderStep();
+    fireEvent.press(screen.getByTestId("app-icon-minimal_sand"));
+    await settleApply();
+    // Not a no-op and not "MinimalSand" by name: the primary icon is reset.
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledTimes(1);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith(null);
+    screen.unmount();
+  });
+
+  it("Continue flushes a pending apply instead of letting it die with the step", () => {
+    jest.useFakeTimers();
+    const { screen, onAnswer } = renderStep();
+    fireEvent.press(screen.getByTestId("app-icon-ocean_clarity"));
+    expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId("continue"));
+    // Applied synchronously up to the native call; no debounce wait.
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("OceanClarity");
+    expect(onAnswer).toHaveBeenCalledWith("ocean_clarity");
+    screen.unmount();
+  });
+
+  it("shows a hint when the icon could not be changed, and clears it on the next tap", async () => {
+    jest.useFakeTimers();
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const consoleWarn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+    mockSetAlternateAppIcon.mockRejectedValueOnce(new Error("busy"));
+    const { screen } = renderStep();
+
+    fireEvent.press(screen.getByTestId("app-icon-terracotta"));
+    await settleApply();
+    expect(screen.getByTestId("app-icon-failed")).toHaveTextContent(
+      "Couldn't change the icon. You can try again from Themes later.",
+    );
+    expect(consoleWarn).toHaveBeenCalled();
+
+    // The next tap retries and, on success, the hint goes away.
+    fireEvent.press(screen.getByTestId("app-icon-golden_success"));
+    expect(screen.queryByTestId("app-icon-failed")).toBeNull();
+    await settleApply();
+    expect(mockSetAlternateAppIcon).toHaveBeenLastCalledWith("GoldenSuccess");
+    expect(screen.queryByTestId("app-icon-failed")).toBeNull();
+
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
     screen.unmount();
   });
 
@@ -202,7 +309,7 @@ describe("OnboardingFlow app-icon step", () => {
       expect(screen.getByTestId("app-icon-minimal_sand")).toBeTruthy();
 
       fireEvent.press(screen.getByTestId("app-icon-evergreen"));
-      // Selecting alone stores nothing (no icon change mid-funnel).
+      // Selecting applies the icon (debounced) but records nothing yet.
       expect(
         useOnboardingStore.getState().answers["raw.app_icon"],
       ).toBeUndefined();

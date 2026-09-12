@@ -19,6 +19,7 @@ import { useOffering } from "@/features/paywall/useOffering";
 
 import { getVariantConfig } from "../variants";
 import { completeOnboarding } from "./completeOnboarding";
+import { onboardingProgress, PROGRESS_BAR_FAMILIES } from "./progress";
 import { resolveText } from "./resolve";
 import { useOnboardingStore } from "./store";
 import { AppIconStep } from "./steps/AppIconStep";
@@ -167,11 +168,12 @@ export function OnboardingFlow() {
     !isSaveAccount &&
     stepIndex > 0 &&
     !["preparing", "paywall"].includes(step.type);
-  const showProgress =
-    isStella &&
-    !step.hideProgress &&
-    !["welcome", "preparing", "paywall", "auth-sheet"].includes(step.type);
-  const progress = (stepIndex + 1) / steps.length;
+  const progress = PROGRESS_BAR_FAMILIES[config.family]
+    ? onboardingProgress(steps, stepIndex)
+    : null;
+  // The top bar hides on auth-sheet steps; SaveAccountScreen draws its own
+  // progress line, so give it a plain position-based value.
+  const saveAccountProgress = (stepIndex + 1) / steps.length;
   // Going back onto a "preparing" step would rerun its work; stop there.
   const canGoBack = stepIndex > 0 && steps[stepIndex - 1]?.type !== "preparing";
 
@@ -211,7 +213,7 @@ export function OnboardingFlow() {
           return (
             <SaveAccountScreen
               sub={resolveText(step.sub, ctx)}
-              progress={progress}
+              progress={saveAccountProgress}
               onBack={canGoBack ? goBack : undefined}
               onDone={(ok) => {
                 if (ok) advance();
@@ -299,8 +301,11 @@ export function OnboardingFlow() {
         />
       ) : null}
 
-      {showProgress ? (
-        <View style={[styles.progress, { top: insets.top + spacing.sm }]}>
+      {progress !== null ? (
+        <View
+          style={[styles.progress, { top: insets.top + spacing.sm }]}
+          testID="onboarding-progress"
+        >
           <ProgressBar progress={progress} height={3} />
         </View>
       ) : null}

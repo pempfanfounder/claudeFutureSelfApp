@@ -216,6 +216,25 @@ Dashboard → Edge Functions → `push-dispatch` / `push-receipts` → Logs. Eac
 dispatch run returns a summary like
 `{"read":12,"sent":11,"ticket_error":0,"archived":1,"deferred":0}`.
 
+### Time budgets
+
+Each database RPC from `push-dispatch` and `push-receipts` is aborted after
+`PUSH_RPC_DEADLINE_MS` (default 10 s, accepted range 1–12 s; unset or invalid
+values fall back to the default). The default is sized for an edge cold start
+plus the first PostgREST round-trip (~4–6 s on this project), not for the SQL
+itself, which runs in milliseconds. A `push-dispatch` invocation stops
+claiming new jobs 18 s before its 40 s worker deadline (room for one 8 s Expo
+call plus one full-deadline persistence call), so a run always ends well
+inside the 1-minute cron interval and the 90 s queue visibility timeout.
+`push-receipts` has no worker deadline; its worst case is three RPCs plus one
+8 s Expo call, which the 12 s ceiling keeps inside the 45 s receipt lease.
+
+Symptoms of a deadline that is too short: `503 {"error":"queue unavailable"}`
+from `push-dispatch` or `503 {"error":"receipt claim unavailable"}` from
+`push-receipts` on cold runs, with no lease taken and nothing lost. Raise the
+deadline by setting the `PUSH_RPC_DEADLINE_MS` function secret and redeploying
+both functions.
+
 ---
 
 ## Emergency levers
@@ -246,12 +265,30 @@ The levers above stop _future_ sends only.
 
 Configured once; listed here for troubleshooting.
 
-| Where                             | Name                             | Used by                                                              |
-| --------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
-| Edge function secrets             | `DISPATCH_SECRET`                | `push-dispatch`, `push-receipts` (must match the vault secret)       |
-| Edge function secrets             | `REVENUECAT_WEBHOOK_SECRET`      | `revenuecat-webhook` (Bearer auth from RevenueCat)                   |
-| Edge function secrets             | `REVENUECAT_SECRET_API_KEY`      | `sync-entitlement` (server-side verification; returns 501 until set) |
-| Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller                                 |
+| Where                             | Name                             | Used by                                                                          |
+| --------------------------------- | -------------------------------- | -------------------------------------------------------------------------------- |
+| Edge function secrets             | `DISPATCH_SECRET`                | `push-dispatch`, `push-receipts` (must match the vault secret)                   |
+| Edge function secrets (optional)  | `PUSH_RPC_DEADLINE_MS`           | `push-dispatch`, `push-receipts` per-RPC abort (default `10000`)                 |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_SECRET`      | `revenuecat-webhook` (Bearer auth from RevenueCat)                               |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_APP_ID`      | `revenuecat-webhook` (accepted `event.app_id`s; comma-separated list, see below) |
+| Edge function secrets             | `REVENUECAT_WEBHOOK_ENVIRONMENT` | `revenuecat-webhook` (exact `event.environment`, e.g. `PRODUCTION`)              |
+| Edge function secrets             | `REVENUECAT_SECRET_API_KEY`      | `sync-entitlement`, `revenuecat-webhook` (server-side verification)              |
+| Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller                                             |
+
+`revenuecat-webhook` returns `503 reconciliation not configured` until all
+three of its RevenueCat secrets are set, and `400 event scope mismatch` for any
+event whose `app_id`/`environment` is not listed. One RevenueCat project has
+one app per platform, so list every app ID that posts to the webhook,
+comma-separated (whitespace around entries is ignored; a single ID still
+works):
+
+```sh
+supabase secrets set REVENUECAT_WEBHOOK_APP_ID=app6bb4e06e68,app6bbf4b6d0c   # iOS, Android
+supabase secrets set REVENUECAT_WEBHOOK_ENVIRONMENT=PRODUCTION
+```
+
+Each stored `subscription_events.app_id` is the event's own `app_id`, so
+iOS and Android receipts stay distinguishable in the inbox.
 
 Deploy flags: `push-dispatch`, `push-receipts`, and `revenuecat-webhook` are
 called by machines without a Supabase JWT — deploy them with

@@ -24,7 +24,7 @@ export const stellaFounder: VariantConfig = {
       type: "notifications",
       lines: [
         "There will be moments today when you drift. This app would like to catch a few of them.",
-        "Turn on notifications: a few of the right words, in the hours you choose.",
+        "Turn on notifications: a few of the right quotes, in the hours you choose.",
       ],
       cta: "Turn them on",
       secondaryCta: "Maybe later",
@@ -241,7 +241,7 @@ export const stellaFounder: VariantConfig = {
       id: "post-auth",
       type: "auth-sheet",
       headline: "One tap so we're never lost.",
-      sub: "Our goal, our streak, our words, safe on any device.",
+      sub: "Our goal, our streak, our quotes, safe on any device.",
       secondaryCta: "Not now",
       condition: (ctx) => ctx.isAnonymous,
     },

@@ -14,7 +14,7 @@ Selected source: a0b21da74a137558bcfd6eac156e6a4f25a73876. This batch changes on
 
 ## Entitlement configuration and recovery
 
-The webhook requires the existing shared secret and canonical API key plus explicit `REVENUECAT_WEBHOOK_APP_ID` and `REVENUECAT_WEBHOOK_ENVIRONMENT`. No real values are supplied. Deployment requires verified target/app/environment and canonical API contract evidence. Alternative entitlement identifiers and explicit nonexpiring entitlements remain supported. No event name grants access by itself.
+The webhook requires the existing shared secret and canonical API key plus explicit `REVENUECAT_WEBHOOK_APP_ID` (one ID or a comma-separated list, one per platform app; the matched `event.app_id` is what gets stored) and `REVENUECAT_WEBHOOK_ENVIRONMENT` (exact match). No real values are supplied. Deployment requires verified target/app/environment and canonical API contract evidence. Alternative entitlement identifiers and explicit nonexpiring entitlements remain supported. No event name grants access by itself.
 
 `sync-entitlement` accepts the authenticated user's JWT and ignores client user/entitlement/force/budget claims. Its optional service recovery path requires a separate `ENTITLEMENT_RECOVERY_SECRET` through `x-entitlement-recovery-secret`. The gateway's JWT mode must be verified: a recovery invocation can carry the verified service JWT as well as this secret; no gateway configuration is changed by the draft. The recovery body is an empty JSON object and the SQL selects at most three due users. The handler makes at most three sequential canonical requests. No background scheduling is installed.
 
