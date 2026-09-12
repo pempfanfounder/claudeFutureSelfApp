@@ -95,6 +95,11 @@ interface AuthContextValue {
   verifyEmailLink: (email: string, code: string) => Promise<AuthOutcome>;
   signInExistingWithApple: () => Promise<AuthOutcome>;
   signInExistingWithGoogle: () => Promise<AuthOutcome>;
+  /**
+   * Stores the save-account consent on the signed-in user's metadata:
+   * when the Terms were accepted and whether marketing mail is opted in.
+   */
+  recordConsent: (consent: { marketingOptIn: boolean }) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<AuthOutcome>;
 }
@@ -574,6 +579,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, [ensureGoogle, afterIdentityChange]);
 
+  const recordConsent = useCallback(
+    async (consent: { marketingOptIn: boolean }) => {
+      const identity = captureIdentity();
+      const supabase = getSupabase();
+      if (!supabase || !identity.userId) return;
+      const now = new Date().toISOString();
+      const { error } = await runSharedAuthOperation(() =>
+        supabase.auth.updateUser({
+          data: {
+            terms_accepted_at: now,
+            marketing_opt_in: consent.marketingOptIn,
+            marketing_opt_in_at: consent.marketingOptIn ? now : null,
+          },
+        }),
+      );
+      if (error) throw error;
+      analytics.capture("consent_recorded", {
+        marketing_opt_in: consent.marketingOptIn,
+      });
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     const supabase = getSupabase(),
       identity = captureIdentity();
@@ -761,6 +789,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         runMutation(() => verifyEmailLink(email, code)),
       signInExistingWithApple: () => runMutation(signInExistingWithApple),
       signInExistingWithGoogle: () => runMutation(signInExistingWithGoogle),
+      recordConsent: (consent) => runMutation(() => recordConsent(consent)),
       signOut: () => runMutation(signOut),
       deleteAccount: () => runMutation(deleteAccount),
     }),
@@ -778,6 +807,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmailLink,
       signInExistingWithApple,
       signInExistingWithGoogle,
+      recordConsent,
       signOut,
       deleteAccount,
     ],
