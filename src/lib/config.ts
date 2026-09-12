@@ -45,6 +45,16 @@ const envSchema = z.object({
    * custom SMTP is configured.
    */
   EXPO_PUBLIC_EMAIL_AUTH_ENABLED: z.enum(["true", "false"]).optional(),
+  /**
+   * Category/interest-based personalization of daily quote and affirmation
+   * selection. OFF by default (owner decision): every user sees the same
+   * shared daily rotation. Category data stays in the library either way.
+   * The server-side counterpart for push picks is the edge-function secret
+   * CONTENT_PERSONALIZATION_ENABLED (supabase/functions/push-dispatch).
+   */
+  EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED: z
+    .enum(["true", "false"])
+    .optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -67,6 +77,8 @@ const parsed = envSchema.safeParse({
   EXPO_PUBLIC_RC_ENTITLEMENT_ID: process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID,
   EXPO_PUBLIC_USE_RC_PAYWALL_GATE: process.env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE,
   EXPO_PUBLIC_EMAIL_AUTH_ENABLED: process.env.EXPO_PUBLIC_EMAIL_AUTH_ENABLED,
+  EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED:
+    process.env.EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED,
 });
 
 if (!parsed.success) {
@@ -114,6 +126,8 @@ export const config = {
   rcEntitlementId: env.EXPO_PUBLIC_RC_ENTITLEMENT_ID ?? "premium",
   useRcPaywallGate: env.EXPO_PUBLIC_USE_RC_PAYWALL_GATE === "true",
   emailAuthEnabled: env.EXPO_PUBLIC_EMAIL_AUTH_ENABLED === "true",
+  contentPersonalizationEnabled:
+    env.EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED === "true",
   hasSupabase: Boolean(
     env.EXPO_PUBLIC_SUPABASE_URL && env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),

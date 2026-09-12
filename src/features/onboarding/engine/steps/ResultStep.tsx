@@ -15,6 +15,11 @@ import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 
 import { captureIdentity, isCurrentIdentity } from "@/lib/appState";
+import { config } from "@/lib/config";
+import {
+  getLocalDate,
+  selectSharedDailySet,
+} from "@/features/content/dailySet";
 import { loadLibrary } from "@/features/content/repository";
 import type { ContentItem } from "@/features/content/types";
 
@@ -124,6 +129,9 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
     () => Dimensions.get("window").width - spacing.xl * 2,
   );
   const isFounder = variant === "iam-founder";
+  // With personalization off, the plan copy must not promise weighting
+  // the selection doesn't do; interests are still collected for later.
+  const personalized = config.contentPersonalizationEnabled;
 
   const goals = arrayAnswer(answers, "primary_goals");
   const quoteInterests = arrayAnswer(answers, "quote_interests");
@@ -144,6 +152,17 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
     loadLibrary(false, identity)
       .then((items) => {
         if (cancelled || !isCurrentIdentity(identity)) return;
+        if (!personalized) {
+          // Preview the first quote of today's shared rotation — the same
+          // one every user sees — rather than an interest match.
+          const [firstId] = selectSharedDailySet(
+            items,
+            "quote",
+            getLocalDate(),
+          );
+          setPreview(items.find((i) => i.id === firstId) ?? null);
+          return;
+        }
         const targetCategories =
           quoteInterests.length > 0 ? quoteInterests : ["discipline"];
         const match =
@@ -188,15 +207,16 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
       ? `Your daily quotes and affirmations are ready, ${ctx.name}.`
       : "Your daily quotes and affirmations are ready.";
 
-  const quoteLine =
-    quoteInterests.length > 0
+  const quoteLine = !personalized
+    ? "A fresh set of quotes every day."
+    : quoteInterests.length > 0
       ? `Quotes weighted toward ${quoteInterests.slice(0, 2).map(label).join(" and ")}.`
       : goals.length > 0
         ? `Quotes weighted toward ${goals.slice(0, 2).map(label).join(" and ")}.`
         : "A balanced set of quotes to start. It sharpens as you save favorites.";
 
   const affirmationLine =
-    affirmationInterests.length > 0
+    personalized && affirmationInterests.length > 0
       ? `Affirmations centered on ${affirmationInterests.slice(0, 2).map(label).join(" and ")}.`
       : "Affirmations that build steadiness, day by day.";
 

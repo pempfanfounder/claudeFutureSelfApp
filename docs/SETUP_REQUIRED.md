@@ -42,7 +42,9 @@ gracefully until configured. Work through the sections in order.
 ## Already live (done during the build)
 
 - Supabase project `claudefutureself` (`ykgswczatkspryetstor`): all
-  migrations applied, RLS verified, 260 seed content items, pg_cron jobs
+  migrations applied, RLS verified, 260 seed content items (the
+  `20260912090000_owner_quotes` migration — 65 owner quotes replacing the 130
+  launch quotes, total 325 rows — still needs `supabase db push`), pg_cron jobs
   (`fs-enqueue-due`, `fs-push-dispatch`, `fs-push-receipts`,
   `fs-trial-reminders`), pgmq queue `push_jobs`, and all five edge functions
   deployed (`push-dispatch`, `push-receipts`, `revenuecat-webhook`,

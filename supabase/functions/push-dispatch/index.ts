@@ -15,6 +15,15 @@ import type {
 
 const APP_TITLE = "Future Self";
 const RECENT_CONTENT_DAYS = 14;
+/**
+ * Server counterpart of the app's EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED.
+ * Off by default (owner decision): push picks and campaign audiences ignore
+ * the user's interests; pick_notification_content then orders by editorial
+ * priority and random() only. Set the edge-function secret to "true" to
+ * re-enable interest weighting.
+ */
+const CONTENT_PERSONALIZATION_ENABLED =
+  Deno.env.get("CONTENT_PERSONALIZATION_ENABLED") === "true";
 const STREAK_BODIES: Array<(n: number) => string> = [
   (n) =>
     `${n}-day streak, one small read from safety. Three words before midnight.`,
@@ -379,10 +388,9 @@ async function buildContentNotification(
   );
   if (pErr) throw pErr;
 
-  const interests = interestsFor(
-    job.kind,
-    personalization as PersonalizationRow | null,
-  );
+  const interests = CONTENT_PERSONALIZATION_ENABLED
+    ? interestsFor(job.kind, personalization as PersonalizationRow | null)
+    : [];
 
   const campaign = await matchCampaign(
     admin,
@@ -392,8 +400,9 @@ async function buildContentNotification(
   );
   if (campaign) return campaign;
 
-  // Personalized rotation; if every eligible item went out in the last
-  // 14 days, relax the exclusion rather than sending nothing.
+  // Per-user rotation (interest-weighted only when personalization is on);
+  // if every eligible item went out in the last 14 days, relax the
+  // exclusion rather than sending nothing.
   for (const days of [RECENT_CONTENT_DAYS, 0]) {
     const { data, error } = await boundedDb(
       admin,
