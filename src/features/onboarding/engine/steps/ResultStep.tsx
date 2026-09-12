@@ -1,26 +1,22 @@
-import { useEffect, useState } from "react";
-import {
-  Dimensions,
-  FlatList,
-  StyleSheet,
-  View,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native";
-import Animated, { FadeIn, FadeInRight } from "react-native-reanimated";
+import { useEffect, useState, type ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
 
 import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, shadows, spacing } from "@/design-system/tokens";
+import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import { captureIdentity, isCurrentIdentity } from "@/lib/appState";
 import { loadLibrary } from "@/features/content/repository";
 import type { ContentItem } from "@/features/content/types";
+import { formatMinutes } from "@/features/notifications/time";
 
 import { resolveText } from "../resolve";
 import { useOnboardingStore } from "../store";
 import type { OnboardingContext, OnboardingStep } from "../types";
+import { MockNotification } from "./notifications/MockNotification";
+import { DayBand } from "./result/DayBand";
+import { useCountUp } from "./result/useCountUp";
 
 interface ResultStepProps {
   step: OnboardingStep;
@@ -29,58 +25,51 @@ interface ResultStepProps {
 }
 
 const LABELS: Record<string, string> = {
-  discipline: "discipline",
-  ambition: "ambition",
-  courage: "courage",
-  "stoic-calm": "stoic calm",
-  gratitude: "gratitude",
-  resilience: "resilience",
-  focus: "focus",
-  kindness: "kindness",
-  "self-belief": "self-belief",
-  calm: "calm",
-  "health-body": "health",
-  abundance: "abundance",
-  "letting-go": "letting go",
-  "morning-energy": "morning energy",
-  boundaries: "boundaries",
-  "self-respect": "self-respect",
-  confidence: "confidence",
-  body: "your body",
-  career: "your career",
-  money: "financial security",
-  peace: "peace of mind",
-  relationships: "your relationships",
-  purpose: "purpose",
+  discipline: "Discipline",
+  ambition: "Ambition",
+  courage: "Courage",
+  "stoic-calm": "Stoic calm",
+  gratitude: "Gratitude",
+  resilience: "Resilience",
+  focus: "Focus",
+  kindness: "Kindness",
+  "self-belief": "Self-belief",
+  calm: "Calm",
+  "health-body": "Health",
+  abundance: "Abundance",
+  "letting-go": "Letting go",
+  "morning-energy": "Morning energy",
+  boundaries: "Boundaries",
+  "self-respect": "Self-respect",
+  confidence: "Confidence",
+  body: "Body",
+  career: "Career",
+  money: "Money",
+  peace: "Peace of mind",
+  relationships: "Relationships",
+  purpose: "Purpose",
+  disciplined: "Disciplined",
+  confident: "Confident",
+  strong: "Strong",
+  focused: "Focused",
+  free: "Free",
+  generous: "Generous",
+  fulfilled: "Fulfilled",
+  healthy: "Healthy",
+  wealthy: "Wealthy",
+  resilient: "Resilient",
+  loved: "Loved",
 };
 
 const label = (slug: string) => LABELS[slug] ?? slug;
 
-/**
- * Height of every carousel page. Sized for a title plus three two-line
- * points (or a five-line preview quote) at the app's type scale, so the
- * tallest honest card still fits without the page scrolling.
- */
-const CAROUSEL_HEIGHT = 250;
-
-/**
- * Practice-mode slugs (iam-claude `practice-mode` step) → lowercase
- * phrases for "You'll practice by …". "unsure" is deliberately absent:
- * it is not a practice, so it is never echoed.
- */
-const PRACTICE_LABELS: Record<string, string> = {
-  phone: "reading them in the app",
-  widget: "seeing them on your Home or Lock Screen",
-  aloud: "saying them out loud",
-  journal: "writing them in a journal",
-  "post-it": "writing them on a post-it",
-};
-
-/** "a" · "a and b" · "a, b and c" */
-function joinNatural(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
+/** Shown in the preview banner when no library item is available yet. */
+const FALLBACK_PREVIEW = "Discipline is remembering what you want.";
+/** Focus chips stay to one line on a 6.1" phone. */
+const MAX_CHIPS = 5;
+/** Stagger between plan items; each one fades and slides in with a spring. */
+const STAGGER_MS = 70;
+const FIRST_ITEM_DELAY_MS = 160;
 
 const stringAnswer = (
   answers: Record<string, string | string[]>,
@@ -98,45 +87,31 @@ const arrayAnswer = (
   return Array.isArray(v) ? v : [];
 };
 
-/** One swipeable page: a titled list of ✦ points, or the live preview. */
-interface Card {
-  key: string;
-  title: string;
-  points?: string[];
-  preview?: ContentItem;
-}
-
 /**
- * The honest "your daily quotes and affirmations are ready" screen:
- * everything shown is composed from answers the app actually uses (or
- * commitments the user made in the funnel, echoed back verbatim), plus
- * a real preview item drawn from the top-weighted category. It is paged
- * into a swipeable carousel so no single card gets tall enough to scroll.
+ * The plan screen: one serif line, then the plan as things to look at
+ * rather than read. A notification banner previews the first quote at
+ * the chosen start time, a day band shows the reminder window, count-up
+ * tiles show the numbers the user picked, and chips show what the quotes
+ * lean toward. Everything is composed from answers the app actually uses
+ * or commitments the user made; skipped steps add nothing.
+ *
+ * Motion: items enter staggered (fade + slide up on a soft spring, 70 ms
+ * apart), the band grows out from its start, the numbers count up.
+ * Reanimated skips its animations under the system reduce-motion
+ * setting and the count-up checks the same preference.
  */
 export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
   const colors = useColors();
-  const { answers, notificationPrefs, variant } = useOnboardingStore();
+  const { answers, notificationPrefs } = useOnboardingStore();
   const [preview, setPreview] = useState<ContentItem | null>(null);
-  const [page, setPage] = useState(0);
-  // Seeded from the window so the carousel measures right on first paint
-  // (and renders at all where onLayout never fires, e.g. under Jest).
-  const [pageWidth, setPageWidth] = useState(
-    () => Dimensions.get("window").width - spacing.xl * 2,
-  );
-  const isFounder = variant === "iam-founder";
 
-  const goals = arrayAnswer(answers, "primary_goals");
   const quoteInterests = arrayAnswer(answers, "quote_interests");
   const affirmationInterests = arrayAnswer(answers, "affirmation_interests");
+  const goals = arrayAnswer(answers, "primary_goals");
   const traits = arrayAnswer(answers, "future_traits");
   const lifeGoal = stringAnswer(answers, "life_goal");
-  const motivation = stringAnswer(answers, "motivation_level");
-  // iam-claude commitments (raw.* keys are stored under their full key).
   const streakGoal = stringAnswer(answers, "raw.streak_goal");
   const dailyMinutes = stringAnswer(answers, "raw.daily_minutes");
-  const practiceModes = arrayAnswer(answers, "raw.practice_modes")
-    .map((slug) => PRACTICE_LABELS[slug])
-    .filter((phrase): phrase is string => Boolean(phrase));
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +130,7 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
         setPreview(match ?? null);
       })
       .catch(() => {
-        // The preview is optional; the collected plan remains available.
+        // The preview is optional; the plan stands without it.
         if (!cancelled && isCurrentIdentity(identity)) setPreview(null);
       });
     return () => {
@@ -164,190 +139,132 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Each variant keeps its own voice: founder copy mirrors the founder
-  // doc's honest rewrite; iam-claude uses its own lines (no "mix").
-  const mirror = isFounder
-    ? motivation === "everything"
-      ? "Your ambition is exactly what Future Self's daily quotes are built around."
-      : motivation === "stuck" ||
-          motivation === "figuring-out" ||
-          motivation === "exploring"
-        ? "Starting unsure is still starting. Your first days begin gently and build."
-        : "Your plan is built to keep you moving, not just inspired."
-    : motivation === "all-in"
-      ? "You brought the drive. Your daily quotes bring the rhythm."
-      : motivation === "unsure" || motivation === "empty"
-        ? "Momentum beats motivation, so your first days start small on purpose."
-        : "Everything here is tuned to help you stay consistent, not just inspired.";
+  const headline = ctx.name
+    ? `Here's how your days will go, ${ctx.name}.`
+    : "Here's how your days will go.";
 
-  const headline = isFounder
-    ? ctx.name
-      ? `That's everything we needed, ${ctx.name}.`
-      : "That's everything we needed."
-    : ctx.name
-      ? `Your daily quotes and affirmations are ready, ${ctx.name}.`
-      : "Your daily quotes and affirmations are ready.";
+  // What the quotes lean toward, then who they are aimed at.
+  const chips = [
+    ...(quoteInterests.length > 0 ? quoteInterests : goals).slice(0, 2),
+    ...affirmationInterests.slice(0, 2),
+    ...traits.slice(0, 2),
+  ]
+    .map(label)
+    .filter((name, i, all) => all.indexOf(name) === i)
+    .slice(0, MAX_CHIPS);
 
-  const quoteLine =
-    quoteInterests.length > 0
-      ? `Quotes weighted toward ${quoteInterests.slice(0, 2).map(label).join(" and ")}.`
-      : goals.length > 0
-        ? `Quotes weighted toward ${goals.slice(0, 2).map(label).join(" and ")}.`
-        : "A balanced set of quotes to start. It sharpens as you save favorites.";
-
-  const affirmationLine =
-    affirmationInterests.length > 0
-      ? `Affirmations centered on ${affirmationInterests.slice(0, 2).map(label).join(" and ")}.`
-      : "Affirmations that build steadiness, day by day.";
-
-  const cadenceLine = `${notificationPrefs.quotesPerDay} quotes and ${notificationPrefs.affirmationsPerDay} affirmations a day, spread across your window.`;
-
-  // iam-claude only: echo the funnel's commitments, and only when they
-  // were actually made (skipped steps add nothing — no invented promises).
-  const commitmentLines: string[] = isFounder
-    ? []
-    : [
-        dailyMinutes
-          ? `About ${dailyMinutes} ${dailyMinutes === "1" ? "minute" : "minutes"} a day.`
-          : null,
-        streakGoal ? `First goal: ${streakGoal} days in a row.` : null,
-        practiceModes.length > 0
-          ? `You'll practice by ${joinNatural(practiceModes)}.`
-          : null,
-      ].filter((line): line is string => line !== null);
-
-  const youLines: string[] = [
-    traits.length > 0
-      ? `Aimed at the ${traits.slice(0, 3).map(label).join(", ")} version of you.`
-      : null,
-    lifeGoal ? `Your line: “${lifeGoal}”` : null,
-  ].filter((line): line is string => line !== null);
-
-  // At most three ✦ points per card, so every page reads at a glance.
-  const cards: Card[] = [
+  const items: { key: string; node: ReactNode }[] = [
     {
-      key: "plan",
-      title: "Your daily plan",
-      points: [quoteLine, affirmationLine, cadenceLine],
+      key: "preview",
+      node: (
+        <MockNotification
+          body={preview?.body ?? FALLBACK_PREVIEW}
+          time={formatMinutes(notificationPrefs.windowStartMinutes)}
+        />
+      ),
+    },
+    {
+      key: "window",
+      node: (
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
+          <AppText variant="eyebrow" tone="ink3" style={styles.eyebrow}>
+            Your window
+          </AppText>
+          <DayBand
+            startMinutes={notificationPrefs.windowStartMinutes}
+            endMinutes={notificationPrefs.windowEndMinutes}
+            delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 2}
+          />
+        </View>
+      ),
+    },
+    {
+      key: "stats",
+      node: (
+        <View style={styles.stats}>
+          <StatTile
+            id="quotes"
+            value={notificationPrefs.quotesPerDay}
+            unit="quotes a day"
+            delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
+          />
+          <StatTile
+            id="affirmations"
+            value={notificationPrefs.affirmationsPerDay}
+            unit="affirmations a day"
+            delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
+          />
+          {streakGoal ? (
+            <StatTile
+              id="streak"
+              value={Number(streakGoal)}
+              unit="day goal"
+              delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
+            />
+          ) : dailyMinutes ? (
+            <StatTile
+              id="minutes"
+              value={Number(dailyMinutes)}
+              unit={Number(dailyMinutes) === 1 ? "minute a day" : "min a day"}
+              delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
+            />
+          ) : null}
+        </View>
+      ),
     },
   ];
-  if (commitmentLines.length > 0) {
-    cards.push({
-      key: "commitment",
-      title: "What you committed to",
-      points: commitmentLines,
+  if (chips.length > 0) {
+    items.push({
+      key: "chips",
+      node: (
+        <View style={styles.chips} testID="result-chips">
+          {chips.map((name) => (
+            <View
+              key={name}
+              style={[styles.chip, { borderColor: colors.borderStrong }]}
+            >
+              <AppText variant="label" tone="ink2">
+                {name}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      ),
     });
   }
-  if (youLines.length > 0) {
-    cards.push({ key: "you", title: "Who you're building", points: youLines });
-  }
-  if (preview) {
-    cards.push({ key: "preview", title: "First up", preview });
-  }
-
-  const onCarouselLayout = (e: LayoutChangeEvent) => {
-    const width = e.nativeEvent.layout.width;
-    if (width > 0) setPageWidth((prev) => (prev === width ? prev : width));
-  };
-
-  const onSettled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / pageWidth);
-    setPage(Math.max(0, Math.min(cards.length - 1, index)));
-  };
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
       <View style={styles.content}>
         <AppText variant="h2">{headline}</AppText>
-        <AppText variant="lead" tone="ink2" style={styles.mirror}>
-          {mirror}
-        </AppText>
-
-        <Animated.View
-          entering={FadeIn.duration(400).delay(150)}
-          onLayout={onCarouselLayout}
-          style={styles.carousel}
-        >
-          <FlatList
-            data={cards}
-            keyExtractor={(card) => card.key}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={onSettled}
-            testID="result-carousel"
-            renderItem={({ item }) => (
-              <View style={[styles.page, { width: pageWidth }]}>
-                <View
-                  style={[
-                    styles.card,
-                    { backgroundColor: colors.card },
-                    shadows.sm,
-                  ]}
-                >
-                  <AppText variant="eyebrow" tone="ink3">
-                    {item.title}
-                  </AppText>
-                  {item.points?.map((point) => (
-                    <View key={point} style={styles.row}>
-                      <AppText variant="body" tone="accent">
-                        ✦
-                      </AppText>
-                      <AppText
-                        variant="body"
-                        style={styles.rowText}
-                        // A long life goal stays the user's own words;
-                        // the card just refuses to grow past the page.
-                        numberOfLines={4}
-                      >
-                        {point}
-                      </AppText>
-                    </View>
-                  ))}
-                  {item.preview ? (
-                    <View style={styles.previewBody}>
-                      <AppText
-                        variant="quote"
-                        center
-                        style={styles.previewQuote}
-                        numberOfLines={5}
-                      >
-                        {item.preview.body}
-                      </AppText>
-                      {item.preview.author ? (
-                        <AppText
-                          variant="label"
-                          tone="ink2"
-                          center
-                          style={styles.author}
-                        >
-                          — {item.preview.author}
-                        </AppText>
-                      ) : null}
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            )}
-          />
-        </Animated.View>
-
-        {cards.length > 1 ? (
-          <View style={styles.dots} testID="result-dots">
-            {cards.map((card, i) => (
-              <View
-                key={card.key}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor:
-                      i === page ? colors.ink : colors.borderStrong,
-                  },
-                ]}
-              />
-            ))}
-          </View>
+        {lifeGoal ? (
+          <AppText
+            variant="lead"
+            tone="ink2"
+            numberOfLines={2}
+            style={styles.lifeGoal}
+            testID="result-life-goal"
+          >
+            {`“${lifeGoal}”`}
+          </AppText>
         ) : null}
+
+        <View style={styles.items}>
+          {items.map((item, i) => (
+            <Animated.View
+              key={item.key}
+              testID={`result-item-${item.key}`}
+              entering={FadeInDown.springify()
+                .damping(18)
+                .stiffness(150)
+                .delay(FIRST_ITEM_DELAY_MS + i * STAGGER_MS)}
+            >
+              {item.node}
+            </Animated.View>
+          ))}
+        </View>
       </View>
 
       <View style={styles.footer}>
@@ -361,35 +278,66 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
   );
 }
 
+interface StatTileProps {
+  id: string;
+  value: number;
+  unit: string;
+  delayMs: number;
+}
+
+/** A number that counts up, with its unit underneath. */
+function StatTile({ id, value, unit, delayMs }: StatTileProps) {
+  const colors = useColors();
+  const shown = useCountUp(value, delayMs);
+  return (
+    <View
+      style={[styles.stat, { backgroundColor: colors.card }, shadows.sm]}
+      testID={`stat-${id}`}
+      accessibilityLabel={`${value} ${unit}`}
+    >
+      <AppText
+        variant="h2"
+        center
+        style={styles.statValue}
+        testID={`stat-${id}-value`}
+      >
+        {shown}
+      </AppText>
+      <AppText variant="label" tone="ink3" center>
+        {unit}
+      </AppText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { flex: 1, paddingTop: 72 },
-  mirror: { marginTop: spacing.md },
-  // Fixed so every page is the same size and the dots never shift.
-  carousel: { marginTop: spacing.xl, height: CAROUSEL_HEIGHT },
-  page: { height: CAROUSEL_HEIGHT },
+  lifeGoal: { marginTop: spacing.md, fontFamily: type.serifItalic },
+  items: { marginTop: spacing.xl, gap: spacing.md },
   card: {
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  eyebrow: { marginBottom: spacing.md },
+  stats: { flexDirection: "row", gap: spacing.md },
+  stat: {
     flex: 1,
     borderRadius: radii.lg,
-    padding: spacing.xl,
-    // Each page is exactly the viewport wide (so paging lands cleanly);
-    // the gutter to the next card lives inside the page. No
-    // overflow:hidden here: iOS drops the shadow on a clipping view, and
-    // the numberOfLines caps above already keep every card in bounds.
-    marginRight: spacing.md,
-    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: "center",
+    gap: 2,
   },
-  row: { flexDirection: "row", gap: spacing.sm },
-  rowText: { flex: 1 },
-  previewBody: { flex: 1, justifyContent: "center" },
-  previewQuote: { fontSize: 22, lineHeight: 30 },
-  author: { marginTop: spacing.md },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
+  statValue: { fontVariant: ["tabular-nums"] },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.xs + 1,
+    paddingHorizontal: spacing.md,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   footer: { paddingBottom: spacing.sm },
 });
