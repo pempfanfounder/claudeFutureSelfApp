@@ -10,9 +10,9 @@
  * are limited to dont→don't, doesnt→doesn't, cant→can't, Everyday→Every day,
  * and straight-apostrophe normalization.
  *
- * `n` is the owner's numbering (1–66). #10 is missing because the source
- * was truncated ("The graveyard is full of people who thought they ha").
- * #54 and #65 are near-duplicates kept intentionally, as written.
+ * `n` is the owner's numbering (1–66). #54 is missing: the owner removed it
+ * as a near-duplicate of #65 (2026-09-12). #10 was truncated in the original
+ * source; the owner supplied the full line.
  *
  * `categories` use the app's eight quote slugs and are editorial
  * assignments made for personalization weighting, not owner-supplied data.
@@ -24,8 +24,8 @@ export interface OwnerQuote {
   categories: readonly string[];
 }
 
-/** Owner's #10 was truncated in the source and is intentionally excluded. */
-export const EXCLUDED_OWNER_QUOTE_NUMBERS: readonly number[] = [10];
+/** Owner's #54 was removed by the owner as a near-duplicate of #65. */
+export const EXCLUDED_OWNER_QUOTE_NUMBERS: readonly number[] = [54];
 
 export const OWNER_QUOTES: readonly OwnerQuote[] = [
   {
@@ -72,6 +72,11 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
     n: 9,
     body: "Success is a decision.",
     categories: ["ambition", "discipline"],
+  },
+  {
+    n: 10,
+    body: "The graveyard is full of people who thought they had more time.",
+    categories: ["discipline", "courage"],
   },
   {
     n: 11,
@@ -287,11 +292,6 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
     n: 53,
     body: "Bro, I am counting on you.",
     categories: ["kindness", "discipline"],
-  },
-  {
-    n: 54,
-    body: "While you are overthinking, someone dumber than you is having the success you could have had - just by trying.",
-    categories: ["courage", "focus"],
   },
   {
     n: 55,

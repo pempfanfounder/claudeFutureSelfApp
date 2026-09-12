@@ -14,12 +14,13 @@ straight-apostrophe normalization. Everything else is as written.
 
 ## Flags
 
-- **#10 excluded** — truncated in the source ("The graveyard is full of
-  people who thought they ha"). Needs the full line from the owner.
-- **#54 and #65 are near-duplicates** — both kept, as written.
-- **#11 ends with an ellipsis (" …")** — kept as written; no "." appended.
-  Confirm whether the trailing ellipsis is intended.
-- **#31 and #54 use a spaced hyphen (" - ")** as a dash — kept as written.
+- **#10** was truncated in the original source; the owner supplied the full
+  line ("The graveyard is full of people who thought they had more time.").
+- **#54 excluded** — owner removed it (2026-09-12) as a near-duplicate of
+  #65, which is kept.
+- **#11 ends with an ellipsis (" …")** — kept as written per the owner; no
+  "." appended.
+- **#31 uses a spaced hyphen (" - ")** as a dash — kept as written.
 - Categories in the module/migration are editorial assignments for
   personalization weighting (the 8 quote slugs); the owner supplied none.
 
@@ -30,10 +31,10 @@ quote selection for now. Every user sees the same daily set. The capability
 stays in the code and the category data stays in the library; it is gated
 behind one flag, default OFF:
 
-| Surface | Flag | Where to set |
-|---|---|---|
-| App (daily feed, widgets, onboarding preview copy) | `EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED=true` | EAS build profile `env` in `eas.json` / `.env`; read by `src/lib/config.ts` as `config.contentPersonalizationEnabled` |
-| Push picks + campaign audiences (`push-dispatch` edge function) | `CONTENT_PERSONALIZATION_ENABLED=true` | Supabase edge-function secret (`supabase secrets set`) |
+| Surface                                                         | Flag                                               | Where to set                                                                                                          |
+| --------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| App (daily feed, widgets, onboarding preview copy)              | `EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED=true` | EAS build profile `env` in `eas.json` / `.env`; read by `src/lib/config.ts` as `config.contentPersonalizationEnabled` |
+| Push picks + campaign audiences (`push-dispatch` edge function) | `CONTENT_PERSONALIZATION_ENABLED=true`             | Supabase edge-function secret (`supabase secrets set`)                                                                |
 
 Both default to OFF when unset. Affirmations share the same selection path
 (`selectDailySet` / `pick_notification_content`), so the flag governs both
@@ -77,7 +78,7 @@ To re-enable: set both flags above to `"true"` and ship an app build.
 7. Are you gonna let the opportunity pass by, or are you gonna give it all you can?
 8. What a privilege it is to be exhausted from work that you used to pray for.
 9. Success is a decision.
-10. _(excluded — truncated in source: "The graveyard is full of people who thought they ha")_
+10. The graveyard is full of people who thought they had more time.
 11. Every day your window of opportunity gets smaller and smaller …
 12. People who bring you down are by definition below you.
 13. A man that doesn't keep his word is no man at all.
@@ -121,7 +122,7 @@ To re-enable: set both flags above to `"true"` and ship an app build.
 51. If no one believes in you, believe in yourself.
 52. Don't wish for it, work for it.
 53. Bro, I am counting on you.
-54. While you are overthinking, someone dumber than you is having the success you could have had - just by trying.
+54. _(excluded — removed by the owner as a near-duplicate of #65)_
 55. If I play, I play to win.
 56. Do it because they said you couldn't.
 57. Comfort will deter you from your goal. Don't be stuck in comfort.

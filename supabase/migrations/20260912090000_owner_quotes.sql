@@ -7,8 +7,8 @@
 -- deleted so favorites, notification_deliveries and daily_progress rows keep
 -- their references; clients only ever read active rows.
 --
--- Owner's #10 was truncated in the source and is intentionally excluded.
--- Owner's #54 and #65 are near-duplicates kept intentionally, as written.
+-- Owner's #54 was removed by the owner as a near-duplicate of #65.
+-- Owner's #10 was truncated in the original source; the owner supplied the full line.
 -- Categories are editorial assignments for personalization weighting.
 
 update public.content_items
@@ -34,6 +34,8 @@ INSERT INTO public.content_items (type, body, author, categories, tags, priority
 ('quote', 'What a privilege it is to be exhausted from work that you used to pray for.', NULL, ARRAY['gratitude']::text[], '{}'::text[], 0, true),
 -- #9
 ('quote', 'Success is a decision.', NULL, ARRAY['ambition','discipline']::text[], '{}'::text[], 0, true),
+-- #10
+('quote', 'The graveyard is full of people who thought they had more time.', NULL, ARRAY['discipline','courage']::text[], '{}'::text[], 0, true),
 -- #11
 ('quote', 'Every day your window of opportunity gets smaller and smaller …', NULL, ARRAY['ambition','focus']::text[], '{}'::text[], 0, true),
 -- #12
@@ -120,8 +122,6 @@ INSERT INTO public.content_items (type, body, author, categories, tags, priority
 ('quote', 'Don''t wish for it, work for it.', NULL, ARRAY['discipline']::text[], '{}'::text[], 0, true),
 -- #53
 ('quote', 'Bro, I am counting on you.', NULL, ARRAY['kindness','discipline']::text[], '{}'::text[], 0, true),
--- #54
-('quote', 'While you are overthinking, someone dumber than you is having the success you could have had - just by trying.', NULL, ARRAY['courage','focus']::text[], '{}'::text[], 0, true),
 -- #55
 ('quote', 'If I play, I play to win.', NULL, ARRAY['ambition','courage']::text[], '{}'::text[], 0, true),
 -- #56

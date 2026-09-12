@@ -52,17 +52,23 @@ describe("owner quote list", () => {
       (n) => !EXCLUDED_OWNER_QUOTE_NUMBERS.includes(n),
     );
     expect(numbers).toEqual(expected);
-    expect(EXCLUDED_OWNER_QUOTE_NUMBERS).toEqual([10]);
+    expect(EXCLUDED_OWNER_QUOTE_NUMBERS).toEqual([54]);
   });
 
-  it("keeps the two owner near-duplicates as separate quotes", () => {
+  it("ships the owner's completed #10 and drops the removed near-duplicate #54", () => {
     const bodies = OWNER_QUOTES.map((quote) => quote.body);
     expect(new Set(bodies).size).toBe(bodies.length);
     expect(bodies).toContain(
+      "The graveyard is full of people who thought they had more time.",
+    );
+    expect(bodies).not.toContain(
       "While you are overthinking, someone dumber than you is having the success you could have had - just by trying.",
     );
     expect(bodies).toContain(
       "While you are overthinking, someone less intelligent than you is becoming successful just by trying.",
+    );
+    expect(OWNER_QUOTES.find((quote) => quote.n === 11)?.body).toBe(
+      "Every day your window of opportunity gets smaller and smaller …",
     );
   });
 
