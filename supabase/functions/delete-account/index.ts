@@ -27,9 +27,20 @@ Deno.serve(async (req) => {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     const admin = createAdminClient();
+    // Authenticate before charging. An authenticated caller spends their own
+    // per-user `delete_account` bucket; a receipt-only caller (the user may
+    // already be gone) spends a separate `delete_account_status` pool keyed by
+    // the receipt, so unauthenticated traffic can never starve real deletions.
+    const user = await getUserFromRequest(req);
     const { data: budget, error: budgetError } = await admin.rpc(
       "consume_backend_budget",
-      { p_user: null, p_operation: "delete_account", p_units: 1 },
+      user
+        ? { p_user: user.id, p_operation: "delete_account", p_units: 1 }
+        : {
+            p_user: body.receipt.toLowerCase(),
+            p_operation: "delete_account_status",
+            p_units: 1,
+          },
     );
     if (budgetError)
       return json({ error: "temporarily unavailable" }, 503, corsHeaders);
@@ -85,7 +96,6 @@ Deno.serve(async (req) => {
         return json({ ok: false, pending: true }, 409, corsHeaders);
     } else if (body.check_only === true)
       return json({ error: "unknown receipt" }, 401, corsHeaders);
-    const user = await getUserFromRequest(req);
     if (!user) return json({ error: "unauthorized" }, 401, corsHeaders);
     if (receipt && receipt.user_id !== user.id)
       return json(

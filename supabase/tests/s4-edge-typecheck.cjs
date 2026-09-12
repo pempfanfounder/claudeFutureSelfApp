@@ -26,6 +26,7 @@ const program = ts.createProgram(
     virtual,
     path.join(root, "revenuecat-webhook/index.ts"),
     path.join(root, "sync-entitlement/index.ts"),
+    path.join(root, "delete-account/index.ts"),
   ],
   options,
   host,

@@ -13,8 +13,16 @@ function fixture(options = {}) {
     deleted = false,
     deleteCalls = 0;
   const rows = new Map();
+  const budgetCalls = [];
   const admin = {
-    rpc: async () => ({ data: { allowed: true }, error: null }),
+    rpc: async (name, args) => {
+      assert.equal(name, "consume_backend_budget");
+      budgetCalls.push(args);
+      return {
+        data: { allowed: args.p_operation !== options.exhaustedOperation },
+        error: null,
+      };
+    },
     auth: {
       admin: {
         deleteUser: async (id) => {
@@ -145,6 +153,9 @@ function fixture(options = {}) {
     get deletes() {
       return deleteCalls;
     },
+    get budgetCalls() {
+      return budgetCalls;
+    },
   };
 }
 (async () => {
@@ -176,8 +187,37 @@ function fixture(options = {}) {
   assert.equal(race.deletes, 0);
   const zero = fixture({ zeroConfirmation: true });
   assert.equal((await zero.call({ receipt: nonce })).status, 503);
+  // Budget keying: the caller is authenticated BEFORE any budget is charged.
+  // An authenticated deletion spends the caller's own per-user bucket; a
+  // receipt-only status probe spends a separate per-receipt pool.
+  const keyed = fixture();
+  assert.equal((await keyed.call({ receipt: nonce })).status, 200);
+  assert.deepEqual({ ...keyed.budgetCalls[0] }, {
+    p_user: A,
+    p_operation: "delete_account",
+    p_units: 1,
+  });
+  assert.equal((await keyed.call({ receipt: nonce, check_only: true })).status, 200);
+  assert.deepEqual({ ...keyed.budgetCalls[1] }, {
+    p_user: nonce,
+    p_operation: "delete_account_status",
+    p_units: 1,
+  });
+  assert.equal(keyed.budgetCalls.length, 2);
+  const probe = fixture({ unauthorized: true });
+  assert.equal((await probe.call({ receipt: nonce.toUpperCase(), check_only: true })).status, 401);
+  assert.equal(probe.budgetCalls[0].p_operation, "delete_account_status");
+  assert.equal(probe.budgetCalls[0].p_user, nonce, "receipt subject is lowercased");
+  assert.equal(probe.deletes, 0);
+  // Exhausting the unauthenticated status pool must not block a real deletion.
+  const starved = fixture({ exhaustedOperation: "delete_account_status" });
+  assert.equal((await starved.call({ receipt: nonce })).status, 200);
+  assert.equal(starved.deletes, 1);
+  const denied = fixture({ exhaustedOperation: "delete_account" });
+  assert.equal((await denied.call({ receipt: nonce })).status, 429);
+  assert.equal(denied.deletes, 0);
   console.log(
-    "PASS 7 deletion receipt/absence/authorization fixtures; actual DB/gateway unrun",
+    "PASS 11 deletion receipt/absence/authorization/budget-keying fixtures; actual DB/gateway unrun",
   );
 })().catch((error) => {
   console.error(error);
