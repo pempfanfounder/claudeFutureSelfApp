@@ -55,16 +55,22 @@ const ERROR_CODES = new Set([
 ]);
 const deadlines = new WeakMap<object, number>();
 
+type DbResult = { data: any; error: unknown };
+// postgrest-js types `.maybeSingle()` as a bare PostgrestBuilder without
+// `abortSignal`, but returns `this` at runtime, so the method is always
+// present. Accept it as optional and fail closed if it ever is not.
+type BoundedRequest = PromiseLike<DbResult> & {
+  abortSignal?(signal: AbortSignal): PromiseLike<DbResult>;
+};
+
 async function boundedDb(
   db: SupabaseClient,
-  request: {
-    abortSignal(
-      signal: AbortSignal,
-    ): PromiseLike<{ data: any; error: unknown }>;
-  },
-): Promise<{ data: any; error: unknown }> {
+  request: BoundedRequest,
+): Promise<DbResult> {
   const remaining = (deadlines.get(db) ?? 0) - Date.now();
   if (remaining <= 0) throw new Error("worker deadline reached");
+  if (typeof request.abortSignal !== "function")
+    throw new Error("database request is not abortable");
   const controller = new AbortController();
   // Per-call cap sized for a cold start (see _shared/rpc-deadline.ts); the
   // worker deadline stays the hard bound on the whole invocation.
