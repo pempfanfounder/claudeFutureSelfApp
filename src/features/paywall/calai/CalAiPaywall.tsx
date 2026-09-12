@@ -38,6 +38,7 @@ export const CALAI_HEADLINES: Record<CalAiVersion, string> = {
   1: "Your future self starts today.",
   2: "This is how you won't drift.",
   3: "Become who you promised yourself.",
+  4: "Your future self starts today.",
 };
 
 /** Tallest CTA (owner's note) for the single-line version. */
@@ -101,45 +102,57 @@ export function CalAiPaywall({
   const note = priceNote(data);
   const heroTop = insets.top + spacing.xxxl + spacing.lg;
 
-  const hero =
-    version === 2 ? (
-      <View style={styles.heroDark} testID="hero-2">
-        <LinearGradient
-          colors={[colors.ctaBg, colors.ctaBg, colors.bg]}
-          locations={[0, 0.55, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={{ paddingTop: heroTop }}>
+  // v2 fades from the near-black CTA brown; v4 from the warm ink brown
+  // (#4B3A35 in Minimal Sand) with v1's straight stack.
+  const gradientHero = version === 2 || version === 4;
+  const heroColor = version === 4 ? colors.ink : colors.ctaBg;
+
+  const hero = gradientHero ? (
+    <View style={styles.heroDark} testID={`hero-${version}`}>
+      <LinearGradient
+        colors={[heroColor, heroColor, colors.bg]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ paddingTop: heroTop }}>
+        {version === 2 ? (
           <NotificationStack
             items={notifications}
             mode="fan"
             overlap={14}
-            scrimColor={colors.ctaBg}
+            scrimColor={heroColor}
           />
-        </View>
-        <LinearGradient
-          // Fades the stack's lower edge into the surface so the headline
-          // that follows can sit on top of it.
-          colors={["rgba(0,0,0,0)", colors.bg]}
-          style={styles.heroFade}
-          pointerEvents="none"
-        />
-      </View>
-    ) : (
-      <View style={styles.hero} testID={`hero-${version}`}>
-        <LinearGradient
-          colors={[colors.bgAlt, colors.bg]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={{ paddingTop: heroTop }}>
+        ) : (
           <NotificationStack
             items={notifications}
-            overlap={version === 3 ? 20 : 16}
-            scrimColor={colors.bgAlt}
+            overlap={16}
+            scrimColor={heroColor}
           />
-        </View>
+        )}
       </View>
-    );
+      <LinearGradient
+        // Fades the stack's lower edge into the surface so the headline
+        // that follows can sit on top of it.
+        colors={["rgba(0,0,0,0)", colors.bg]}
+        style={styles.heroFade}
+        pointerEvents="none"
+      />
+    </View>
+  ) : (
+    <View style={styles.hero} testID={`hero-${version}`}>
+      <LinearGradient
+        colors={[colors.bgAlt, colors.bg]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ paddingTop: heroTop }}>
+        <NotificationStack
+          items={notifications}
+          overlap={version === 3 ? 20 : 16}
+          scrimColor={colors.bgAlt}
+        />
+      </View>
+    </View>
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -155,7 +168,7 @@ export function CalAiPaywall({
         <View
           style={[
             styles.headlineWrap,
-            version === 2 && styles.headlineOverlap,
+            gradientHero && styles.headlineOverlap,
             version === 3 && styles.headlineTight,
           ]}
         >

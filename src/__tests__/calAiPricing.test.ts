@@ -137,15 +137,16 @@ describe("preview notifications", () => {
 });
 
 describe("PAYWALL_VARIANT switch", () => {
-  it("defaults to the first Cal AI layout", () => {
-    expect(PAYWALL_VARIANT).toBe("calai-1");
-    expect(calAiVersion()).toBe(1);
+  it("defaults to the calai-4 hybrid layout", () => {
+    expect(PAYWALL_VARIANT).toBe("calai-4");
+    expect(calAiVersion()).toBe(4);
   });
 
   it("maps every variant to a layout or the legacy paywalls", () => {
     expect(calAiVersion("calai-1")).toBe(1);
     expect(calAiVersion("calai-2")).toBe(2);
     expect(calAiVersion("calai-3")).toBe(3);
+    expect(calAiVersion("calai-4")).toBe(4);
     expect(calAiVersion("legacy")).toBeNull();
   });
 });

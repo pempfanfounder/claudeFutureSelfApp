@@ -136,7 +136,7 @@ beforeEach(() => {
   } as ReturnType<typeof useAuth>);
 });
 
-describe.each([1, 2, 3] as CalAiVersion[])(
+describe.each([1, 2, 3, 4] as CalAiVersion[])(
   "CalAiPaywall version %i",
   (version) => {
     it("renders its headline, the notification stack and the small print", () => {
@@ -257,6 +257,21 @@ describe("CalAiPaywall layout differences", () => {
       minHeight: 65,
     });
     three.screen.unmount();
+  });
+
+  it("v4 keeps v1's plan cards and headline over v2's gradient hero", () => {
+    const { screen } = renderPaywall(4);
+    expect(screen.getByTestId("hero-4")).toBeTruthy();
+    expect(screen.getByTestId("paywall-headline")).toHaveTextContent(
+      CALAI_HEADLINES[1],
+    );
+    expect(screen.getByText("Most popular")).toBeTruthy();
+    expect(screen.getByText("Monthly")).toBeTruthy();
+    expect(screen.queryByTestId("plan-price-line")).toBeNull();
+    expect(screen.getByTestId("paywall-cta")).not.toHaveStyle({
+      minHeight: 65,
+    });
+    screen.unmount();
   });
 
   it("v3 price line follows the selected plan", () => {
