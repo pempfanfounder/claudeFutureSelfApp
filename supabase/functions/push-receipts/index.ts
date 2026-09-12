@@ -5,6 +5,7 @@ import { createAdminClient } from "../_shared/admin.ts";
 import { requireDispatchSecret } from "../_shared/auth.ts";
 import { json } from "../_shared/http.ts";
 import { readBoundedJson, record } from "../_shared/input.ts";
+import { PUSH_RPC_DEADLINE_MS } from "../_shared/rpc-deadline.ts";
 
 interface Pending {
   id: string;
@@ -28,7 +29,7 @@ async function rpc(
   args: Record<string, unknown> = {},
 ): Promise<unknown> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5_000);
+  const timeout = setTimeout(() => controller.abort(), PUSH_RPC_DEADLINE_MS);
   try {
     const { data, error } = await db
       .rpc(name, args)
