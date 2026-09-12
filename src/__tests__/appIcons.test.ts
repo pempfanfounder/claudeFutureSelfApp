@@ -76,41 +76,57 @@ describe("applyAppIcon", () => {
     expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
   });
 
-  it("switches back to Minimal Sand by name once another icon is active", async () => {
+  it("resets to the primary icon (null) for Minimal Sand once another icon is active", async () => {
+    // Minimal Sand IS the bundled primary icon, so choosing it must reset
+    // the alternate icon rather than select an alternate by name.
     mockGetAppIconName.mockReturnValue("Arctic");
-    await applyAppIcon("minimal_sand");
-    expect(mockSetAlternateAppIcon).toHaveBeenLastCalledWith("MinimalSand");
-    await applyAppIcon(null);
-    expect(mockSetAlternateAppIcon).toHaveBeenLastCalledWith("MinimalSand");
+    await expect(applyAppIcon("minimal_sand")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenLastCalledWith(null);
+    await expect(applyAppIcon(null)).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenLastCalledWith(null);
     expect(mockSetAlternateAppIcon).toHaveBeenCalledTimes(2);
+    expect(mockSetAlternateAppIcon).not.toHaveBeenCalledWith("MinimalSand");
   });
 
-  it("does nothing when the icon is already active", async () => {
+  it("reports success without a native call when the icon is already active", async () => {
     mockGetAppIconName.mockReturnValue("MidnightFocus");
-    await applyAppIcon("midnight_focus");
+    await expect(applyAppIcon("midnight_focus")).resolves.toBe(true);
     expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
+  });
+
+  it("reports success after applying", async () => {
+    await expect(applyAppIcon("arctic")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Arctic");
   });
 
   it("ignores ids that are not app icons", async () => {
-    await applyAppIcon("not_a_theme");
+    await expect(applyAppIcon("not_a_theme")).resolves.toBe(false);
     expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
   });
 
-  it("does nothing on devices without alternate-icon support", async () => {
+  it("reports failure on devices without alternate-icon support", async () => {
     mockSupports = false;
-    await applyAppIcon("arctic");
+    await expect(applyAppIcon("arctic")).resolves.toBe(false);
     expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
   });
 
-  it("never throws when the native call fails", async () => {
+  it("never throws when the native call fails: logs in dev, reports false", async () => {
     // Monitoring logs the swallowed error in dev; keep the run quiet.
     const consoleError = jest
       .spyOn(console, "error")
       .mockImplementation(() => {});
+    const consoleWarn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
     mockSetAlternateAppIcon.mockRejectedValueOnce(new Error("nope"));
-    await expect(applyAppIcon("arctic")).resolves.toBeUndefined();
+    await expect(applyAppIcon("arctic")).resolves.toBe(false);
     expect(consoleError).toHaveBeenCalled();
+    expect(consoleWarn).toHaveBeenCalledWith(
+      expect.stringContaining('could not apply "arctic"'),
+      expect.any(Error),
+    );
     consoleError.mockRestore();
+    consoleWarn.mockRestore();
   });
 });
 
