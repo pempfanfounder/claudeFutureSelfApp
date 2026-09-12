@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
 import {
   Linking,
@@ -7,6 +8,13 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -16,8 +24,9 @@ import {
   Icon,
   ProgressBar,
 } from "@/design-system/components";
+import { useMotionPreference } from "@/design-system/motion";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, spacing, type } from "@/design-system/tokens";
+import { motion, radii, spacing, type } from "@/design-system/tokens";
 import { LEGAL_URLS } from "@/lib/legal";
 import { monitoring } from "@/lib/monitoring";
 import { KeyboardAvoider } from "@/features/onboarding/engine/KeyboardAvoider";
@@ -39,15 +48,21 @@ interface SaveAccountScreenProps {
 }
 
 const APP_NAME = "Future Self";
-const GATE_HINT = "Accept the Terms and Privacy Policy to continue.";
+export const TERMS_WARNING =
+  "You must accept the Terms and Conditions and Privacy Policy to continue";
 const ICON_SIZE = 20;
+/** The app's warm warning/error tone (also used by the auth sheets). */
+const WARNING_COLOR = "#B4553C";
+const SHAKE_STEP = 45;
 
 /**
  * Required "save your progress" screen shown before the paywall: back +
  * progress line, a large title, and three stacked provider pills over
- * two consent checkboxes. The Terms checkbox gates every provider; the
- * marketing checkbox is optional and recorded on the account once the
- * identity is linked. Links the anonymous user (never switches accounts).
+ * two consent checkboxes. The provider pills always render at full
+ * strength; tapping one before the Terms box is checked starts nothing
+ * and instead shakes an inline warning under the checkbox. The marketing
+ * checkbox is optional and recorded on the account once the identity is
+ * linked. Links the anonymous user (never switches accounts).
  */
 export function SaveAccountScreen({
   sub,
@@ -59,9 +74,16 @@ export function SaveAccountScreen({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const auth = useAuth();
+  const reduced = useMotionPreference();
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(false);
-  const [gateHint, setGateHint] = useState(false);
+  const [warning, setWarning] = useState(false);
+  const warningOpacity = useSharedValue(0);
+  const warningShake = useSharedValue(0);
+  const warningStyle = useAnimatedStyle(() => ({
+    opacity: warningOpacity.get(),
+    transform: [{ translateX: warningShake.get() }],
+  }));
   // The provider sheet may be open while the user toggles the checkbox;
   // record whatever is checked when the link actually succeeds.
   const marketingRef = useRef(false);
@@ -87,17 +109,43 @@ export function SaveAccountScreen({
   const providers = auth.availableProviders;
   const noProviders = !providers.apple && !providers.google && !providers.email;
 
+  const showWarning = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setWarning(true);
+    cancelAnimation(warningOpacity);
+    cancelAnimation(warningShake);
+    warningOpacity.set(withTiming(1, { duration: motion.fast }));
+    if (reduced) {
+      warningShake.set(0);
+      return;
+    }
+    // Repeat taps re-shake so the user sees the same warning respond.
+    warningShake.set(
+      withSequence(
+        withTiming(-6, { duration: SHAKE_STEP }),
+        withTiming(6, { duration: SHAKE_STEP }),
+        withTiming(-4, { duration: SHAKE_STEP }),
+        withTiming(0, { duration: SHAKE_STEP }),
+      ),
+    );
+  };
   const gated = (action: () => void) => () => {
     if (flow.inFlight()) return;
     if (!termsAccepted) {
-      setGateHint(true);
+      showWarning();
       return;
     }
     action();
   };
   const acceptTerms = (checked: boolean) => {
     setTermsAccepted(checked);
-    if (checked) setGateHint(false);
+    if (checked) {
+      cancelAnimation(warningOpacity);
+      cancelAnimation(warningShake);
+      warningOpacity.set(0);
+      warningShake.set(0);
+      setWarning(false);
+    }
   };
   const openLink = (url: string) => () => Linking.openURL(url).catch(() => {});
 
@@ -160,7 +208,7 @@ export function SaveAccountScreen({
             <AppText
               variant="body"
               accessibilityRole="alert"
-              style={[styles.error, { color: "#B4553C" }]}
+              style={[styles.error, { color: WARNING_COLOR }]}
             >
               {error}
             </AppText>
@@ -183,7 +231,6 @@ export function SaveAccountScreen({
                   onPress={gated(flow.runApple)}
                   loading={busy === "apple"}
                   disabled={Boolean(busy)}
-                  dimmed={!termsAccepted}
                   testID="auth-apple"
                 />
               ) : null}
@@ -196,7 +243,6 @@ export function SaveAccountScreen({
                   onPress={gated(flow.runGoogle)}
                   loading={busy === "google"}
                   disabled={Boolean(busy)}
-                  dimmed={!termsAccepted}
                   testID="auth-google"
                 />
               ) : null}
@@ -208,7 +254,6 @@ export function SaveAccountScreen({
                   )}
                   onPress={gated(flow.openEmail)}
                   disabled={Boolean(busy)}
-                  dimmed={!termsAccepted}
                   testID="auth-email"
                 />
               ) : null}
@@ -308,6 +353,21 @@ export function SaveAccountScreen({
                   Privacy Policy
                 </AppText>
               </Checkbox>
+              {warning ? (
+                <Animated.View
+                  style={[styles.warning, warningStyle]}
+                  accessibilityRole="alert"
+                  testID="consent-warning"
+                >
+                  <Icon name="warning" size={14} color={WARNING_COLOR} />
+                  <AppText
+                    variant="label"
+                    style={[styles.warningText, { color: WARNING_COLOR }]}
+                  >
+                    {TERMS_WARNING}
+                  </AppText>
+                </Animated.View>
+              ) : null}
               <Checkbox
                 checked={marketingOptIn}
                 onChange={setMarketing}
@@ -317,16 +377,6 @@ export function SaveAccountScreen({
                 Send me tips, new features, and personalized offers from{" "}
                 {APP_NAME}
               </Checkbox>
-              {gateHint ? (
-                <AppText
-                  variant="label"
-                  accessibilityRole="alert"
-                  style={[styles.hint, { color: "#B4553C" }]}
-                  testID="consent-hint"
-                >
-                  {GATE_HINT}
-                </AppText>
-              ) : null}
             </View>
           )}
         </ScrollView>
@@ -369,5 +419,11 @@ const styles = StyleSheet.create({
   },
   consent: { marginTop: spacing.xl, gap: spacing.sm },
   link: { textDecorationLine: "underline" },
-  hint: { marginTop: spacing.xs },
+  warning: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs + 2,
+    paddingLeft: 20 + spacing.md,
+  },
+  warningText: { flex: 1 },
 });

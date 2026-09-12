@@ -1,11 +1,20 @@
 import React from "react";
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Linking } from "react-native";
+import {
+  Linking,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
+import { Icon } from "@/design-system/components";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { SaveAccountScreen } from "@/features/auth/SaveAccountScreen";
+import {
+  SaveAccountScreen,
+  TERMS_WARNING,
+} from "@/features/auth/SaveAccountScreen";
 import { LEGAL_URLS } from "@/lib/legal";
 
 jest.mock("@/features/auth/AuthProvider", () => ({
@@ -104,23 +113,68 @@ test("only renders configured providers and explains an empty build", () => {
   empty.screen.unmount();
 });
 
-test("the Terms checkbox gates every provider until accepted", async () => {
+const flattenOpacity = (node: { props: Record<string, unknown> }) =>
+  (StyleSheet.flatten(node.props.style as StyleProp<ViewStyle>) ?? {}).opacity;
+
+test("provider pills render at full strength before Terms are accepted", () => {
+  mockAuth({ apple: true, google: true, email: true });
+  const { screen } = renderScreen();
+  for (const id of ["auth-apple", "auth-google", "auth-email"]) {
+    const button = screen.getByTestId(id);
+    expect(button.props.accessibilityState.disabled).toBe(false);
+    expect(flattenOpacity(button)).toBeUndefined();
+  }
+  expect(screen.queryByTestId("consent-warning")).toBeNull();
+  screen.unmount();
+});
+
+test.each(["auth-apple", "auth-google", "auth-email"])(
+  "tapping %s before accepting Terms starts nothing and shows the warning",
+  async (id) => {
+    const auth = mockAuth({ apple: true, google: true, email: true });
+    const { screen, onDone } = renderScreen();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId(id));
+    });
+    expect(auth.linkWithApple).not.toHaveBeenCalled();
+    expect(auth.linkWithGoogle).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("auth-email-input")).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
+
+    const warning = screen.getByTestId("consent-warning");
+    expect(warning.props.accessibilityRole).toBe("alert");
+    expect(screen.getByText(TERMS_WARNING)).toBeTruthy();
+    const icon = screen
+      .UNSAFE_getAllByType(Icon)
+      .find((node) => node.props.name === "warning");
+    expect(icon).toBeTruthy();
+    expect(icon?.props.color).toBe("#B4553C");
+    expect(
+      StyleSheet.flatten(screen.getByText(TERMS_WARNING).props.style).color,
+    ).toBe("#B4553C");
+    // The pills stay fully interactive while the warning shows.
+    for (const pill of ["auth-apple", "auth-google", "auth-email"])
+      expect(flattenOpacity(screen.getByTestId(pill))).toBeUndefined();
+    screen.unmount();
+  },
+);
+
+test("the warning clears as soon as the Terms box is checked, then sign-in runs", async () => {
   const auth = mockAuth({ apple: true, google: true, email: true });
   const { screen, onDone } = renderScreen();
 
-  fireEvent.press(screen.getByTestId("auth-apple"));
-  fireEvent.press(screen.getByTestId("auth-google"));
-  fireEvent.press(screen.getByTestId("auth-email"));
-  expect(auth.linkWithApple).not.toHaveBeenCalled();
-  expect(auth.linkWithGoogle).not.toHaveBeenCalled();
-  expect(screen.queryByTestId("auth-email-input")).toBeNull();
-  expect(screen.getByTestId("consent-hint")).toBeTruthy();
+  await act(async () => {
+    fireEvent.press(screen.getByTestId("auth-apple"));
+  });
+  expect(screen.getByTestId("consent-warning")).toBeTruthy();
   expect(
     screen.getByTestId("consent-terms").props.accessibilityState.checked,
   ).toBe(false);
 
   fireEvent.press(screen.getByTestId("consent-terms"));
-  expect(screen.queryByTestId("consent-hint")).toBeNull();
+  expect(screen.queryByTestId("consent-warning")).toBeNull();
+  expect(screen.queryByText(TERMS_WARNING)).toBeNull();
   expect(
     screen.getByTestId("consent-terms").props.accessibilityState.checked,
   ).toBe(true);
@@ -130,6 +184,15 @@ test("the Terms checkbox gates every provider until accepted", async () => {
   });
   expect(auth.linkWithApple).toHaveBeenCalledTimes(1);
   expect(onDone).toHaveBeenCalledWith(true);
+
+  // Unchecking again re-arms the gate without showing the warning by itself.
+  fireEvent.press(screen.getByTestId("consent-terms"));
+  expect(screen.queryByTestId("consent-warning")).toBeNull();
+  await act(async () => {
+    fireEvent.press(screen.getByTestId("auth-google"));
+  });
+  expect(auth.linkWithGoogle).not.toHaveBeenCalled();
+  expect(screen.getByTestId("consent-warning")).toBeTruthy();
   screen.unmount();
 });
 
