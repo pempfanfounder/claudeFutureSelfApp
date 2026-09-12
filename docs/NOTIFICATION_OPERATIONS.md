@@ -216,6 +216,25 @@ Dashboard → Edge Functions → `push-dispatch` / `push-receipts` → Logs. Eac
 dispatch run returns a summary like
 `{"read":12,"sent":11,"ticket_error":0,"archived":1,"deferred":0}`.
 
+### Time budgets
+
+Each database RPC from `push-dispatch` and `push-receipts` is aborted after
+`PUSH_RPC_DEADLINE_MS` (default 10 s, accepted range 1–12 s; unset or invalid
+values fall back to the default). The default is sized for an edge cold start
+plus the first PostgREST round-trip (~4–6 s on this project), not for the SQL
+itself, which runs in milliseconds. A `push-dispatch` invocation stops
+claiming new jobs 18 s before its 40 s worker deadline (room for one 8 s Expo
+call plus one full-deadline persistence call), so a run always ends well
+inside the 1-minute cron interval and the 90 s queue visibility timeout.
+`push-receipts` has no worker deadline; its worst case is three RPCs plus one
+8 s Expo call, which the 12 s ceiling keeps inside the 45 s receipt lease.
+
+Symptoms of a deadline that is too short: `503 {"error":"queue unavailable"}`
+from `push-dispatch` or `503 {"error":"receipt claim unavailable"}` from
+`push-receipts` on cold runs, with no lease taken and nothing lost. Raise the
+deadline by setting the `PUSH_RPC_DEADLINE_MS` function secret and redeploying
+both functions.
+
 ---
 
 ## Emergency levers
@@ -249,6 +268,7 @@ Configured once; listed here for troubleshooting.
 | Where                             | Name                             | Used by                                                              |
 | --------------------------------- | -------------------------------- | -------------------------------------------------------------------- |
 | Edge function secrets             | `DISPATCH_SECRET`                | `push-dispatch`, `push-receipts` (must match the vault secret)       |
+| Edge function secrets (optional)  | `PUSH_RPC_DEADLINE_MS`           | `push-dispatch`, `push-receipts` per-RPC abort (default `10000`)     |
 | Edge function secrets             | `REVENUECAT_WEBHOOK_SECRET`      | `revenuecat-webhook` (Bearer auth from RevenueCat)                   |
 | Edge function secrets             | `REVENUECAT_SECRET_API_KEY`      | `sync-entitlement` (server-side verification; returns 501 until set) |
 | Vault (`vault.decrypted_secrets`) | `project_url`, `dispatch_secret` | `invoke_push_function()` cron caller                                 |
