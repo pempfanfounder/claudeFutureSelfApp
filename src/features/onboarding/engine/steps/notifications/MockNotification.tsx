@@ -1,4 +1,11 @@
-import { Image, StyleSheet, View } from "react-native";
+import type { ComponentProps } from "react";
+import {
+  Image,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated, { FadeInUp } from "react-native-reanimated";
 
 import { AppText } from "@/design-system/components";
@@ -10,9 +17,70 @@ interface MockNotificationProps {
   body: string;
 }
 
+interface NotificationCardProps {
+  body: string;
+  /** Delivery time shown top-right; defaults to "Now". */
+  time?: string;
+  /** Mount animation; the paywall stack staggers its own. */
+  entering?: ComponentProps<typeof Animated.View>["entering"];
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
+}
+
 const ICON_SIZE = 24;
 /** How much of the back card shows under the front one. */
 const PEEK = 8;
+
+/**
+ * The single iOS-style banner (app icon, "Future Self", time, body).
+ * Shared between the onboarding notifications step and the paywall's
+ * stacked hero so both previews are literally the same drawing.
+ */
+export function NotificationCard({
+  body,
+  time = "Now",
+  entering,
+  style,
+  testID,
+}: NotificationCardProps) {
+  const colors = useColors();
+  return (
+    <Animated.View
+      entering={entering}
+      testID={testID}
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        shadows.md,
+        style,
+      ]}
+    >
+      <View
+        style={[
+          styles.iconTile,
+          { backgroundColor: colors.bg, borderColor: colors.border },
+        ]}
+      >
+        <Image
+          source={require("../../../../../../assets/images/splash-icon.png")}
+          style={styles.icon}
+          resizeMode="cover"
+        />
+      </View>
+      <View style={styles.text}>
+        <View style={styles.titleRow}>
+          <AppText variant="label">Future Self</AppText>
+          <AppText variant="label" tone="ink3">
+            {time}
+          </AppText>
+        </View>
+        <AppText variant="body" style={styles.body}>
+          {body}
+        </AppText>
+      </View>
+    </Animated.View>
+  );
+}
 
 /**
  * I Am-style preview of what a delivery looks like: an iOS notification
@@ -28,38 +96,7 @@ export function MockNotification({ body }: MockNotificationProps) {
         // Sits behind the front card; only its bottom edge is visible.
         style={[styles.backCard, { backgroundColor: colors.card }]}
       />
-      <Animated.View
-        entering={FadeInUp.duration(300)}
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-          shadows.md,
-        ]}
-      >
-        <View
-          style={[
-            styles.iconTile,
-            { backgroundColor: colors.bg, borderColor: colors.border },
-          ]}
-        >
-          <Image
-            source={require("../../../../../../assets/images/splash-icon.png")}
-            style={styles.icon}
-            resizeMode="cover"
-          />
-        </View>
-        <View style={styles.text}>
-          <View style={styles.titleRow}>
-            <AppText variant="label">Future Self</AppText>
-            <AppText variant="label" tone="ink3">
-              Now
-            </AppText>
-          </View>
-          <AppText variant="body" style={styles.body}>
-            {body}
-          </AppText>
-        </View>
-      </Animated.View>
+      <NotificationCard body={body} entering={FadeInUp.duration(300)} />
     </View>
   );
 }

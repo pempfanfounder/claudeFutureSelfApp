@@ -9,8 +9,13 @@ import {
 } from "@/lib/appState";
 import type { OnboardingVariant } from "@/lib/experiments";
 import { getIdentitySupabase } from "@/lib/supabase";
+import { CalAiPaywall } from "@/features/paywall/calai/CalAiPaywall";
 import { NotePaywall } from "@/features/paywall/NotePaywall";
 import { TimelinePaywall } from "@/features/paywall/TimelinePaywall";
+import {
+  PAYWALL_VARIANT,
+  calAiVersion,
+} from "@/features/paywall/paywallVariant";
 import { useOffering } from "@/features/paywall/useOffering";
 import { getCompletedOnboardingVariant } from "@/features/onboarding/engine/store";
 
@@ -21,8 +26,9 @@ export default function PaywallRoute() {
   const [variant, setVariant] = useState<OnboardingVariant | null>(null);
   const [trialReminder, setTrialReminder] = useState(false);
   const [savingReminder, setSavingReminder] = useState(false);
+  const calAi = calAiVersion(PAYWALL_VARIANT);
   const isNote = variant === "stella-founder" || variant === "stella-claude";
-  const offering = useOffering(isNote ? "monthly" : "annual");
+  const offering = useOffering(isNote && !calAi ? "monthly" : "annual");
   useEffect(() => {
     let active = true;
     const identity = captureIdentity();
@@ -72,8 +78,17 @@ export default function PaywallRoute() {
   const onPurchased = () => {
     if (useAppState.getState().isPremium) router.replace("/");
   };
-  if (!variant) return null;
   const data = { ...offering, loading: offering.loading || savingReminder };
+  if (calAi)
+    return (
+      <CalAiPaywall
+        data={data}
+        version={calAi}
+        placement="gate"
+        onPurchased={onPurchased}
+      />
+    );
+  if (!variant) return null;
   return isNote ? (
     <NotePaywall
       data={data}

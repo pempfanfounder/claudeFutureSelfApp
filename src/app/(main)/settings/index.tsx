@@ -1,4 +1,5 @@
 import { router, type Href } from "expo-router";
+import { useState } from "react";
 import {
   Linking,
   Platform,
@@ -19,6 +20,7 @@ import { isConfigured } from "@/lib/purchases";
 
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useFeedStore } from "@/features/content/feedStore";
+import { PrivacyChoicesSheet } from "@/features/paywall/PrivacyChoicesSheet";
 
 function openStoreSubscriptionsUrl() {
   return Linking.openURL(
@@ -73,6 +75,7 @@ export default function SettingsScreen({
   const { displayName } = useAppState();
   const { currentStreak, longestStreak, completedToday } = useFeedStore();
   const { isAnonymous } = useAuth();
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const todayIndex = (new Date().getDay() + 6) % 7;
 
   const go = (href: string) =>
@@ -196,7 +199,17 @@ export default function SettingsScreen({
           "settings-account",
         )}
         {row("Manage subscription", manageSubscription)}
+        {row(
+          "Privacy choices",
+          () => setPrivacyOpen(true),
+          undefined,
+          "settings-privacy-choices",
+        )}
       </ScrollView>
+      <PrivacyChoicesSheet
+        visible={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+      />
     </Screen>
   );
 }
