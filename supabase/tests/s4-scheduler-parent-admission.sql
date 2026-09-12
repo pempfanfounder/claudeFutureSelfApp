@@ -12,7 +12,7 @@ if exists(select 1 from cron.job where active) or (select count(*) from cron.job
  or (select paused from public.push_pipeline_control where id) is distinct from true
  or exists(select 1 from public.notification_deliveries) or exists(select 1 from public.notification_delivery_devices)
  or exists(select 1 from public.push_schedule_claims) or exists(select 1 from public.devices)
- or (select count(*) from public.content_items)<>260 then raise exception 'isolation drift';end if;
+ or (select count(*) from public.content_items)<>325 then raise exception 'isolation drift';end if;
 if current_setting('transaction_isolation')<>'read committed' then raise exception 'read committed required';end if;
 if current_setting('deadlock_timeout')::interval >= interval '3 seconds' then raise exception 'detector does not fit lock bound';end if;
 if (select md5(prosrc) from pg_proc where oid='public.enqueue_due_notifications(integer)'::regprocedure) is distinct from 'cbff66ccd437c8de3b90029d14dcb191' then raise exception 'function identity drift: public.enqueue_due_notifications(integer)';end if;
@@ -93,7 +93,7 @@ if exists(select 1 from cron.job where active) or (select count(*) from cron.job
  or (select paused from public.push_pipeline_control where id) is distinct from true
  or exists(select 1 from public.notification_deliveries) or exists(select 1 from public.notification_delivery_devices)
  or exists(select 1 from public.push_schedule_claims) or exists(select 1 from public.devices)
- or (select count(*) from public.content_items)<>260 then raise exception 'isolation drift';end if;
+ or (select count(*) from public.content_items)<>325 then raise exception 'isolation drift';end if;
 if current_setting('transaction_isolation')<>'read committed' then raise exception 'read committed required';end if;
 if current_setting('deadlock_timeout')::interval >= interval '3 seconds' then raise exception 'detector does not fit lock bound';end if;
 if (select md5(prosrc) from pg_proc where oid='public.enqueue_due_notifications(integer)'::regprocedure) is distinct from 'cbff66ccd437c8de3b90029d14dcb191' then raise exception 'function identity drift: public.enqueue_due_notifications(integer)';end if;

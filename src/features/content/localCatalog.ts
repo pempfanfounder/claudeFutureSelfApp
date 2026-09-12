@@ -1,3 +1,4 @@
+import { OWNER_QUOTES } from "./ownerQuotes";
 import type { ContentItem } from "./types";
 
 const LOCAL_PREFIX = "local:";
@@ -23,68 +24,13 @@ function item(
   };
 }
 
-/** Built-in pack for mock/staging builds when the server library is blocked. */
+/** Built-in pack for mock/staging builds when the server library is blocked.
+ * Quotes are the owner's official list (same set the DB seed ships). */
 export const LOCAL_CATALOG: ContentItem[] = [
-  item("q01", "quote", "Confine yourself to the present.", "Marcus Aurelius"),
-  item(
-    "q02",
-    "quote",
-    "We suffer more often in imagination than in reality.",
-    "Seneca",
-  ),
-  item(
-    "q03",
-    "quote",
-    "It is not that we have a short time to live, but that we waste a lot of it.",
-    "Seneca",
-  ),
-  item(
-    "q04",
-    "quote",
-    "The impediment to action advances action. What stands in the way becomes the way.",
-    "Marcus Aurelius",
-  ),
-  item(
-    "q05",
-    "quote",
-    "No man is free who is not master of himself.",
-    "Epictetus",
-  ),
-  item(
-    "q06",
-    "quote",
-    "First say to yourself what you would be; and then do what you have to do.",
-    "Epictetus",
-  ),
-  item(
-    "q07",
-    "quote",
-    "Luck is what happens when preparation meets opportunity.",
-    "Seneca",
-  ),
-  item(
-    "q08",
-    "quote",
-    "Waste no more time arguing about what a good man should be. Be one.",
-    "Marcus Aurelius",
-  ),
-  item(
-    "q09",
-    "quote",
-    "You have power over your mind — not outside events. Realize this, and you will find strength.",
-    "Marcus Aurelius",
-  ),
-  item("q10", "quote", "He who is brave is free.", "Seneca"),
-  item(
-    "q11",
-    "quote",
-    "Make yourself the kind of person you promised you would become.",
-  ),
-  item(
-    "q12",
-    "quote",
-    "The person you will be in five years is built in the ordinary hours of today.",
-  ),
+  ...OWNER_QUOTES.map((quote) => ({
+    ...item(`q${String(quote.n).padStart(2, "0")}`, "quote", quote.body),
+    categories: [...quote.categories],
+  })),
   item("a01", "affirmation", "I keep the promises I make to myself."),
   item("a02", "affirmation", "I can start again from this hour."),
   item(

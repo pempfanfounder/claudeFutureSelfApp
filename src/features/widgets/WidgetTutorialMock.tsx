@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { type } from "@/design-system/tokens";
+import { OWNER_QUOTES } from "@/features/content/ownerQuotes";
 
 import { paletteForWidget } from "./widgetPrefs";
 
@@ -37,8 +38,11 @@ const LOCK_LOOP_MS = 27_500;
 const HOME_LOOP_MS = 20_000;
 const W = 216;
 const H = 440;
-const QUOTE_1 = "Hard work beats talent, every time.";
-const QUOTE_2 = "Small steps lead to big changes.";
+// Sample chips show real owner quotes (short ones that fit a widget chip).
+const ownerQuote = (n: number) =>
+  OWNER_QUOTES.find((quote) => quote.n === n)?.body ?? "";
+const QUOTE_1 = ownerQuote(9); // "Success is a decision."
+const QUOTE_2 = ownerQuote(52); // "Don't wish for it, work for it."
 
 const clamp = Extrapolation.CLAMP;
 
