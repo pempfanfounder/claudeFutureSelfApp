@@ -18,6 +18,7 @@ import { useOffering } from "@/features/paywall/useOffering";
 
 import { getVariantConfig } from "../variants";
 import { completeOnboarding } from "./completeOnboarding";
+import { onboardingProgress, PROGRESS_BAR_FAMILIES } from "./progress";
 import { resolveText } from "./resolve";
 import { useOnboardingStore } from "./store";
 import { AppIconStep } from "./steps/AppIconStep";
@@ -160,11 +161,9 @@ export function OnboardingFlow() {
   const isStella = config.family === "stella";
   const showBack =
     isStella && stepIndex > 0 && !["preparing", "paywall"].includes(step.type);
-  const showProgress =
-    isStella &&
-    !step.hideProgress &&
-    !["welcome", "preparing", "paywall", "auth-sheet"].includes(step.type);
-  const progress = (stepIndex + 1) / steps.length;
+  const progress = PROGRESS_BAR_FAMILIES[config.family]
+    ? onboardingProgress(steps, stepIndex)
+    : null;
 
   const renderStep = () => {
     switch (step.type) {
@@ -281,8 +280,11 @@ export function OnboardingFlow() {
         />
       ) : null}
 
-      {showProgress ? (
-        <View style={[styles.progress, { top: insets.top + spacing.sm }]}>
+      {progress !== null ? (
+        <View
+          style={[styles.progress, { top: insets.top + spacing.sm }]}
+          testID="onboarding-progress"
+        >
           <ProgressBar progress={progress} height={3} />
         </View>
       ) : null}

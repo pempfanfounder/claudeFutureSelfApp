@@ -7,7 +7,11 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeInRight, FadeOut } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeInRight,
+  FadeOut,
+} from "react-native-reanimated";
 
 import {
   AppText,
@@ -339,8 +343,10 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
-  skip: { position: "absolute", top: spacing.sm, right: spacing.xl, zIndex: 5 },
-  // 56 clears the Skip control (8 + ~17) with room to breathe and pulls
+  // Sits under the flow's 3 pt progress bar (drawn at +8): 20 leaves a
+  // clear gap between the bar and the label.
+  skip: { position: "absolute", top: spacing.xl, right: spacing.xl, zIndex: 5 },
+  // 56 clears the Skip control (20 + ~17) with room to breathe and pulls
   // the question as high as the design allows, buying ~28 pt for options.
   content: { paddingTop: 56 },
   // Steps with a CTA: the footer is a sibling, so this is separation.
