@@ -12,6 +12,7 @@ import { useAppState } from "@/lib/appState";
 
 import { useAuth } from "@/features/auth/AuthProvider";
 import { AuthSheet } from "@/features/auth/AuthSheet";
+import { SaveAccountScreen } from "@/features/auth/SaveAccountScreen";
 import { NotePaywall } from "@/features/paywall/NotePaywall";
 import { TimelinePaywall } from "@/features/paywall/TimelinePaywall";
 import { useOffering } from "@/features/paywall/useOffering";
@@ -158,13 +159,21 @@ export function OnboardingFlow() {
   if (!config || !step || !variant) return null;
 
   const isStella = config.family === "stella";
+  // The required pre-paywall account step is a full screen with its own
+  // back button and progress line.
+  const isSaveAccount = step.type === "auth-sheet" && !step.secondaryCta;
   const showBack =
-    isStella && stepIndex > 0 && !["preparing", "paywall"].includes(step.type);
+    isStella &&
+    !isSaveAccount &&
+    stepIndex > 0 &&
+    !["preparing", "paywall"].includes(step.type);
   const showProgress =
     isStella &&
     !step.hideProgress &&
     !["welcome", "preparing", "paywall", "auth-sheet"].includes(step.type);
   const progress = (stepIndex + 1) / steps.length;
+  // Going back onto a "preparing" step would rerun its work; stop there.
+  const canGoBack = stepIndex > 0 && steps[stepIndex - 1]?.type !== "preparing";
 
   const renderStep = () => {
     switch (step.type) {
@@ -198,18 +207,25 @@ export function OnboardingFlow() {
           />
         );
       case "auth-sheet": {
-        const required = !step.secondaryCta;
+        if (isSaveAccount)
+          return (
+            <SaveAccountScreen
+              sub={resolveText(step.sub, ctx)}
+              progress={progress}
+              onBack={canGoBack ? goBack : undefined}
+              onDone={(ok) => {
+                if (ok) advance();
+              }}
+            />
+          );
         return (
           <AuthSheet
             visible
-            required={required}
             headline={resolveText(step.headline, ctx) ?? "Create your account"}
             sub={resolveText(step.sub, ctx)}
             dismissLabel={step.secondaryCta ?? "Not now"}
             mode="link"
-            onDone={(ok) => {
-              if (ok || !required) advance();
-            }}
+            onDone={() => advance()}
           />
         );
       }
@@ -270,7 +286,9 @@ export function OnboardingFlow() {
     }
   };
 
-  const isFullBleed = step.type === "paywall" && config.paywallStyle === "note";
+  const isFullBleed =
+    isSaveAccount ||
+    (step.type === "paywall" && config.paywallStyle === "note");
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
