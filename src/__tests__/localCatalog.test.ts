@@ -4,16 +4,23 @@ import {
   isLocalCatalogId,
   resolveContentLibrary,
 } from "@/features/content/localCatalog";
+import { OWNER_QUOTES } from "@/features/content/ownerQuotes";
 
 describe("local catalog fallback", () => {
-  it("has twelve quotes and twelve affirmations", () => {
-    expect(LOCAL_CATALOG.filter((item) => item.type === "quote")).toHaveLength(
-      12,
+  it("ships the owner's quotes and twelve affirmations", () => {
+    const quotes = LOCAL_CATALOG.filter((item) => item.type === "quote");
+    expect(quotes).toHaveLength(OWNER_QUOTES.length);
+    expect(quotes.map((item) => item.body)).toEqual(
+      OWNER_QUOTES.map((quote) => quote.body),
     );
+    expect(quotes.every((item) => item.author === null)).toBe(true);
     expect(
       LOCAL_CATALOG.filter((item) => item.type === "affirmation"),
     ).toHaveLength(12);
     expect(LOCAL_CATALOG.every((item) => isLocalCatalogId(item.id))).toBe(true);
+    expect(new Set(LOCAL_CATALOG.map((item) => item.id)).size).toBe(
+      LOCAL_CATALOG.length,
+    );
   });
 
   it("uses the remote library when the server actually sent items", () => {

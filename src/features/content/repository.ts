@@ -175,6 +175,7 @@ async function resolveDailySet(
       day,
       weights,
       prior?.items.map((item) => item.id) ?? [],
+      { personalized: config.contentPersonalizationEnabled },
     );
     proposal = ids
       .map((id) => byId.get(id))
