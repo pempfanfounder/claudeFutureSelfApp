@@ -106,9 +106,9 @@ describe("preview notifications", () => {
 });
 
 describe("PAYWALL_VARIANT switch", () => {
-  it("defaults to the calai-4 hybrid layout", () => {
-    expect(PAYWALL_VARIANT).toBe("calai-4");
-    expect(calAiVersion()).toBe(4);
+  it("defaults to the calai-1 layout", () => {
+    expect(PAYWALL_VARIANT).toBe("calai-1");
+    expect(calAiVersion()).toBe(1);
   });
 
   it("maps every variant to a layout or the legacy paywalls", () => {

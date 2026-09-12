@@ -263,6 +263,24 @@ describe("CalAiPaywall layout differences", () => {
     three.screen.unmount();
   });
 
+  it("v1 alone outlines the stacked cards in the ink brown", () => {
+    const one = renderPaywall(1);
+    for (const depth of [0, 1, 2]) {
+      expect(one.screen.getByTestId(`notification-card-${depth}`)).toHaveStyle({
+        borderWidth: 1,
+        borderColor: "#4B3A35",
+      });
+    }
+    one.screen.unmount();
+    for (const version of [2, 3, 4] as CalAiVersion[]) {
+      const other = renderPaywall(version);
+      expect(other.screen.getByTestId("notification-card-0")).not.toHaveStyle({
+        borderWidth: 1,
+      });
+      other.screen.unmount();
+    }
+  });
+
   it("v4 keeps v1's plan cards and headline over v2's gradient hero", () => {
     const { screen } = renderPaywall(4);
     expect(screen.getByTestId("hero-4")).toBeTruthy();

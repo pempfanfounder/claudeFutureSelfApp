@@ -3,9 +3,9 @@
  * in a single build. Applies to the in-onboarding paywall step and the
  * standalone hard gate (`src/app/paywall.tsx`).
  *
- *  - "calai-1"  Cal AI structure: notification stack hero with a soft
- *               fade, headline, two stacked plan cards ("MOST POPULAR" tab),
- *               pill CTA.
+ *  - "calai-1"  Cal AI structure: outlined notification stack hero with a
+ *               soft fade, headline, two stacked plan cards ("MOST POPULAR"
+ *               tab), pill CTA.
  *  - "calai-2"  Fanned stack bleeding behind the headline over a
  *               near-black-to-surface gradient; same plan cards.
  *  - "calai-3"  Segmented Yearly / Monthly toggle, one price line, 65 pt CTA.
@@ -16,7 +16,7 @@
 export type PaywallVariant =
   "calai-1" | "calai-2" | "calai-3" | "calai-4" | "legacy";
 
-export const PAYWALL_VARIANT: PaywallVariant = "calai-4";
+export const PAYWALL_VARIANT: PaywallVariant = "calai-1";
 
 export type CalAiVersion = 1 | 2 | 3 | 4;
 

@@ -15,6 +15,11 @@ interface NotificationStackProps {
   overlap?: number;
   /** Backdrop colour the older cards fade toward (the hero's surface). */
   scrimColor: string;
+  /**
+   * 1 pt outline around every card. The scrim sits above it, so the
+   * outline fades on the older cards together with the rest of the card.
+   */
+  outlineColor?: string;
 }
 
 const SCALE_STEP = 0.06;
@@ -34,6 +39,7 @@ export function NotificationStack({
   mode = "cascade",
   overlap = 34,
   scrimColor,
+  outlineColor,
 }: NotificationStackProps) {
   const ordered = [...items].reverse();
   return (
@@ -61,6 +67,11 @@ export function NotificationStack({
               time={item.time}
               testID={`notification-card-${depth}`}
               entering={FadeInUp.duration(360).delay(depth * 90)}
+              style={
+                outlineColor
+                  ? { borderWidth: 1, borderColor: outlineColor }
+                  : undefined
+              }
             />
             {depth > 0 ? (
               <View

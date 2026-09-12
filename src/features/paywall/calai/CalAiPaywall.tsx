@@ -144,6 +144,8 @@ export function CalAiPaywall({
           items={notifications}
           overlap={version === 3 ? 20 : 16}
           scrimColor={colors.bgAlt}
+          // v1 only: a 1 pt ink-brown outline (#4B3A35 in Minimal Sand).
+          outlineColor={version === 1 ? colors.ink : undefined}
         />
       </View>
     </View>
