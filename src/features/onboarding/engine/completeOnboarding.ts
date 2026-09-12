@@ -74,9 +74,19 @@ export async function completeOnboarding(
   void queueOnboarding(identity, pending).catch((error) =>
     monitoring.captureError(error, { area: "onboarding.complete" }),
   );
-  if (isCurrentIdentity(identity))
-    applyAppIcon(stringOf("raw.app_icon")).catch(() => {});
+  // Safety net for the icon the user picked: the AppIconStep already
+  // applied it on tap, so this is a no-op unless that failed or the app
+  // was killed before the step's apply landed. Deferred so the native
+  // icon change never races the notification permission alert or the
+  // route replace that follow completion (NSPOSIXErrorDomain 35).
+  const chosenIcon = stringOf("raw.app_icon");
+  setTimeout(() => {
+    if (isCurrentIdentity(identity)) void applyAppIcon(chosenIcon);
+  }, APP_ICON_SAFETY_NET_DELAY_MS);
 }
+
+/** Long enough for the OS permission alert and the route change to settle. */
+export const APP_ICON_SAFETY_NET_DELAY_MS = 1500;
 
 const flushes = new Map<string, Promise<void>>();
 function queueOnboarding(

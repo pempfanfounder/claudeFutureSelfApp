@@ -14,9 +14,10 @@ import { THEMES } from "./themes";
  * the asset catalogue. The bundled primary icon (`expo.icon`) is the
  * Minimal Sand look, so "no alternate set" reads as `minimal_sand`.
  *
- * iOS shows a system alert every time the icon changes, so callers
- * decide *when* to apply: onboarding records the choice and applies it
- * once at completion; the Themes screen applies on tap.
+ * iOS shows a system alert every time the icon changes. The onboarding
+ * picker and the Themes screen both apply on tap (debounced in the
+ * picker); onboarding completion re-applies as a safety net, which is a
+ * no-op once the icon is already active.
  */
 
 /** Theme id whose icon is the bundled primary icon (`expo.icon`). */
@@ -100,19 +101,31 @@ export function getCurrentAppIconId(): string {
 
 /**
  * Switches the Home Screen icon to the given theme's icon (`null` ->
- * default). No-op when unsupported, unknown, or already active — so a
- * user who keeps the default never sees the iOS "changed the icon"
- * alert. Never throws.
+ * default). Already active is a no-op, so a user who keeps the default
+ * never sees the iOS "changed the icon" alert. The default (Minimal
+ * Sand) is the bundled primary icon, so choosing it *resets* the
+ * alternate icon (`setAlternateAppIcon(null)`) instead of selecting an
+ * alternate by name.
+ *
+ * Resolves `true` when the Home Screen now shows the requested icon
+ * (applied or already active) and `false` when it could not be changed
+ * (unsupported device, unknown id, native failure). Never throws; the
+ * failure is reported to monitoring and, in development, logged.
  */
-export async function applyAppIcon(id: string | null): Promise<void> {
+export async function applyAppIcon(id: string | null): Promise<boolean> {
   const target = id ?? DEFAULT_APP_ICON_ID;
-  if (!APP_ICON_IDS.includes(target)) return;
+  if (!APP_ICON_IDS.includes(target)) return false;
   try {
     const icons = alternateIcons();
-    if (!icons?.supportsAlternateIcons) return;
-    if (appIconIdFromName(icons.getAppIconName()) === target) return;
-    await icons.setAlternateAppIcon(appIconNameFor(target));
+    if (!icons?.supportsAlternateIcons) return false;
+    if (appIconIdFromName(icons.getAppIconName()) === target) return true;
+    await icons.setAlternateAppIcon(
+      target === DEFAULT_APP_ICON_ID ? null : appIconNameFor(target),
+    );
+    return true;
   } catch (error) {
+    if (__DEV__) console.warn(`[appIcon] could not apply "${target}"`, error);
     monitoring.captureError(error, { area: "appIcon.apply", icon: target });
+    return false;
   }
 }
