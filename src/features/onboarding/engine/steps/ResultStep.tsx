@@ -66,7 +66,7 @@ const label = (slug: string) => LABELS[slug] ?? slug;
 /** Shown in the preview banner when no library item is available yet. */
 const FALLBACK_PREVIEW = "Discipline is remembering what you want.";
 /** Focus chips stay to one line on a 6.1" phone. */
-const MAX_CHIPS = 5;
+const MAX_CHIPS = 4;
 /** Stagger between plan items; each one fades and slides in with a spring. */
 const STAGGER_MS = 70;
 const FIRST_ITEM_DELAY_MS = 160;
@@ -183,34 +183,60 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
     {
       key: "stats",
       node: (
-        <View style={styles.stats}>
-          <StatTile
-            id="quotes"
-            value={notificationPrefs.quotesPerDay}
-            unit="quotes a day"
-            delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
-          />
-          <StatTile
-            id="affirmations"
-            value={notificationPrefs.affirmationsPerDay}
-            unit="affirmations a day"
-            delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
-          />
-          {streakGoal ? (
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
+          <AppText variant="eyebrow" tone="ink3" style={styles.eyebrow}>
+            Every day
+          </AppText>
+          <View style={styles.stats}>
             <StatTile
-              id="streak"
-              value={Number(streakGoal)}
-              unit="day goal"
+              id="quotes"
+              value={notificationPrefs.quotesPerDay}
+              unit="quotes"
               delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
             />
-          ) : dailyMinutes ? (
+            <View
+              style={[styles.statDivider, { backgroundColor: colors.border }]}
+            />
             <StatTile
-              id="minutes"
-              value={Number(dailyMinutes)}
-              unit={Number(dailyMinutes) === 1 ? "minute a day" : "min a day"}
+              id="affirmations"
+              value={notificationPrefs.affirmationsPerDay}
+              unit="affirmations"
               delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
             />
-          ) : null}
+            {streakGoal ? (
+              <>
+                <View
+                  style={[
+                    styles.statDivider,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <StatTile
+                  id="streak"
+                  value={Number(streakGoal)}
+                  unit="day goal"
+                  delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
+                />
+              </>
+            ) : dailyMinutes ? (
+              <>
+                <View
+                  style={[
+                    styles.statDivider,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <StatTile
+                  id="minutes"
+                  value={Number(dailyMinutes)}
+                  unit={Number(dailyMinutes) === 1 ? "minute" : "minutes"}
+                  delayMs={FIRST_ITEM_DELAY_MS + STAGGER_MS * 3}
+                />
+              </>
+            ) : null}
+          </View>
         </View>
       ),
     },
@@ -287,11 +313,10 @@ interface StatTileProps {
 
 /** A number that counts up, with its unit underneath. */
 function StatTile({ id, value, unit, delayMs }: StatTileProps) {
-  const colors = useColors();
   const shown = useCountUp(value, delayMs);
   return (
     <View
-      style={[styles.stat, { backgroundColor: colors.card }, shadows.sm]}
+      style={styles.stat}
       testID={`stat-${id}`}
       accessibilityLabel={`${value} ${unit}`}
     >
@@ -303,7 +328,7 @@ function StatTile({ id, value, unit, delayMs }: StatTileProps) {
       >
         {shown}
       </AppText>
-      <AppText variant="label" tone="ink3" center>
+      <AppText variant="label" tone="ink3" center numberOfLines={1}>
         {unit}
       </AppText>
     </View>
@@ -322,15 +347,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   eyebrow: { marginBottom: spacing.md },
-  stats: { flexDirection: "row", gap: spacing.md },
-  stat: {
-    flex: 1,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    alignItems: "center",
-    gap: 2,
-  },
+  stats: { flexDirection: "row", alignItems: "stretch" },
+  stat: { flex: 1, alignItems: "center", gap: 2 },
+  statDivider: { width: StyleSheet.hairlineWidth, marginVertical: spacing.xs },
   statValue: { fontVariant: ["tabular-nums"] },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   chip: {

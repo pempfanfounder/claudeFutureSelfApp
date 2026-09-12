@@ -190,6 +190,15 @@ stays the source of truth.
   your future self won't wake you" sentence is removed. (An earlier
   big-tile + 24-hour-band design was tried and rejected by the owner as too
   tall.)
+- **`result`** (the plan screen) redesigned from a text carousel into an
+  animated plan: one serif line ("Here's how your days will go, {name}."),
+  the written life goal as a serif-italic line, then staggered cards (fade +
+  slide on a soft spring, 70 ms apart): the first quote as a notification
+  banner stamped with the window start time, "Your window" as a day band
+  that springs out from its start, "Every day" count-up numbers (quotes,
+  affirmations, streak goal; minutes when no goal was picked) and up to four
+  chips for what the quotes lean toward. Skipped steps still add nothing;
+  practice modes are no longer echoed. Reduce motion is honoured.
 - **Progress bar (trial)**: a thin animated bar now runs above every
   question in both families, advancing one segment per answer; hidden on the
   welcome, auth, paywall, result and widget screens. Toggle per family in

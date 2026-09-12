@@ -307,7 +307,8 @@ describe("OnboardingFlow smoke render", () => {
     await waitFor(() =>
       expect(screen.getByTestId("stat-quotes-value")).toHaveTextContent(/^4$/),
     );
-    expect(screen.getByText("quotes a day")).toBeTruthy();
+    expect(screen.getByText("quotes")).toBeTruthy();
+    expect(screen.getByText("Every day")).toBeTruthy();
     await waitFor(() =>
       expect(screen.getByTestId("stat-affirmations-value")).toHaveTextContent(
         /^2$/,
@@ -319,10 +320,11 @@ describe("OnboardingFlow smoke render", () => {
     expect(screen.getByText("day goal")).toBeTruthy();
     // The streak goal wins the third tile; minutes only stand in for it.
     expect(screen.queryByTestId("stat-minutes")).toBeNull();
-    // Chips: two quote leanings, the affirmation focus, two traits; capped
-    // at five and never the raw slugs.
+    // Chips: two quote leanings, the affirmation focus, then traits; capped
+    // at four so they stay on one line, and never the raw slugs.
     const chips = screen.getByTestId("result-chips");
-    expect(chips).toHaveTextContent("DisciplineStoic calmSelf-beliefCalmFree");
+    expect(chips).toHaveTextContent("DisciplineStoic calmSelf-beliefCalm");
+    expect(screen.queryByText("Free")).toBeNull();
     expect(screen.queryByText("stoic-calm")).toBeNull();
     expect(screen.queryByText(/\bmix\b/i)).toBeNull();
     // Nothing to swipe any more.
@@ -370,7 +372,7 @@ describe("OnboardingFlow smoke render", () => {
         /^10$/,
       ),
     );
-    expect(screen.getByText("min a day")).toBeTruthy();
+    expect(screen.getByText("minutes")).toBeTruthy();
     expect(screen.queryByTestId("stat-streak")).toBeNull();
     screen.unmount();
   });
