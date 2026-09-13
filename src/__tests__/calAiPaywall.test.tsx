@@ -27,9 +27,18 @@ jest.mock("react-native-purchases", () => ({
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() },
 }));
-jest.mock("@/features/paywall/PrivacyChoicesSheet", () => ({
-  PrivacyChoicesSheet: () => null,
-}));
+jest.mock("@/features/paywall/PrivacyChoicesSheet", () => {
+  const mockReact = require("react");
+  const ReactNative = require("react-native");
+  return {
+    PrivacyChoicesSheet: ({ visible }: any) =>
+      visible
+        ? mockReact.createElement(ReactNative.View, {
+            testID: "privacy-choices-sheet",
+          })
+        : null,
+  };
+});
 jest.mock("@/lib/analytics", () => ({
   analytics: { capture: jest.fn() },
 }));
@@ -160,14 +169,18 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
         "3 days free, then $59.99 per year. Renews automatically unless cancelled in the App Store.",
       );
-      // Trimmed footer: exactly Terms · Privacy · Restore.
+      // Compact footer: Terms · Privacy · Restore · Privacy choices. The
+      // last one is the non-payer's route to support and account deletion
+      // (Guideline 5.1.1(v)).
       expect(screen.getByTestId("paywall-links")).toHaveTextContent(
-        "Terms·Privacy·Restore",
+        "Terms·Privacy·Restore·Privacy choices",
       );
       expect(screen.getByTestId("terms")).toBeTruthy();
       expect(screen.getByTestId("privacy")).toBeTruthy();
       expect(screen.getByTestId("restore")).toBeTruthy();
-      expect(screen.queryByText("Privacy choices")).toBeNull();
+      expect(screen.queryByTestId("privacy-choices-sheet")).toBeNull();
+      fireEvent.press(screen.getByTestId("privacy-choices"));
+      expect(screen.getByTestId("privacy-choices-sheet")).toBeTruthy();
       expect(screen.queryByText(/Sign in/)).toBeNull();
       expect(screen.queryByText(/24 hours/)).toBeNull();
       expect(analytics.capture).toHaveBeenCalledWith("paywall_viewed", {
