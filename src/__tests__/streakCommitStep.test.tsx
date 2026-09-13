@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -46,5 +47,13 @@ test("rings the day 1 with theme flame icons", () => {
   expect(screen.getByTestId("streak-flame-ring")).toBeTruthy();
   expect(screen.getByText("1")).toBeTruthy();
   expect(screen.getByText("3 readings a day. That's the whole ask.")).toBeTruthy();
+  const ticks = screen.getAllByTestId("streak-flame-tick");
+  expect(ticks).toHaveLength(8);
+  for (const tick of ticks) {
+    const style = StyleSheet.flatten(tick.props.style) as {
+      transform?: Array<Record<string, unknown>>;
+    };
+    expect((style.transform ?? []).some((t) => "rotate" in t)).toBe(false);
+  }
   screen.unmount();
 });

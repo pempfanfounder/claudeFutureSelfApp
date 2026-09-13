@@ -467,7 +467,7 @@ describe("iam-claude conversion refinements", () => {
         ?.label,
     ).toBe("Seeing them on my Home and Lock Screen");
     const obstacles = stepById("obstacles").options ?? [];
-    expect(obstacles.find((o) => o.slug === "self-doubt")?.emoji).toBe("😔");
+    expect(obstacles.find((o) => o.slug === "self-doubt")?.emoji).toBe("💭");
     expect(obstacles.find((o) => o.slug === "no-plan")?.emoji).toBe("❓");
     expect(stepById("benefits").bullets).toEqual([
       "Keep your goals in sight",

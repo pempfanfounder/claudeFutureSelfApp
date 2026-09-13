@@ -72,6 +72,21 @@ export function programmaticPagerScroll(
 }
 
 /**
+ * Overlay copy for load/retry. `markViewed` queues a pending RPC and
+ * bumps `pendingCount` on every quote swipe *before* the server acks —
+ * that in-flight work is not a failed sync and must not show
+ * "waiting to sync / tap retry".
+ */
+export function feedRetryOverlayText(feed: {
+  loading: boolean;
+  error: string | null;
+  pendingCount: number;
+}): string | null {
+  if (feed.loading) return "Loading your daily words…";
+  return feed.error;
+}
+
+/**
  * `pagingEnabled` snaps by the FlatList's OWN layout height, so pages
  * must be sized from that same measurement — not the window height.
  * Any difference (status banners, insets, future chrome) would
@@ -278,6 +293,7 @@ function FeedContent() {
   };
 
   const viewedCount = feed.viewedToday.length;
+  const overlay = feedRetryOverlayText(feed);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -335,7 +351,7 @@ function FeedContent() {
           </ScrollView>
         ) : null}
       </View>
-      {feed.loading || feed.error || feed.pendingCount > 0 ? (
+      {overlay ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry daily content and pending changes"
@@ -357,10 +373,7 @@ function FeedContent() {
           }}
         >
           <AppText accessibilityRole="alert" center variant="label">
-            {feed.loading
-              ? "Loading your daily words…"
-              : (feed.error ??
-                `${feed.pendingCount} changes waiting to sync. Tap Retry.`)}
+            {overlay}
           </AppText>
           {feed.localOnlyCount > 0 ? (
             <AppText center variant="label">
@@ -565,7 +578,7 @@ export function FeedColumn({
             empty={items.length === 0}
             loading={feed.loading}
             failed={Boolean(feed.error)}
-            pending={feed.pendingCount > 0}
+            pending={Boolean(feed.error) && feed.pendingCount > 0}
           />
         )
       }

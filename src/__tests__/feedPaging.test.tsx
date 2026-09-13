@@ -2,7 +2,7 @@ import { render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import type { ReactTestRendererJSON } from "react-test-renderer";
 
-import { pageLayout } from "@/app/(main)/feed";
+import { feedRetryOverlayText, pageLayout } from "@/app/(main)/feed";
 import { ThemeProvider } from "@/design-system/ThemeProvider";
 import { ContentCard } from "@/features/content/ContentCard";
 import type { ContentItem } from "@/features/content/types";
@@ -57,6 +57,42 @@ describe("ContentCard", () => {
     };
     expect(style.height).toBe(700);
     screen.unmount();
+  });
+});
+
+describe("feedRetryOverlayText", () => {
+  it("does not treat an in-flight quote view as a failed sync", () => {
+    expect(
+      feedRetryOverlayText({
+        loading: false,
+        error: null,
+        pendingCount: 1,
+      }),
+    ).toBeNull();
+    expect(
+      feedRetryOverlayText({
+        loading: false,
+        error: null,
+        pendingCount: 3,
+      }),
+    ).toBeNull();
+  });
+
+  it("still surfaces a real load or sync failure", () => {
+    expect(
+      feedRetryOverlayText({
+        loading: true,
+        error: null,
+        pendingCount: 0,
+      }),
+    ).toBe("Loading your daily words…");
+    expect(
+      feedRetryOverlayText({
+        loading: false,
+        error: "Saved on this device. Some changes are pending; tap Retry.",
+        pendingCount: 1,
+      }),
+    ).toBe("Saved on this device. Some changes are pending; tap Retry.");
   });
 });
 

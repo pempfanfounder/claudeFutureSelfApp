@@ -46,28 +46,19 @@ function chosenGoalDays(ctx: OnboardingContext): string {
 }
 
 /**
- * Theme-colored flame ticks around the day "1". Slow rotate + opacity
- * pulse; Reduce Motion freezes them in place so the numeral stays readable.
+ * Theme-colored flame ticks around the day "1". They stay upright —
+ * no ring rotate / twist. Opacity pulse only; Reduce Motion freezes
+ * them so the numeral stays readable.
  */
 function FlameRing({ color }: { color: string }) {
   const reduced = useMotionPreference();
-  const spin = useSharedValue(0);
   const pulse = useSharedValue(0.85);
   useEffect(() => {
-    cancelAnimation(spin);
     cancelAnimation(pulse);
     if (reduced) {
-      spin.set(0);
       pulse.set(0.85);
       return;
     }
-    spin.set(0);
-    spin.set(
-      withRepeat(
-        withTiming(360, { duration: 14000, easing: Easing.linear }),
-        -1,
-      ),
-    );
     pulse.set(0.7);
     pulse.set(
       withRepeat(
@@ -82,12 +73,10 @@ function FlameRing({ color }: { color: string }) {
       ),
     );
     return () => {
-      cancelAnimation(spin);
       cancelAnimation(pulse);
     };
-  }, [reduced, spin, pulse]);
+  }, [reduced, pulse]);
   const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spin.get()}deg` }],
     opacity: pulse.get(),
   }));
   return (
@@ -101,6 +90,7 @@ function FlameRing({ color }: { color: string }) {
         return (
           <View
             key={i}
+            testID="streak-flame-tick"
             style={[
               styles.flameTick,
               {

@@ -167,7 +167,7 @@ export const iamClaude: VariantConfig = {
         { slug: "distraction", label: "My phone eats my day", emoji: "📱" },
         { slug: "motivation", label: "I start strong, then stop", emoji: "🔁" },
         { slug: "overwhelm", label: "I get overwhelmed", emoji: "🌀" },
-        { slug: "self-doubt", label: "I doubt myself", emoji: "😔" },
+        { slug: "self-doubt", label: "I doubt myself", emoji: "💭" },
         { slug: "no-plan", label: "I don't have a clear plan", emoji: "❓" },
       ],
       skippable: true,

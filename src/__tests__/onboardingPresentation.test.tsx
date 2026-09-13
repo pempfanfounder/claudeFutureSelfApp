@@ -88,6 +88,7 @@ describe("onboarding presentation", () => {
     expect(resolveOptionIcon("🌫️")).toBe("fog");
     expect(resolveOptionIcon("❤️")).toBe("heartFill");
     expect(resolveOptionIcon("😔")).toBe("pensive");
+    expect(resolveOptionIcon("💭")).toBe("thought");
     expect(resolveOptionIcon("❓")).toBe("question");
   });
 

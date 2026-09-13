@@ -156,13 +156,14 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         CALAI_HEADLINES[version],
       );
       expect(screen.getByTestId("notification-stack")).toBeTruthy();
-      expect(
-        screen.getAllByText("Quotes from Future Self").length,
-      ).toBeGreaterThanOrEqual(3);
+      expect(screen.getAllByText("Future Self").length).toBeGreaterThanOrEqual(
+        3,
+      );
+      expect(screen.queryByText("Quotes from Future Self")).toBeNull();
       const preview = paywallPreviewNotifications();
       const escaped = preview[0]!.body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       expect(screen.getByTestId("notification-card-0")).toHaveTextContent(
-        new RegExp(`^Quotes from Future SelfNow${escaped}$`),
+        new RegExp(`^Future SelfNow${escaped}$`),
       );
       expect(preview[0]!.body).toBe(
         "Every day your window of opportunity gets smaller and smaller",
@@ -200,7 +201,9 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       } else {
         expect(screen.queryByText("Save 90%")).toBeNull();
         expect(screen.queryByText("Most popular")).toBeNull();
-        expect(screen.getByText("3 days free")).toBeTruthy();
+        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
+          "3 days free",
+        );
         expect(screen.getByText("Yearly")).toBeTruthy();
       }
       expect(screen.getByText("$0.69/wk")).toBeTruthy();
@@ -239,7 +242,15 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
         "$35.99 per year. Renews automatically unless cancelled in the App Store.",
       );
-      expect(screen.queryByText(/free/)).toBeNull();
+      expect(screen.getByTestId("paywall-disclosure")).not.toHaveTextContent(
+        /free/,
+      );
+      if (version !== 3) {
+        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
+          "3 days free",
+        );
+        expect(screen.getByText("Yearly")).toBeTruthy();
+      }
       screen.unmount();
     });
 
@@ -292,6 +303,24 @@ describe("CalAiPaywall layout differences", () => {
       minHeight: 65,
     });
     three.screen.unmount();
+  });
+
+  it("tags the yearly card 3 days free even when trial eligibility is unknown", () => {
+    const { screen } = renderPaywall(
+      1,
+      makeData({
+        trialLength: null,
+        trialDays: null,
+        eligibility: { yearly: "unknown", weekly: "ineligible" },
+      }),
+    );
+    expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
+      "3 days free",
+    );
+    expect(screen.getByText("Yearly")).toBeTruthy();
+    expect(screen.queryByText("Most popular")).toBeNull();
+    expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
+    screen.unmount();
   });
 
   it("v1 alone outlines the stacked cards in the ink brown", () => {

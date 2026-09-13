@@ -25,7 +25,7 @@ import type {
   PushKind,
 } from "../_shared/types.ts";
 
-const APP_TITLE = "Quotes from Future Self";
+const APP_TITLE = "Future Self";
 const RECENT_CONTENT_DAYS = 14;
 /**
  * Server counterpart of the app's EXPO_PUBLIC_CONTENT_PERSONALIZATION_ENABLED.

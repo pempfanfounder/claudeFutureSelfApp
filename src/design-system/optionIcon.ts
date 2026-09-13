@@ -22,6 +22,7 @@ const OPTION_ICON: Record<string, IconName> = {
   "🌀": "spiral",
   "🪞": "reflect",
   "😔": "pensive",
+  "💭": "thought",
   "❓": "question",
   "🗺": "map",
   "💰": "money",

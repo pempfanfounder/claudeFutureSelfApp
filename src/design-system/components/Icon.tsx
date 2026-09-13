@@ -49,6 +49,7 @@ export type IconName =
   | "envelope"
   | "warning"
   | "pensive"
+  | "thought"
   | "question";
 
 const SF: Record<IconName, SymbolViewProps["name"]> = {
@@ -91,6 +92,7 @@ const SF: Record<IconName, SymbolViewProps["name"]> = {
   envelope: "envelope",
   warning: "exclamationmark.circle.fill",
   pensive: "face.dashed",
+  thought: "ellipsis.bubble.fill",
   question: "questionmark.circle.fill",
 };
 
@@ -139,6 +141,7 @@ const FALLBACK: Record<IconName, string> = {
   // U+FE0E keeps the text presentation so `color` applies.
   warning: "⚠︎",
   pensive: "☹︎",
+  thought: "☁︎",
   question: "?",
 };
 

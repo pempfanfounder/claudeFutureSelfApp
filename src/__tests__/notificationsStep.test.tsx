@@ -107,7 +107,8 @@ describe("NotificationsStep (iam)", () => {
       1260,
     );
     expect(screen.getByText(STEP.mockLine!)).toBeTruthy();
-    expect(screen.getByText("Quotes from Future Self")).toBeTruthy();
+    expect(screen.getByText("Future Self")).toBeTruthy();
+    expect(screen.queryByText("Quotes from Future Self")).toBeNull();
     expect(screen.getByText("Now")).toBeTruthy();
   });
 

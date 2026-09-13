@@ -55,6 +55,7 @@ const ALL_ICONS: IconName[] = [
   "envelope",
   "warning",
   "pensive",
+  "thought",
   "question",
 ];
 

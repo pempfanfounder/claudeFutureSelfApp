@@ -5,7 +5,7 @@ import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
-import { trialInfo, type PaywallData } from "../useOffering";
+import type { PaywallData } from "../useOffering";
 import { billingLabel, perWeekLabel, planTitle, splitPlans } from "./pricing";
 
 interface PlanCardsProps {
@@ -14,9 +14,11 @@ interface PlanCardsProps {
 
 /**
  * Cal AI's two stacked plan cards in Future Self chrome: the yearly plan
- * wears a "3 days free" tab and a filled check; the weekly plan is a
- * plain outlined card with an empty radio. Both show a per-week price
- * on the right; yearly keeps `$35.99 billed yearly` under the title.
+ * wears a "3 days free" tab (replacing Most popular / Best choice) and a
+ * filled check; the weekly plan is a plain outlined card. Title stays
+ * Yearly — the tab is the trial badge, not the plan name. Shown even
+ * when RevenueCat eligibility is still unknown, which is common on
+ * TestFlight before the first purchase.
  */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
@@ -31,10 +33,6 @@ export function PlanCards({ data }: PlanCardsProps) {
       {ordered.map((pkg) => {
         const isAnnual = pkg.packageType === "ANNUAL";
         const selected = data.pkg?.identifier === pkg.identifier;
-        const trial = trialInfo(
-          pkg,
-          data.eligibility?.[pkg.product.identifier],
-        );
         const perWeek = perWeekLabel(pkg);
         return (
           <Pressable
@@ -55,9 +53,12 @@ export function PlanCards({ data }: PlanCardsProps) {
             ]}
           >
             {isAnnual ? (
-              <View style={[styles.tab, { backgroundColor: colors.ctaBg }]}>
+              <View
+                style={[styles.tab, { backgroundColor: colors.ctaBg }]}
+                testID="plan-yearly-tag"
+              >
                 <AppText variant="eyebrow" tone="ctaInk">
-                  {trial ? "3 days free" : "Yearly"}
+                  3 days free
                 </AppText>
               </View>
             ) : null}
