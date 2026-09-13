@@ -165,7 +165,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         new RegExp(`^Quotes from Future SelfNow${escaped}$`),
       );
       expect(preview[0]!.body).toBe(
-        "Every day your window of opportunity gets smaller and smaller.",
+        "Every day your window of opportunity gets smaller and smaller",
       );
       expect(preview[1]!.body).toBe("I start now, not later.");
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
