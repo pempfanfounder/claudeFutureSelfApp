@@ -75,7 +75,7 @@ const CAROUSEL_HEIGHT = 250;
  */
 const PRACTICE_LABELS: Record<string, string> = {
   phone: "reading them in the app",
-  widget: "seeing them on your Home or Lock Screen",
+  widget: "seeing them on your Home and Lock Screen",
   aloud: "saying them out loud",
   journal: "writing them in a journal",
   "post-it": "writing them on a post-it",
@@ -218,7 +218,7 @@ export function ResultStep({ step, ctx, onDone }: ResultStepProps) {
   const affirmationLine =
     personalized && affirmationInterests.length > 0
       ? `Affirmations centered on ${affirmationInterests.slice(0, 2).map(label).join(" and ")}.`
-      : "Affirmations that build steadiness, day by day.";
+      : "Affirmations aimed at the person you're becoming.";
 
   const cadenceLine = `${notificationPrefs.quotesPerDay} quotes and ${notificationPrefs.affirmationsPerDay} affirmations a day, spread across your window.`;
 

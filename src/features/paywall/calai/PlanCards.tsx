@@ -6,13 +6,7 @@ import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import { trialInfo, type PaywallData } from "../useOffering";
-import {
-  billingLabel,
-  perWeekLabel,
-  planTitle,
-  savingsPercent,
-  splitPlans,
-} from "./pricing";
+import { billingLabel, perWeekLabel, planTitle, splitPlans } from "./pricing";
 
 interface PlanCardsProps {
   data: PaywallData;
@@ -20,14 +14,13 @@ interface PlanCardsProps {
 
 /**
  * Cal AI's two stacked plan cards in Future Self chrome: the yearly plan
- * wears a "MOST POPULAR" tab and a filled check; the weekly plan is a
- * plain outlined card with an empty radio. Both show a per-week price;
- * the saving is yearly against 52 weekly payments, from real prices.
+ * wears a "3 days free" tab and a filled check; the weekly plan is a
+ * plain outlined card with an empty radio. Both show a per-week price
+ * on the right; yearly keeps `$35.99 billed yearly` under the title.
  */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
-  const savings = savingsPercent(plans);
   const ordered = [plans.annual, plans.weekly].filter(
     (p): p is PurchasesPackage => p !== null,
   );
@@ -42,8 +35,6 @@ export function PlanCards({ data }: PlanCardsProps) {
           pkg,
           data.eligibility?.[pkg.product.identifier],
         );
-        const title =
-          isAnnual && savings !== null ? `Save ${savings}%` : planTitle(pkg);
         const perWeek = perWeekLabel(pkg);
         return (
           <Pressable
@@ -66,7 +57,7 @@ export function PlanCards({ data }: PlanCardsProps) {
             {isAnnual ? (
               <View style={[styles.tab, { backgroundColor: colors.ctaBg }]}>
                 <AppText variant="eyebrow" tone="ctaInk">
-                  Most popular
+                  {trial ? "3 days free" : "Yearly"}
                 </AppText>
               </View>
             ) : null}
@@ -90,20 +81,11 @@ export function PlanCards({ data }: PlanCardsProps) {
                 ) : null}
               </View>
               <View style={styles.copy}>
-                <View style={styles.titleRow}>
-                  <AppText variant="lead" style={styles.title}>
-                    {title}
-                  </AppText>
-                  {trial ? (
-                    <View
-                      style={[styles.trial, { backgroundColor: colors.accent }]}
-                    >
-                      <AppText variant="eyebrow">{`${trial.label} free`}</AppText>
-                    </View>
-                  ) : null}
-                </View>
+                <AppText variant="lead" style={styles.title}>
+                  {planTitle(pkg)}
+                </AppText>
                 {isAnnual ? (
-                  <AppText variant="label" tone="ink2" style={styles.billing}>
+                  <AppText variant="body" tone="ink2" style={styles.billing}>
                     {billingLabel(pkg)}
                   </AppText>
                 ) : null}
@@ -157,13 +139,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   title: { fontFamily: type.sansSemi },
-  trial: {
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  billing: { marginTop: 2 },
+  billing: { marginTop: 2, fontFamily: type.sansMed },
   price: { fontFamily: type.sansMed },
 });

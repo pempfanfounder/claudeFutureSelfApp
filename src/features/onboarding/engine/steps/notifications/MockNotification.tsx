@@ -32,9 +32,9 @@ const ICON_SIZE = 24;
 const PEEK = 8;
 
 /**
- * The single iOS-style banner (app icon, "Future Self", time, body).
- * Shared between the onboarding notifications step and the paywall's
- * stacked hero so both previews are literally the same drawing.
+ * The single iOS-style banner (app icon, "Quotes from Future Self",
+ * time, body). Shared between the onboarding notifications step and the
+ * paywall's stacked hero so both previews are literally the same drawing.
  */
 export function NotificationCard({
   body,
@@ -69,7 +69,7 @@ export function NotificationCard({
       </View>
       <View style={styles.text}>
         <View style={styles.titleRow}>
-          <AppText variant="label">Future Self</AppText>
+          <AppText variant="label">Quotes from Future Self</AppText>
           <AppText variant="label" tone="ink3">
             {time}
           </AppText>
@@ -84,9 +84,9 @@ export function NotificationCard({
 
 /**
  * I Am-style preview of what a delivery looks like: an iOS notification
- * group — the front banner (app icon, "Future Self", "Now", body) with a
- * slightly narrower second card peeking out below it. The front card
- * drops in from above once on mount, like a real banner.
+ * group — the front banner (app icon, "Quotes from Future Self", "Now",
+ * body) with a slightly narrower second card peeking out below it. The
+ * front card drops in from above once on mount, like a real banner.
  */
 export function MockNotification({ body }: MockNotificationProps) {
   const colors = useColors();

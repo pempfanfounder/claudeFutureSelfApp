@@ -85,3 +85,20 @@ test("guest with a purchase still must link before switching accounts", () => {
   expect(screen.getByTestId("auth-apple")).toBeTruthy();
   screen.unmount();
 });
+
+test("first-screen login shows email next to Apple and Google", () => {
+  const screen = renderSheet(
+    { apple: true, google: true, email: true },
+    { mode: "switch" },
+  );
+  expect(screen.getByTestId("auth-apple")).toBeTruthy();
+  expect(screen.getByTestId("auth-google")).toBeTruthy();
+  expect(screen.getByTestId("auth-email")).toBeTruthy();
+  expect(screen.getByText("Continue with email")).toBeTruthy();
+  const apple = screen.getByTestId("auth-apple");
+  const style = require("react-native").StyleSheet.flatten(apple.props.style) as {
+    backgroundColor?: string;
+  };
+  expect(style.backgroundColor).toBe("#000000");
+  screen.unmount();
+});

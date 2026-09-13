@@ -21,6 +21,8 @@ const OPTION_ICON: Record<string, IconName> = {
   "🔁": "repeat",
   "🌀": "spiral",
   "🪞": "reflect",
+  "😔": "pensive",
+  "❓": "question",
   "🗺": "map",
   "💰": "money",
   "🎯": "target",

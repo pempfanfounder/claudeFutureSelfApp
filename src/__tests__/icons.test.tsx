@@ -54,6 +54,8 @@ const ALL_ICONS: IconName[] = [
   "apple",
   "envelope",
   "warning",
+  "pensive",
+  "question",
 ];
 
 describe("Icon", () => {

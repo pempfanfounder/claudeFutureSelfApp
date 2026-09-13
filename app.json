@@ -61,14 +61,6 @@
             }
           },
           {
-            "name": "SoftBloom",
-            "ios": "./assets/icons/icon-soft_bloom.png",
-            "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
-              "backgroundColor": "#F1E5DC"
-            }
-          },
-          {
             "name": "OceanClarity",
             "ios": "./assets/icons/icon-ocean_clarity.png",
             "android": {
@@ -82,14 +74,6 @@
             "android": {
               "foregroundImage": "./assets/images/android-icon-foreground.png",
               "backgroundColor": "#12161A"
-            }
-          },
-          {
-            "name": "InkWell",
-            "ios": "./assets/icons/icon-ink_well.png",
-            "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
-              "backgroundColor": "#1C140D"
             }
           },
           {
@@ -122,14 +106,6 @@
             "android": {
               "foregroundImage": "./assets/images/android-icon-foreground.png",
               "backgroundColor": "#E8C6B2"
-            }
-          },
-          {
-            "name": "Arctic",
-            "ios": "./assets/icons/icon-arctic.png",
-            "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
-              "backgroundColor": "#0F1920"
             }
           }
         ]

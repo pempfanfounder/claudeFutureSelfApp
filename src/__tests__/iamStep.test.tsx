@@ -218,3 +218,22 @@ describe("IamStep info", () => {
     screen.unmount();
   });
 });
+
+describe("IamStep widget promo", () => {
+  it("replaces the empty mock with the in-app Widgets animation", () => {
+    const { screen } = renderStep({
+      id: "widget-lock",
+      type: "widget-promo",
+      headline: "Put your future on your Lock Screen.",
+      sub: "See your quotes without unlocking your phone",
+      cta: "Got it",
+      placeholder: "I will not waste today.",
+    });
+    expect(screen.getByTestId("widget-tutorial-widget-lock")).toBeTruthy();
+    expect(
+      screen.getAllByText("Your Future Self is counting on you").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("I will not waste today.")).toBeNull();
+    screen.unmount();
+  });
+});

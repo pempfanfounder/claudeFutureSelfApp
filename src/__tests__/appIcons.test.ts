@@ -2,6 +2,7 @@ import {
   APP_ICON_IDS,
   APP_ICON_SOURCES,
   DEFAULT_APP_ICON_ID,
+  RETIRED_APP_ICON_IDS,
   appIconIdFromName,
   appIconNameFor,
   applyAppIcon,
@@ -30,8 +31,15 @@ beforeEach(() => {
 });
 
 describe("app icon catalogue", () => {
-  it("offers exactly one icon per theme, in theme order", () => {
-    expect(APP_ICON_IDS).toEqual(THEMES.map((t) => t.id));
+  it("offers the remaining theme icons in theme order, without the retired set", () => {
+    expect(APP_ICON_IDS).toEqual(
+      THEMES.map((t) => t.id).filter((id) => !RETIRED_APP_ICON_IDS.has(id)),
+    );
+    expect([...RETIRED_APP_ICON_IDS]).toEqual([
+      "soft_bloom",
+      "ink_well",
+      "arctic",
+    ]);
   });
 
   it("bundles a static image source for every icon id", () => {
@@ -95,8 +103,14 @@ describe("applyAppIcon", () => {
   });
 
   it("reports success after applying", async () => {
+    await expect(applyAppIcon("evergreen")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Evergreen");
+  });
+
+  it("maps retired icons back to the default and resets a leftover native icon", async () => {
+    mockGetAppIconName.mockReturnValue("Arctic");
     await expect(applyAppIcon("arctic")).resolves.toBe(true);
-    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Arctic");
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith(null);
   });
 
   it("ignores ids that are not app icons", async () => {
@@ -119,10 +133,10 @@ describe("applyAppIcon", () => {
       .spyOn(console, "warn")
       .mockImplementation(() => {});
     mockSetAlternateAppIcon.mockRejectedValueOnce(new Error("nope"));
-    await expect(applyAppIcon("arctic")).resolves.toBe(false);
+    await expect(applyAppIcon("evergreen")).resolves.toBe(false);
     expect(consoleError).toHaveBeenCalled();
     expect(consoleWarn).toHaveBeenCalledWith(
-      expect.stringContaining('could not apply "arctic"'),
+      expect.stringContaining('could not apply "evergreen"'),
       expect.any(Error),
     );
     consoleError.mockRestore();
@@ -139,6 +153,11 @@ describe("getCurrentAppIconId", () => {
   it("maps a PascalCase alternate name back to its theme id", () => {
     mockGetAppIconName.mockReturnValue("OceanClarity");
     expect(getCurrentAppIconId()).toBe("ocean_clarity");
+  });
+
+  it("treats a leftover retired icon as the default in the picker", () => {
+    mockGetAppIconName.mockReturnValue("Arctic");
+    expect(getCurrentAppIconId()).toBe("minimal_sand");
   });
 
   it("falls back to minimal_sand for unknown names", () => {

@@ -88,6 +88,7 @@ const AREAS = new Set([
   "auth.emailStart",
   "auth.signInApple",
   "auth.signInGoogle",
+  "auth.signInEmail",
   "auth.signOut",
   "auth.deleteAccount",
   "auth.appleRevoke",

@@ -4,7 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { LOCAL_CATALOG } from "@/features/content/localCatalog";
+import { paywallPreviewNotifications } from "@/features/paywall/calai/previewQuotes";
 import {
   CALAI_HEADLINES,
   CalAiPaywall,
@@ -156,17 +156,18 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         CALAI_HEADLINES[version],
       );
       expect(screen.getByTestId("notification-stack")).toBeTruthy();
-      expect(screen.getAllByText("Future Self").length).toBeGreaterThanOrEqual(
-        3,
-      );
-      // Front card is catalog item local:q11; the owner's quote list owns
-      // its wording, so assert the lookup rather than the copy.
-      const frontQuote = LOCAL_CATALOG.find((c) => c.id === "local:q11");
-      expect(frontQuote).toBeDefined();
-      const escaped = frontQuote!.body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      expect(
+        screen.getAllByText("Quotes from Future Self").length,
+      ).toBeGreaterThanOrEqual(3);
+      const preview = paywallPreviewNotifications();
+      const escaped = preview[0]!.body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       expect(screen.getByTestId("notification-card-0")).toHaveTextContent(
-        new RegExp(`^Future SelfNow${escaped}$`),
+        new RegExp(`^Quotes from Future SelfNow${escaped}$`),
       );
+      expect(preview[0]!.body).toBe(
+        "Every day your window of opportunity gets smaller and smaller.",
+      );
+      expect(preview[1]!.body).toBe("I start now, not later.");
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
         "3 days free, then $35.99 per year. Renews automatically unless cancelled in the App Store.",
       );
@@ -191,10 +192,17 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("shows the real saving, per-week prices and trial, and selects plans", () => {
+    it("shows per-week prices, yearly billing, and selects plans", () => {
       const data = makeData();
       const { screen } = renderPaywall(version, data);
-      expect(screen.getByText("Save 90%")).toBeTruthy();
+      if (version === 3) {
+        expect(screen.getByText("Save 90%")).toBeTruthy();
+      } else {
+        expect(screen.queryByText("Save 90%")).toBeNull();
+        expect(screen.queryByText("Most popular")).toBeNull();
+        expect(screen.getByText("3 days free")).toBeTruthy();
+        expect(screen.getByText("Yearly")).toBeTruthy();
+      }
       expect(screen.getByText("$0.69/wk")).toBeTruthy();
       expect(screen.getByText("$35.99 billed yearly")).toBeTruthy();
       expect(screen.queryByText(/monthly/i)).toBeNull();
@@ -262,16 +270,17 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
 );
 
 describe("CalAiPaywall layout differences", () => {
-  it("v1 and v2 stack plan cards with a Most popular tab; v3 uses a toggle", () => {
+  it("v1 and v2 stack plan cards with a 3 days free tab; v3 uses a toggle", () => {
     const one = renderPaywall(1);
-    expect(one.screen.getByText("Most popular")).toBeTruthy();
+    expect(one.screen.getByText("3 days free")).toBeTruthy();
+    expect(one.screen.queryByText("Most popular")).toBeNull();
     expect(one.screen.getByText("Weekly")).toBeTruthy();
     expect(one.screen.queryByTestId("plan-price-line")).toBeNull();
     one.screen.unmount();
 
     const two = renderPaywall(2);
     expect(two.screen.getByTestId("hero-2")).toBeTruthy();
-    expect(two.screen.getByText("Most popular")).toBeTruthy();
+    expect(two.screen.getByText("3 days free")).toBeTruthy();
     two.screen.unmount();
 
     const three = renderPaywall(3);
@@ -309,7 +318,8 @@ describe("CalAiPaywall layout differences", () => {
     expect(screen.getByTestId("paywall-headline")).toHaveTextContent(
       CALAI_HEADLINES[1],
     );
-    expect(screen.getByText("Most popular")).toBeTruthy();
+    expect(screen.getByText("3 days free")).toBeTruthy();
+    expect(screen.queryByText("Most popular")).toBeNull();
     expect(screen.getByText("Weekly")).toBeTruthy();
     expect(screen.queryByTestId("plan-price-line")).toBeNull();
     expect(screen.getByTestId("paywall-cta")).not.toHaveStyle({

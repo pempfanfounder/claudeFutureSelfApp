@@ -144,7 +144,7 @@ function ringColor(node: { props: Record<string, unknown> }): string {
 }
 
 describe("AppIconStep", () => {
-  it("renders the copy, the trial caption and one tile per theme", () => {
+  it("renders the copy, the trial caption and one tile per remaining icon", () => {
     const { screen } = renderStep();
     expect(
       screen.getByText("Pick the icon you want to see every day."),
@@ -158,6 +158,9 @@ describe("AppIconStep", () => {
     for (const id of APP_ICON_IDS) {
       expect(screen.getByTestId(`app-icon-${id}`)).toBeTruthy();
     }
+    expect(screen.queryByTestId("app-icon-soft_bloom")).toBeNull();
+    expect(screen.queryByTestId("app-icon-ink_well")).toBeNull();
+    expect(screen.queryByTestId("app-icon-arctic")).toBeNull();
     expect(screen.queryByText("Skip")).toBeNull();
     screen.unmount();
   });
@@ -199,7 +202,7 @@ describe("AppIconStep", () => {
     jest.useFakeTimers();
     const { screen } = renderStep();
     fireEvent.press(screen.getByTestId("app-icon-midnight_focus"));
-    fireEvent.press(screen.getByTestId("app-icon-arctic"));
+    fireEvent.press(screen.getByTestId("app-icon-terracotta"));
     fireEvent.press(screen.getByTestId("app-icon-evergreen"));
     // Nothing yet: rapid taps are collapsed.
     expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();

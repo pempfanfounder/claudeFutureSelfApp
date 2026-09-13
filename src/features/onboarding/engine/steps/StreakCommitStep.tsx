@@ -1,8 +1,19 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeInRight, ZoomIn } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeInRight,
+  ZoomIn,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 
 import { AppText, Button, Icon } from "@/design-system/components";
+import { useMotionPreference } from "@/design-system/motion";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 
@@ -12,6 +23,10 @@ import { weekStrip } from "./weekStrip";
 
 const DEFAULT_GOAL_DAYS = "21";
 const DAY_CHECK_SIZE = 14;
+const FLAME_COUNT = 8;
+const RING_RADIUS = 46;
+const FLAME_SIZE = 14;
+const RING_SIZE = RING_RADIUS * 2 + FLAME_SIZE + 8;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -28,6 +43,80 @@ interface StreakCommitStepProps {
 function chosenGoalDays(ctx: OnboardingContext): string {
   const goal = ctx.answers["raw.streak_goal"];
   return typeof goal === "string" && goal.length > 0 ? goal : DEFAULT_GOAL_DAYS;
+}
+
+/**
+ * Theme-colored flame ticks around the day "1". Slow rotate + opacity
+ * pulse; Reduce Motion freezes them in place so the numeral stays readable.
+ */
+function FlameRing({ color }: { color: string }) {
+  const reduced = useMotionPreference();
+  const spin = useSharedValue(0);
+  const pulse = useSharedValue(0.85);
+  useEffect(() => {
+    cancelAnimation(spin);
+    cancelAnimation(pulse);
+    if (reduced) {
+      spin.set(0);
+      pulse.set(0.85);
+      return;
+    }
+    spin.set(0);
+    spin.set(
+      withRepeat(
+        withTiming(360, { duration: 14000, easing: Easing.linear }),
+        -1,
+      ),
+    );
+    pulse.set(0.7);
+    pulse.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.55, {
+            duration: 900,
+            easing: Easing.inOut(Easing.quad),
+          }),
+        ),
+        -1,
+      ),
+    );
+    return () => {
+      cancelAnimation(spin);
+      cancelAnimation(pulse);
+    };
+  }, [reduced, spin, pulse]);
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.get()}deg` }],
+    opacity: pulse.get(),
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      testID="streak-flame-ring"
+      style={[styles.flameRing, ringStyle]}
+    >
+      {Array.from({ length: FLAME_COUNT }, (_, i) => {
+        const angle = (i / FLAME_COUNT) * 2 * Math.PI - Math.PI / 2;
+        return (
+          <View
+            key={i}
+            style={[
+              styles.flameTick,
+              {
+                transform: [
+                  { translateX: Math.cos(angle) * RING_RADIUS },
+                  { translateY: Math.sin(angle) * RING_RADIUS },
+                ],
+              },
+            ]}
+          >
+            <Icon name="flame" size={FLAME_SIZE} color={color} />
+          </View>
+        );
+      })}
+    </Animated.View>
+  );
 }
 
 /**
@@ -59,9 +148,12 @@ export function StreakCommitStep({
           entering={ZoomIn.duration(500).delay(150)}
           style={styles.dayWrap}
         >
-          <AppText variant="display" center>
-            1
-          </AppText>
+          <View style={styles.dayHero}>
+            <FlameRing color={colors.accent} />
+            <AppText variant="display" center>
+              1
+            </AppText>
+          </View>
           <View
             style={[
               styles.groundLine,
@@ -164,6 +256,18 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   dayWrap: { alignItems: "center", marginBottom: spacing.xl },
+  dayHero: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flameRing: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flameTick: { position: "absolute" },
   groundLine: { width: 72, height: 2, borderRadius: 1, marginTop: spacing.xs },
   sub: { marginTop: spacing.md },
   weekCard: {

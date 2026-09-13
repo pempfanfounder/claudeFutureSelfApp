@@ -47,7 +47,9 @@ export type IconName =
   | "diamond"
   | "apple"
   | "envelope"
-  | "warning";
+  | "warning"
+  | "pensive"
+  | "question";
 
 const SF: Record<IconName, SymbolViewProps["name"]> = {
   share: "square.and.arrow.up",
@@ -88,6 +90,8 @@ const SF: Record<IconName, SymbolViewProps["name"]> = {
   apple: "apple.logo",
   envelope: "envelope",
   warning: "exclamationmark.circle.fill",
+  pensive: "face.dashed",
+  question: "questionmark.circle.fill",
 };
 
 // Monochrome text glyphs only (a color emoji would ignore `color`).
@@ -134,6 +138,8 @@ const FALLBACK: Record<IconName, string> = {
   envelope: "✉",
   // U+FE0E keeps the text presentation so `color` applies.
   warning: "⚠︎",
+  pensive: "☹︎",
+  question: "?",
 };
 
 export interface IconProps {

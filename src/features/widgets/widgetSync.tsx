@@ -117,7 +117,7 @@ export async function syncWidgets(identity = captureIdentity()): Promise<void> {
 }
 
 /** Neutral copy shown on the daily widget after sign-out/deletion. */
-const CLEARED_DAILY_TEXT = "Your daily words return here.";
+const CLEARED_DAILY_TEXT = "Quotes from Future Self";
 
 /**
  * Replaces both widgets' content with neutral copy (default palette,

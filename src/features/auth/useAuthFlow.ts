@@ -116,8 +116,10 @@ export function useAuthFlow({ active, mode, onDone }: UseAuthFlowOptions) {
     }
     const token = begin("email");
     if (!token) return;
+    const start =
+      effectiveMode === "link" ? auth.startEmailLink : auth.startEmailSignIn;
     try {
-      const result = await auth.startEmailLink(email.trim().toLowerCase());
+      const result = await start(email.trim().toLowerCase());
       if (operation.current !== token) return;
       if (result.ok) setEmailStage("enter-code");
       else setError(result.message || "Could not send the code. Try again.");
@@ -135,7 +137,9 @@ export function useAuthFlow({ active, mode, onDone }: UseAuthFlowOptions) {
 
   const verifyEmail = () =>
     run("email", () =>
-      auth.verifyEmailLink(email.trim().toLowerCase(), code.trim()),
+      (effectiveMode === "link"
+        ? auth.verifyEmailLink
+        : auth.verifyEmailSignIn)(email.trim().toLowerCase(), code.trim()),
     );
 
   return {

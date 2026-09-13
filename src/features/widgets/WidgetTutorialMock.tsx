@@ -41,7 +41,8 @@ const H = 440;
 // Sample chips show real owner quotes (short ones that fit a widget chip).
 const ownerQuote = (n: number) =>
   OWNER_QUOTES.find((quote) => quote.n === n)?.body ?? "";
-const QUOTE_1 = ownerQuote(9); // "Success is a decision."
+export const LOCK_TUTORIAL_QUOTE = "Your Future Self is counting on you";
+const QUOTE_1 = LOCK_TUTORIAL_QUOTE;
 const QUOTE_2 = ownerQuote(52); // "Don't wish for it, work for it."
 
 const clamp = Extrapolation.CLAMP;
@@ -346,7 +347,7 @@ function LockScene({ p, palette }: { p: SharedValue<number>; palette: Pal }) {
           <Text style={s.sheetSub}>Read quotes on your Lock Screen</Text>
           <View style={[s.previewChip, { backgroundColor: palette.bg }]}>
             <Text style={[s.previewText, { color: palette.ink }]}>
-              Attitude is a little thing that makes a big difference.
+              {LOCK_TUTORIAL_QUOTE}
             </Text>
           </View>
         </Animated.View>

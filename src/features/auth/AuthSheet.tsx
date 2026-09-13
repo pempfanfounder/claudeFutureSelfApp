@@ -1,9 +1,10 @@
 import { Modal, Pressable, StyleSheet, TextInput, View } from "react-native";
 
-import { AppText, Button } from "@/design-system/components";
+import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
+import { ProviderButton } from "./ProviderButton";
 import { useAuthFlow } from "./useAuthFlow";
 
 interface AuthSheetProps {
@@ -18,11 +19,14 @@ interface AuthSheetProps {
   onDone: (authenticated: boolean) => void;
 }
 
+const ICON_SIZE = 20;
+
 /**
- * Skippable auth bottom sheet (Stella placement) reused by Settings.
- * Configured providers render their buttons. If none are available,
- * the sheet explains that sign-in isn't available on this build.
- * The required pre-paywall placement uses `SaveAccountScreen` instead.
+ * Skippable auth bottom sheet (Stella placement) reused by Settings and
+ * the welcome "Already have an account" path. Configured providers
+ * render their buttons. If none are available, the sheet explains that
+ * sign-in isn't available on this build. The required pre-paywall
+ * placement uses `SaveAccountScreen` instead.
  */
 export function AuthSheet({
   visible,
@@ -35,7 +39,7 @@ export function AuthSheet({
 }: AuthSheetProps) {
   const colors = useColors();
   const flow = useAuthFlow({ active: visible, mode, onDone });
-  const { auth, busy, emailStage, error, effectiveMode, saveGuestFirst } = flow;
+  const { auth, busy, emailStage, error, saveGuestFirst } = flow;
 
   return (
     <Modal
@@ -85,8 +89,12 @@ export function AuthSheet({
                 </AppText>
               ) : null}
               {auth.availableProviders.apple ? (
-                <Button
-                  label=" Sign in with Apple"
+                <ProviderButton
+                  label="Sign in with Apple"
+                  variant="apple"
+                  icon={(color) => (
+                    <Icon name="apple" size={ICON_SIZE} color={color} />
+                  )}
                   onPress={flow.runApple}
                   loading={busy === "apple"}
                   disabled={Boolean(busy)}
@@ -103,9 +111,9 @@ export function AuthSheet({
                   testID="auth-google"
                 />
               ) : null}
-              {auth.availableProviders.email && effectiveMode === "link" ? (
+              {auth.availableProviders.email ? (
                 <Button
-                  label="Use email instead"
+                  label="Continue with email"
                   variant="ghost"
                   size="md"
                   onPress={flow.openEmail}

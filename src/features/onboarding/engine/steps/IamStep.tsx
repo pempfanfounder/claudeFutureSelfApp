@@ -13,14 +13,10 @@ import Animated, {
   FadeOut,
 } from "react-native-reanimated";
 
-import {
-  AppText,
-  Button,
-  Icon,
-  SelectableRow,
-} from "@/design-system/components";
-import { useColors } from "@/design-system/ThemeProvider";
+import { AppText, Button, Icon, SelectableRow } from "@/design-system/components";
+import { useColors, useTheme } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
+import { WidgetTutorialMock } from "@/features/widgets/WidgetTutorialMock";
 
 import { KeyboardAvoider } from "../KeyboardAvoider";
 import { resolveText } from "../resolve";
@@ -53,6 +49,7 @@ const COMPACT_ROWS_FROM = 6;
  */
 export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
   const colors = useColors();
+  const { theme } = useTheme();
   const [selected, setSelected] = useState<string[]>([]);
   const [text, setText] = useState("");
 
@@ -196,27 +193,15 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
             </AppText>
           ) : null}
 
-          {step.type === "widget-promo" && step.placeholder ? (
+          {step.type === "widget-promo" ? (
             <View
-              style={[
-                styles.widgetMock,
-                { backgroundColor: colors.card },
-                shadows.md,
-              ]}
+              style={styles.widgetTutorial}
+              testID={`widget-tutorial-${step.id}`}
             >
-              <AppText
-                variant="body"
-                style={{ fontFamily: type.serif, fontSize: 17 }}
-              >
-                {step.placeholder}
-              </AppText>
-              <AppText
-                variant="label"
-                tone="ink3"
-                style={styles.widgetMockLabel}
-              >
-                Future Self
-              </AppText>
+              <WidgetTutorialMock
+                variant={step.id === "widget-home" ? "home" : "lock"}
+                themeId={theme.id}
+              />
             </View>
           ) : null}
 
@@ -416,12 +401,8 @@ const styles = StyleSheet.create({
   trialCaption: { marginBottom: spacing.sm },
   secondary: { marginTop: spacing.lg },
   terms: { marginTop: spacing.lg },
-  widgetMock: {
-    borderRadius: radii.xl,
-    padding: spacing.xl,
-    marginTop: spacing.xxl,
+  widgetTutorial: {
+    marginTop: spacing.xl,
     alignSelf: "center",
-    width: "82%",
   },
-  widgetMockLabel: { marginTop: spacing.md },
 });
