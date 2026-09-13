@@ -216,6 +216,26 @@ Dashboard → Edge Functions → `push-dispatch` / `push-receipts` → Logs. Eac
 dispatch run returns a summary like
 `{"read":12,"sent":11,"ticket_error":0,"archived":1,"deferred":0}`.
 
+Every failed database RPC writes one JSON line to `console.error` with
+`event:"push_rpc_failure"`, the `function`, the `step` (RPC or query name),
+a `reason` (`rpc_error`, `aborted`, `worker_deadline`, `invalid_response`,
+`exception`), the PostgREST/SQLSTATE `code`, HTTP `status` (`0` = the fetch
+itself failed), a truncated `message`, `elapsed_ms`, `deadline_ms`, whether
+our `aborted` signal fired, and the retry `attempt`. PostgREST `details` and
+`hint` are never logged. Every 503 body carries the same `reason`/`step`/
+`code`/`status`, e.g.
+`{"ok":false,"error":"queue unavailable","reason":"rpc_error","step":"queue_read","code":"PGRST001","status":503}`.
+
+```sh
+supabase functions logs push-dispatch --since 1h | grep push_rpc_failure
+supabase functions logs push-receipts --since 1h | grep push_rpc_failure
+```
+
+The first RPC of each run (`queue_read`, `claim_push_receipts`) is retried
+once after 2 s when the cause is transport-level or 5xx (`status` 0 or ≥ 500,
+connection-class SQLSTATEs, `PGRST001–003`). Lease-bearing RPCs are never
+retried by that policy.
+
 ### Time budgets
 
 Each database RPC from `push-dispatch` and `push-receipts` is aborted after
@@ -229,11 +249,13 @@ inside the 1-minute cron interval and the 90 s queue visibility timeout.
 `push-receipts` has no worker deadline; its worst case is three RPCs plus one
 8 s Expo call, which the 12 s ceiling keeps inside the 45 s receipt lease.
 
-Symptoms of a deadline that is too short: `503 {"error":"queue unavailable"}`
-from `push-dispatch` or `503 {"error":"receipt claim unavailable"}` from
-`push-receipts` on cold runs, with no lease taken and nothing lost. Raise the
-deadline by setting the `PUSH_RPC_DEADLINE_MS` function secret and redeploying
-both functions.
+Symptoms of a deadline that is too short: `503 {"error":"queue unavailable",
+"reason":"aborted",...}` from `push-dispatch` or `503 {"error":"receipt claim
+unavailable","reason":"aborted",...}` from `push-receipts` on cold runs, with
+no lease taken and nothing lost (the log line shows `aborted:true` and an
+`elapsed_ms` close to `deadline_ms`). Raise the deadline by setting the
+`PUSH_RPC_DEADLINE_MS` function secret and redeploying both functions. A 503
+with `reason:"rpc_error"` is not a deadline problem: read its `code`/`status`.
 
 ---
 
