@@ -31,6 +31,13 @@ import {
 } from "@/features/notifications/preferences";
 import { DAILY_LIMIT } from "@/features/content/types";
 import {
+  applyCountChange,
+  clampDailyCounts,
+  dailyCapHint,
+  type DailyCountKey,
+  type DailyCounts,
+} from "@/features/notifications/dailyCap";
+import {
   getPermissionStatus,
   registerDevice,
   requestNotificationPermission,
@@ -46,6 +53,20 @@ interface Prefs {
   window_end_minutes: number;
   quiet_start_minutes: number | null;
   quiet_end_minutes: number | null;
+}
+
+const toCounts = (prefs: Prefs): DailyCounts => ({
+  quotesPerDay: prefs.quotes_per_day,
+  affirmationsPerDay: prefs.affirmations_per_day,
+});
+/** Rows written by builds that allowed 20 + 20 are shown inside the cap. */
+function withinCap(prefs: Prefs): Prefs {
+  const counts = clampDailyCounts(toCounts(prefs));
+  return {
+    ...prefs,
+    quotes_per_day: counts.quotesPerDay,
+    affirmations_per_day: counts.affirmationsPerDay,
+  };
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -104,7 +125,7 @@ export default function NotificationSettingsScreen() {
       assertCurrentIdentity(identity);
       if (alive) {
         setPermission(permission);
-        setPrefs({ ...DEFAULT_PREFS, ...result.data });
+        setPrefs(withinCap({ ...DEFAULT_PREFS, ...result.data }));
         setLoaded(true);
       }
       await registerDevice(identity);
@@ -120,6 +141,16 @@ export default function NotificationSettingsScreen() {
       alive = false;
     };
   }, [userId, retry]);
+  // Quotes + affirmations share one daily cap: the changed count wins and
+  // the other is lowered when needed, in the same write.
+  const saveCount = (key: DailyCountKey, value: number) => {
+    const counts = applyCountChange(toCounts(prefs), key, value);
+    return save({
+      ...prefs,
+      quotes_per_day: counts.quotesPerDay,
+      affirmations_per_day: counts.affirmationsPerDay,
+    });
+  };
   const save = async (next?: Prefs) => {
     if (busyRef.current || busy) return;
     const identity = captureIdentity();
@@ -245,7 +276,7 @@ export default function NotificationSettingsScreen() {
             <StepperRow
               label={"Quotes"}
               value={prefs.quotes_per_day}
-              onChange={(v) => save({ ...prefs, quotes_per_day: v })}
+              onChange={(v) => saveCount("quotesPerDay", v)}
               max={DAILY_LIMIT}
               disabled={busy || !loaded}
             />
@@ -254,11 +285,19 @@ export default function NotificationSettingsScreen() {
             <StepperRow
               label={"Affirmations"}
               value={prefs.affirmations_per_day}
-              onChange={(v) => save({ ...prefs, affirmations_per_day: v })}
+              onChange={(v) => saveCount("affirmationsPerDay", v)}
               max={DAILY_LIMIT}
               disabled={busy || !loaded}
             />
           }
+          <AppText
+            variant="label"
+            tone="ink3"
+            style={styles.capHint}
+            testID="daily-cap-hint"
+          >
+            {dailyCapHint(toCounts(prefs))}
+          </AppText>
 
           <AppText variant="eyebrow" tone="ink3" style={styles.sectionTitle}>
             Delivery window
@@ -484,6 +523,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
+  capHint: { marginTop: spacing.sm, paddingHorizontal: spacing.xs },
   row: {
     flexDirection: "row",
     alignItems: "center",

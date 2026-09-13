@@ -26,6 +26,17 @@ Everything here happens in the Supabase dashboard:
 Because step 2 chooses content at send time, editing `content_items` or
 `campaigns` changes what goes out from the next minute onward.
 
+**Daily cap.** A user gets at most **20 notifications a day in total**
+(`quotes_per_day + affirmations_per_day <= 20`, each kind 0–20). Enforced
+three times: the pickers lower the other count when one rises, the client
+refuses to send a total above 20, and the database rejects it
+(`notification_prefs_daily_total_check` + `save_notification_prefs`, migration
+`20260913090000_daily_notification_cap`). Rows that predate the migration and
+exceeded 20 were rewritten proportionally (quotes rounded down, affirmations
+take the remainder; 20 + 20 → 10 + 10) and rescheduled. Deploy order: migration
+first (`supabase db push`), then the app build; older builds only fail when
+saving a total above 20.
+
 ---
 
 ## Content: activate, deactivate, prioritize
