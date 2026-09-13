@@ -20,8 +20,8 @@ Everything here happens in the Supabase dashboard:
    up to 50 jobs, **picks the content at that moment** (active campaigns
    first, then a personalized rotation), records an idempotent row in
    `notification_deliveries`, and sends via Expo.
-3. Every 15 minutes, `push-receipts` collects Expo delivery receipts and
-   deactivates dead device tokens.
+3. Every 5 minutes (`*/5 * * * *`), `push-receipts` collects Expo delivery
+   receipts and deactivates dead device tokens.
 
 Because step 2 chooses content at send time, editing `content_items` or
 `campaigns` changes what goes out from the next minute onward.
