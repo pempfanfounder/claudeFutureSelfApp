@@ -135,7 +135,7 @@
         </tr>
         <tr>
           <td><strong>H. Crash and error reports</strong> (Sentry)</td>
-          <td>A fixed error label, the area of the app where it happened (for example "notifications" or "sign-in"), the app environment and a timestamp. We strip everything else — no stack traces, device details, screenshots, breadcrumbs or identifiers — before sending. Native crashes are not reported.</td>
+          <td>For errors inside the app's code: a fixed error label, the area of the app where it happened (for example "notifications" or "sign-in"), the app environment and a timestamp — we strip everything else before sending. If the app crashes at the operating-system level, the Sentry SDK sends a crash report with the technical stack trace, device model, OS version and app version. No crash report contains your name, email, account identifier, IP address, screenshots, screen contents or anything you typed.</td>
           <td>Automatic when an error occurs</td>
           <td>Find and fix bugs</td>
           <td>Legitimate interests</td>
@@ -196,7 +196,7 @@
       <tbody>
         <tr><td>Supabase, Inc. (infrastructure on Amazon Web Services)</td><td>Database, authentication, server functions and their logs</td><td>A–F, K</td><td>EU — Ireland (eu-west-1)</td></tr>
         <tr><td>PostHog, Inc.</td><td>Product analytics</td><td>G</td><td>EU — Germany (PostHog EU Cloud)</td></tr>
-        <tr><td>Functional Software, Inc. (Sentry)</td><td>Crash and error reporting</td><td>H</td><td>EU — Germany (Sentry EU data region)</td></tr>
+        <tr><td>Functional Software, Inc. (Sentry)</td><td>Crash and error reporting (including operating-system-level crash reports)</td><td>H</td><td>EU — Germany (Sentry EU data region); Functional Software is a U.S. company bound by EU Standard Contractual Clauses for any access from outside the EU</td></tr>
         <tr><td>RevenueCat, Inc.</td><td>Validates purchases with Apple/Google, keeps membership status, restores purchases</td><td>A (account identifier), F (incl. purchase receipt, IP address and, on iOS, the IDFV)</td><td>United States — EU Standard Contractual Clauses</td></tr>
         <tr><td>650 Industries, Inc. (Expo)</td><td>Relays push notifications to Apple and Google</td><td>E (push token, notification text)</td><td>United States — EU–U.S. Data Privacy Framework (as stated by Expo) and Standard Contractual Clauses</td></tr>
         <tr><td>Apple Inc. / Apple Distribution International Ltd.</td><td>App Store and in-app purchases, Sign in with Apple, Apple Push Notification service</td><td>A, E, F</td><td>Apple's own regions; Apple is an independent controller for the store and sign-in</td></tr>
