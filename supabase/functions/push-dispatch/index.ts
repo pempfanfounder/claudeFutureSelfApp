@@ -4,8 +4,20 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/admin.ts";
 import { requireDispatchSecret } from "../_shared/auth.ts";
 import { json } from "../_shared/http.ts";
-import { readBoundedJson, record, boundedString } from "../_shared/input.ts";
+import {
+  InputError,
+  readBoundedJson,
+  record,
+  boundedString,
+} from "../_shared/input.ts";
 import { PUSH_RPC_DEADLINE_MS } from "../_shared/rpc-deadline.ts";
+import {
+  describeDbError,
+  failureBody,
+  logFailure,
+  retryOnceIfTransient,
+  RpcFailure,
+} from "../_shared/rpc-failure.ts";
 import type {
   CampaignRow,
   PersonalizationRow,
@@ -62,9 +74,10 @@ const ERROR_CODES = new Set([
   "MismatchSenderId",
   "InvalidCredentials",
 ]);
+const FN = "push-dispatch";
 const deadlines = new WeakMap<object, number>();
 
-type DbResult = { data: any; error: unknown };
+type DbResult = { data: any; error: unknown; status?: number };
 // postgrest-js types `.maybeSingle()` as a bare PostgrestBuilder without
 // `abortSignal`, but returns `this` at runtime, so the method is always
 // present. Accept it as optional and fail closed if it ever is not.
@@ -72,35 +85,79 @@ type BoundedRequest = PromiseLike<DbResult> & {
   abortSignal?(signal: AbortSignal): PromiseLike<DbResult>;
 };
 
+/**
+ * Runs one database request under the per-call abort cap and the worker
+ * deadline. Resolves with `data`; throws RpcFailure carrying the shaped cause
+ * (code/status/truncated message, elapsed time, whether the abort fired).
+ */
 async function boundedDb(
   db: SupabaseClient,
+  step: string,
   request: BoundedRequest,
-): Promise<DbResult> {
+): Promise<DbResult["data"]> {
   const remaining = (deadlines.get(db) ?? 0) - Date.now();
-  if (remaining <= 0) throw new Error("worker deadline reached");
+  if (remaining <= 0)
+    throw new RpcFailure(
+      step,
+      {
+        reason: "worker_deadline",
+        message: "worker deadline reached",
+        transient: false,
+      },
+      0,
+      false,
+      0,
+    );
   if (typeof request.abortSignal !== "function")
-    throw new Error("database request is not abortable");
+    throw new RpcFailure(
+      step,
+      {
+        reason: "not_abortable",
+        message: "database request is not abortable",
+        transient: false,
+      },
+      0,
+      false,
+      null,
+    );
   const controller = new AbortController();
   // Per-call cap sized for a cold start (see _shared/rpc-deadline.ts); the
   // worker deadline stays the hard bound on the whole invocation.
-  const timeout = setTimeout(
-    () => controller.abort(),
-    Math.min(PUSH_RPC_DEADLINE_MS, remaining),
-  );
+  const deadlineMs = Math.min(PUSH_RPC_DEADLINE_MS, remaining);
+  const timeout = setTimeout(() => controller.abort(), deadlineMs);
+  const started = Date.now();
+  let result: DbResult;
   try {
-    return await request.abortSignal(controller.signal);
+    result = await request.abortSignal(controller.signal);
+  } catch (thrown) {
+    // postgrest-js resolves with `error` rather than rejecting, so this is
+    // only reached for unexpected client-side throws.
+    throw new RpcFailure(
+      step,
+      describeDbError(thrown, undefined, controller.signal.aborted),
+      Date.now() - started,
+      controller.signal.aborted,
+      deadlineMs,
+    );
   } finally {
     clearTimeout(timeout);
   }
+  if (result.error)
+    throw new RpcFailure(
+      step,
+      describeDbError(result.error, result.status, controller.signal.aborted),
+      Date.now() - started,
+      controller.signal.aborted,
+      deadlineMs,
+    );
+  return result.data;
 }
 async function rpc(
   db: SupabaseClient,
   name: string,
   args: Record<string, unknown> = {},
 ): Promise<unknown> {
-  const { data, error } = await boundedDb(db, db.rpc(name, args));
-  if (error) throw new Error("database operation failed");
-  return data;
+  return await boundedDb(db, name, db.rpc(name, args));
 }
 async function send(
   attempts: Attempt[],
@@ -163,9 +220,21 @@ async function send(
         error_code: code,
       };
     });
-  } catch {
+  } catch (error) {
     // Includes timeouts, HTTP errors, malformed/truncated responses. Provider
     // acceptance may already have happened; these attempts must never auto-resend.
+    // Provider messages may echo request content, so only the error class and
+    // whether our abort fired are logged.
+    console.error(
+      JSON.stringify({
+        event: "push_provider_failure",
+        function: FN,
+        step: "expo_send",
+        reason: "provider_outcome_uncertain",
+        name: (error as { name?: unknown } | null)?.name ?? typeof error,
+        aborted: controller.signal.aborted,
+      }),
+    );
     return attempts.map((a) => ({
       attempt_id: a.id,
       state: "uncertain",
@@ -196,12 +265,28 @@ Deno.serve(async (req) => {
   };
   let messages;
   try {
-    messages = await rpc(db, "queue_read", { n: 10, vt: 90 });
-  } catch {
-    return json({ error: "queue unavailable" }, 503);
+    // Safe to run twice: queue_read only sets a 90 s visibility timeout on
+    // whatever it returns. If the first call committed but its response was
+    // lost, those messages are simply redelivered after the timeout with
+    // read_ct+1; no lease token is involved and nothing is acknowledged.
+    messages = await retryOnceIfTransient(FN, "queue_read", () =>
+      rpc(db, "queue_read", { n: 10, vt: 90 }),
+    );
+  } catch (error) {
+    return json(failureBody("queue unavailable", error, "queue_read"), 503);
   }
-  if (!Array.isArray(messages) || messages.length > 10)
-    return json({ error: "invalid queue batch" }, 503);
+  if (!Array.isArray(messages) || messages.length > 10) {
+    logFailure(FN, "queue_read", new InputError("invalid queue batch"));
+    return json(
+      {
+        ok: false,
+        error: "invalid queue batch",
+        reason: "invalid_response",
+        step: "queue_read",
+      },
+      503,
+    );
+  }
   stats.read = messages.length;
   for (const msg of messages) {
     if (Date.now() + 18_000 > deadline) {
@@ -289,7 +374,12 @@ Deno.serve(async (req) => {
             }),
             "send result",
           );
-        } catch {
+        } catch (error) {
+          logFailure(FN, "finish_push_send", error, {
+            attempt: retry,
+            msgId: msg.msg_id,
+            deliveryId,
+          });
           if (retry === 1) throw new Error("send persistence unavailable");
         }
       }
@@ -300,8 +390,19 @@ Deno.serve(async (req) => {
       stats.uncertain += Number(persisted.uncertain ?? 0);
       stats.retry_wait += Number(persisted.retry_wait ?? 0);
       if (persisted.queue_deleted === true) stats.queue_deleted++;
-    } catch {
+    } catch (error) {
       stats.persistence_errors++;
+      // Cause only (step, code, status, truncated message); never the job
+      // payload or notification content.
+      logFailure(
+        FN,
+        begun ? "after_begin_push_send" : "process_message",
+        error,
+        {
+          msgId: msg.msg_id,
+          deliveryId: deliveryId ?? undefined,
+        },
+      );
       if (deliveryId && lease && !begun) {
         try {
           await rpc(db, "release_push_delivery", {
@@ -309,14 +410,23 @@ Deno.serve(async (req) => {
             p_lease_token: lease,
             p_reason: "preparation_failed",
           });
-        } catch {
-          /* Expiring unsent lease remains recoverable. */
+        } catch (releaseError) {
+          // Expiring unsent lease remains recoverable.
+          logFailure(FN, "release_push_delivery", releaseError, {
+            msgId: msg.msg_id,
+            deliveryId,
+          });
         }
       }
-      // Once begun, lease recovery marks unknown outcomes uncertain. No payload logs.
+      // Once begun, lease recovery marks unknown outcomes uncertain.
     }
   }
-  return json(stats, stats.persistence_errors ? 503 : 200);
+  return json(
+    stats.persistence_errors
+      ? { ok: false, reason: "message_failures", ...stats }
+      : stats,
+    stats.persistence_errors ? 503 : 200,
+  );
 });
 
 async function buildNotification(
@@ -337,15 +447,15 @@ async function buildStreakRisk(
   admin: SupabaseClient,
   job: PushJob,
 ): Promise<NotificationContent | null> {
-  const { data: streak, error } = await boundedDb(
+  const streak = await boundedDb(
     admin,
+    "streaks_select",
     admin
       .from("streaks")
       .select("current_streak")
       .eq("user_id", job.user_id)
       .maybeSingle(),
   );
-  if (error) throw error;
 
   const n = streak?.current_streak ?? 0;
   if (n <= 0) return null; // nothing left to protect
@@ -376,8 +486,9 @@ async function buildContentNotification(
   admin: SupabaseClient,
   job: PushJob,
 ): Promise<NotificationContent | null> {
-  const { data: personalization, error: pErr } = await boundedDb(
+  const personalization = await boundedDb(
     admin,
+    "personalization_select",
     admin
       .from("personalization")
       .select(
@@ -386,7 +497,6 @@ async function buildContentNotification(
       .eq("user_id", job.user_id)
       .maybeSingle(),
   );
-  if (pErr) throw pErr;
 
   const interests = CONTENT_PERSONALIZATION_ENABLED
     ? interestsFor(job.kind, personalization as PersonalizationRow | null)
@@ -404,8 +514,9 @@ async function buildContentNotification(
   // if every eligible item went out in the last 14 days, relax the
   // exclusion rather than sending nothing.
   for (const days of [RECENT_CONTENT_DAYS, 0]) {
-    const { data, error } = await boundedDb(
+    const data = await boundedDb(
       admin,
+      "pick_notification_content",
       admin.rpc("pick_notification_content", {
         p_user: job.user_id,
         p_kind: job.kind,
@@ -413,7 +524,6 @@ async function buildContentNotification(
         p_exclude_days: days,
       }),
     );
-    if (error) throw error;
     const row = data?.[0];
     if (row) {
       return formatContent(
@@ -435,8 +545,9 @@ async function matchCampaign(
   variant: string | null,
 ): Promise<NotificationContent | null> {
   const nowIso = new Date().toISOString();
-  const { data: campaigns, error } = await boundedDb(
+  const campaigns = await boundedDb(
     admin,
+    "campaigns_select",
     admin
       .from("campaigns")
       .select(
@@ -449,7 +560,6 @@ async function matchCampaign(
       .order("priority", { ascending: false })
       .limit(100),
   );
-  if (error) throw error;
 
   for (const campaign of (campaigns ?? []) as CampaignRow[]) {
     if (!matchesAudience(campaign.audience, interests, variant)) continue;
@@ -482,15 +592,15 @@ async function resolveCampaign(
 ): Promise<NotificationContent | null> {
   let item: { id: string; body: string; author: string | null } | null = null;
   if (campaign.content_id) {
-    const { data, error } = await boundedDb(
+    const data = await boundedDb(
       admin,
+      "content_items_select",
       admin
         .from("content_items")
         .select("id, body, author, active")
         .eq("id", campaign.content_id)
         .maybeSingle(),
     );
-    if (error) throw error;
     if (data?.active) item = data;
   }
 
