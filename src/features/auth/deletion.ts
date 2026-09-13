@@ -32,8 +32,18 @@ async function readPendingDeletion(): Promise<DeletionReceipt | null> {
 export function getPendingDeletion(): Promise<DeletionReceipt | null> {
   return serializedStorage(readPendingDeletion);
 }
+export interface DeletionOptions {
+  /**
+   * Fresh Sign in with Apple authorization code (valid ~5 minutes). The
+   * server exchanges and revokes it so the app disappears from the
+   * user's Apple ID (Guideline 5.1.1(v)). Optional: deletion proceeds
+   * without it.
+   */
+  appleAuthorizationCode?: string;
+}
 export async function requestAccountDeletion(
   identity: Identity,
+  options: DeletionOptions = {},
 ): Promise<string> {
   assertCurrentIdentity(identity);
   const pending = await serializedStorage(async () => {
@@ -52,7 +62,12 @@ export async function requestAccountDeletion(
   const client = await getIdentitySupabase(identity);
   if (!client) throw new Error("Account service unavailable.");
   const { data, error } = await client.functions.invoke("delete-account", {
-    body: { receipt: pending.receipt },
+    body: {
+      receipt: pending.receipt,
+      ...(options.appleAuthorizationCode
+        ? { apple_authorization_code: options.appleAuthorizationCode }
+        : {}),
+    },
   });
   if (error || data?.ok !== true || data.deleted_user_id !== identity.userId)
     throw new Error("Deletion was not confirmed.");

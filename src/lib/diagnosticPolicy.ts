@@ -89,6 +89,7 @@ const AREAS = new Set([
   "auth.signInGoogle",
   "auth.signOut",
   "auth.deleteAccount",
+  "auth.appleRevoke",
   "purchases.configure",
   "purchases.refresh",
   "purchases.sync",

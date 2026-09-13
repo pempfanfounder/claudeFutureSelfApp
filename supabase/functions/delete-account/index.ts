@@ -1,6 +1,10 @@
 // Authenticated deletion; an unguessable, hashed receipt supports a status-only
 // retry after the user is gone. A 401 alone never proves deletion.
 import { createAdminClient } from "../_shared/admin.ts";
+import {
+  readAppleRevocationConfig,
+  revokeAppleAuthorization,
+} from "../_shared/apple-revocation.ts";
 import { getUserFromRequest } from "../_shared/auth.ts";
 import { corsHeaders, json } from "../_shared/http.ts";
 import {
@@ -10,15 +14,23 @@ import {
   UUID_RE,
 } from "../_shared/input.ts";
 
+/** Apple authorization codes are opaque, short strings; bound them anyway. */
+const APPLE_CODE_RE = /^[A-Za-z0-9._~+/=-]{8,1024}$/;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST")
     return json({ error: "method not allowed" }, 405, corsHeaders);
   try {
-    const body = record(await readBoundedJson(req, 2048), "body");
+    const body = record(await readBoundedJson(req, 4096), "body");
     if (typeof body.receipt !== "string" || !UUID_RE.test(body.receipt))
       return json({ error: "invalid receipt" }, 400, corsHeaders);
+    const appleAuthorizationCode =
+      typeof body.apple_authorization_code === "string" &&
+      APPLE_CODE_RE.test(body.apple_authorization_code)
+        ? body.apple_authorization_code
+        : undefined;
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(body.receipt),
@@ -138,6 +150,26 @@ Deno.serve(async (req) => {
         410,
         corsHeaders,
       );
+    // Guideline 5.1.1(v): revoke the Sign in with Apple grant before the
+    // user row goes. Best effort only; the deletion below never depends on
+    // Apple answering. Failures are logged (no code, no token, no PII).
+    if (user.identities?.some((identity) => identity.provider === "apple")) {
+      const revocation = await revokeAppleAuthorization({
+        config: readAppleRevocationConfig((name) => Deno.env.get(name)),
+        authorizationCode: appleAuthorizationCode,
+      });
+      if (!revocation.ok)
+        console.warn(
+          JSON.stringify({
+            event: "apple_revocation_failed",
+            reason: revocation.reason,
+            detail: revocation.detail ?? null,
+            code_supplied: appleAuthorizationCode !== undefined,
+          }),
+        );
+    }
+    // deleteUser cascades to auth.identities, so the Apple identity link
+    // itself is removed even when revocation above could not run.
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error)
       return json({ error: "deletion not confirmed; retry" }, 500, corsHeaders);
