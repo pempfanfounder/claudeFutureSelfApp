@@ -44,9 +44,11 @@ const STREAK_BODIES: Array<(n: number) => string> = [
   (n) =>
     `Day ${n + 1} is still yours to claim. One short read before midnight.`,
 ];
-const TRIAL_TITLE = "Your trial ends soon";
+// Sent once, 12–36 h before the trial converts (enqueue_trial_reminders).
+// "soon", not "tomorrow": at the 12 h edge the conversion can be the same day.
+const TRIAL_TITLE = "Your free trial ends soon";
 const TRIAL_BODY =
-  "Your free trial ends soon. Review your subscription in Settings.";
+  "Keep Future Self, or cancel before it renews. Manage it anytime in Settings.";
 interface NotificationContent {
   title: string;
   body: string;

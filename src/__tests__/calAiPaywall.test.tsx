@@ -8,6 +8,7 @@ import { LOCAL_CATALOG } from "@/features/content/localCatalog";
 import {
   CALAI_HEADLINES,
   CalAiPaywall,
+  TRIAL_REMINDER_LABEL,
 } from "@/features/paywall/calai/CalAiPaywall";
 import type { CalAiVersion } from "@/features/paywall/paywallVariant";
 import type { PaywallData } from "@/features/paywall/useOffering";
@@ -323,6 +324,37 @@ describe("CalAiPaywall layout differences", () => {
       "$6.99/wk$6.99 billed weekly",
     );
     screen.unmount();
+  });
+});
+
+describe("CalAiPaywall trial reminder toggle", () => {
+  it("shows the switch only when the store grants a trial and reports changes", () => {
+    const onTrialReminderChange = jest.fn();
+    const { screen } = renderPaywall(1, makeData(), {
+      trialReminder: true,
+      onTrialReminderChange,
+    });
+    expect(screen.getByTestId("trial-reminder-row")).toHaveTextContent(
+      TRIAL_REMINDER_LABEL,
+    );
+    const toggle = screen.getByTestId("trial-reminder-toggle");
+    expect(toggle.props.value).toBe(true);
+    fireEvent(toggle, "valueChange", false);
+    expect(onTrialReminderChange).toHaveBeenCalledWith(false);
+    screen.unmount();
+  });
+
+  it("hides the switch without a trial, and when the caller does not wire it", () => {
+    const noTrial = renderPaywall(
+      1,
+      makeData({ trialLength: null, trialDays: null }),
+      { trialReminder: true, onTrialReminderChange: jest.fn() },
+    );
+    expect(noTrial.screen.queryByTestId("trial-reminder-row")).toBeNull();
+    noTrial.screen.unmount();
+    const unwired = renderPaywall(1);
+    expect(unwired.screen.queryByTestId("trial-reminder-row")).toBeNull();
+    unwired.screen.unmount();
   });
 });
 

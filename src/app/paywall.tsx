@@ -85,6 +85,8 @@ export default function PaywallRoute() {
         data={data}
         version={calAi}
         placement="gate"
+        trialReminder={trialReminder}
+        onTrialReminderChange={saveReminder}
         onPurchased={onPurchased}
       />
     );

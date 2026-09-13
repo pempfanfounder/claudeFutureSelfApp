@@ -258,6 +258,11 @@ export function OnboardingFlow() {
               version={calAi}
               placement="onboarding"
               closeDelayMs={config.paywallCloseDelayMs}
+              trialReminder={trialReminder}
+              onTrialReminderChange={(v) => {
+                setTrialReminder(v);
+                setAnswer("raw.trial_reminder", v ? "yes" : "no");
+              }}
               onPurchased={() => {
                 advance();
               }}
