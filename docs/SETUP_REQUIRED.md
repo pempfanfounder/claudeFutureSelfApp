@@ -131,25 +131,39 @@ few nights, then arm it with
 The RevenueCat project already exists (see credentials below); what's left is
 store-console product setup and the real per-platform keys before release.
 
-1. RevenueCat project is live; iOS + Android apps for `com.futureself.app`
+1. RevenueCat project is live; iOS + Android apps for `com.futureself.mobile`
    are added.
-2. App Store Connect / Play Console: create three products —
-   a **monthly** subscription, a **yearly** subscription (both with an
-   introductory free trial — `iam-*` paywalls sell the yearly, falling back
-   to monthly), and a **lifetime** non-consumable. There's currently no
-   weekly product; the `stella-*` paywalls prefer `offering.weekly` (kept
-   for future flexibility) but fall back to monthly today. Any prices you
-   like — the app reads real prices and trial eligibility from the store at
-   runtime and never hardcodes them.
-3. RevenueCat: entitlement **`FutureSelffffff Pro`** already exists (its id
-   is wired via `EXPO_PUBLIC_RC_ENTITLEMENT_ID` in `.env` — the app reads it
-   from config rather than hardcoding it, defaulting to `"premium"` if unset).
-   Attach all three products (monthly, yearly, lifetime) to that entitlement
-   **and** to the **current Offering** in the dashboard. The client also
-   treats _any_ active entitlement as premium as a misconfiguration
-   safety net (with a loud `__DEV__` warning if it's not the configured one)
-   — but that's a fallback, not a substitute for wiring the entitlement id
-   correctly.
+2. **Plans sold: WEEKLY and ANNUAL only** (owner decision 2026-09-13; no
+   monthly, no lifetime). The app filters the offering by RevenueCat
+   _package type_ (`isAllowedPackage` in `src/lib/purchases.ts`:
+   `WEEKLY` + `ANNUAL`), so the store product identifiers are free to
+   change in the RevenueCat dashboard; the ones below are what exists /
+   is expected today. App Store Connect product IDs are **unprefixed**.
+
+   | Plan   | App Store Connect product ID | Play product ID | RevenueCat package | Target price |
+   | ------ | ---------------------------- | --------------- | ------------------ | ------------ |
+   | Yearly | `yearly` (exists)            | `yearly`        | `$rc_annual`       | 35.99 / year |
+   | Weekly | `weekly` (**create**)        | `weekly`        | `$rc_weekly`       | 6.99 / week  |
+
+   Both live in offering **`default`** (the current offering) and unlock
+   entitlement **`FutureSelffffff Pro`** (typo is live, keep it; the id is
+   read from `EXPO_PUBLIC_RC_ENTITLEMENT_ID` in `eas.json`/`.env`). The
+   `monthly` and `lifetime` products created in August must **not** be
+   attached to the offering or to the 1.0.0 submission: the app cannot
+   sell them and a listed-but-unpurchasable IAP invites a 2.1 rejection.
+   Delete them or leave them unattached. Prices are read live from the
+   store (the paywall derives "$0.69/wk", "Save 90%" etc. from real store
+   numbers, never hardcoded); the free trial, if any, is an introductory
+   offer on the store product and is only advertised when the store
+   reports eligibility (`trialInfo`). The trial decision is still open
+   with the owner; the code supports both.
+
+3. RevenueCat: attach `weekly` **and** `yearly` (App Store _and_ Play
+   products) to entitlement `FutureSelffffff Pro` **and** to offering
+   `default` as `$rc_weekly` / `$rc_annual`. The client also treats _any_
+   active entitlement as premium as a misconfiguration safety net (with a
+   loud `__DEV__` warning if it's not the configured one) — but that's a
+   fallback, not a substitute for wiring the entitlement id correctly.
 4. **API keys:** a RevenueCat **Test Store** key
    (`test_AyrDXEiqnvraxCsTJnuzvAOQAxx`) is already wired into `.env` for both
    `EXPO_PUBLIC_REVENUECAT_IOS_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
