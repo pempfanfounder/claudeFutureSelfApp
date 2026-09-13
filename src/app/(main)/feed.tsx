@@ -11,6 +11,7 @@ import {
   AppState,
   findNodeHandle,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +36,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, shadows, spacing } from "@/design-system/tokens";
+import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import { ContentCard } from "@/features/content/ContentCard";
 import { useFeedStore } from "@/features/content/feedStore";
@@ -82,7 +83,7 @@ export function feedRetryOverlayText(feed: {
   error: string | null;
   pendingCount: number;
 }): string | null {
-  if (feed.loading) return "Loading your daily words…";
+  if (feed.loading) return "Loading your quotes.";
   return feed.error;
 }
 
@@ -418,7 +419,12 @@ function FeedContent() {
           accessibilityRole="button"
           accessibilityLabel="Profile"
         >
-          <AppText variant="label">fs</AppText>
+          <Image
+            source={require("../../../../assets/images/splash-icon.png")}
+            style={styles.avatarLogo}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
         </Pressable>
 
         <View
@@ -472,14 +478,19 @@ function FeedContent() {
           ]}
         >
           {feed.completedToday ? (
-            <View style={styles.streakRow}>
-              <Icon name="sparkle" size={12} color={colors.accent} />
-              <AppText variant="label" tone="accent">
+            <View style={styles.streakRow} testID="home-streak">
+              <Icon name="sparkle" size={16} color={colors.ink} />
+              <AppText variant="body" tone="ink" style={styles.streakValue}>
                 {feed.currentStreak}
               </AppText>
             </View>
           ) : (
-            <AppText variant="label" tone="ink2">
+            <AppText
+              variant="body"
+              tone="ink"
+              style={styles.streakValue}
+              testID="home-streak"
+            >
               {`${Math.min(viewedCount, STREAK_TARGET)}/${STREAK_TARGET}`}
             </AppText>
           )}
@@ -615,7 +626,7 @@ export function EndCard({
     <View style={[styles.endCard, { height }]}>
       <AppText variant="h2" center>
         {loading && empty
-          ? "Loading your daily words…"
+          ? "Loading your quotes."
           : empty
             ? "Your daily words aren’t available yet."
             : "That's the whole set for today."}
@@ -653,7 +664,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  avatarLogo: { width: 40, height: 40, borderRadius: 12 },
   segment: {
     flexDirection: "row",
     alignItems: "center",
@@ -666,14 +679,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   streakChip: {
-    minWidth: 44,
-    height: 32,
+    minWidth: 48,
+    height: 40,
     borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   streakRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  streakValue: { fontFamily: type.sansSemi, fontSize: 16, lineHeight: 20 },
   bottom: {
     position: "absolute",
     left: spacing.xl,

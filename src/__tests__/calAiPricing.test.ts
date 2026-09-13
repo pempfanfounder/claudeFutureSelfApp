@@ -120,7 +120,7 @@ describe("preview notifications", () => {
     expect(items).toHaveLength(3);
     expect(items[0]!.time).toBe("Now");
     expect(items[0]!.body).toBe(
-      "Every day your window of opportunity gets smaller and smaller",
+      "Every day your window of opportunity gets smaller and smaller.",
     );
     expect(items[0]!.body).not.toMatch(/…/);
     expect(items[1]!.body).toBe("I start now, not later.");

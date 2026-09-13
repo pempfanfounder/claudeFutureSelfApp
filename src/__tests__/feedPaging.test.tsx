@@ -85,7 +85,7 @@ describe("feedRetryOverlayText", () => {
         error: null,
         pendingCount: 0,
       }),
-    ).toBe("Loading your daily words…");
+    ).toBe("Loading your quotes.");
     expect(
       feedRetryOverlayText({
         loading: false,

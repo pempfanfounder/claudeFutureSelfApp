@@ -166,7 +166,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         new RegExp(`^Future SelfNow${escaped}$`),
       );
       expect(preview[0]!.body).toBe(
-        "Every day your window of opportunity gets smaller and smaller",
+        "Every day your window of opportunity gets smaller and smaller.",
       );
       expect(preview[1]!.body).toBe("I start now, not later.");
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
@@ -199,10 +199,14 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       if (version === 3) {
         expect(screen.getByText("Save 90%")).toBeTruthy();
       } else {
-        expect(screen.queryByText("Save 90%")).toBeNull();
-        expect(screen.queryByText("Most popular")).toBeNull();
+        expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
+          "Save 90% vs weekly",
+        );
         expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          "3 days free",
+          /3 days free/,
+        );
+        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
+          /Most popular/,
         );
         expect(screen.getByText("Yearly")).toBeTruthy();
       }
@@ -247,7 +251,10 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       );
       if (version !== 3) {
         expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          "3 days free",
+          /3 days free/,
+        );
+        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
+          /Most popular/,
         );
         expect(screen.getByText("Yearly")).toBeTruthy();
       }
@@ -284,7 +291,11 @@ describe("CalAiPaywall layout differences", () => {
   it("v1 and v2 stack plan cards with a 3 days free tab; v3 uses a toggle", () => {
     const one = renderPaywall(1);
     expect(one.screen.getByText("3 days free")).toBeTruthy();
-    expect(one.screen.queryByText("Most popular")).toBeNull();
+    expect(one.screen.getByText("Most popular")).toBeTruthy();
+    expect(one.screen.getByTestId("plan-yearly-save")).toHaveTextContent(
+      "Save 90% vs weekly",
+    );
+    expect(one.screen.getByText("Yearly")).toBeTruthy();
     expect(one.screen.getByText("Weekly")).toBeTruthy();
     expect(one.screen.queryByTestId("plan-price-line")).toBeNull();
     one.screen.unmount();
@@ -315,10 +326,15 @@ describe("CalAiPaywall layout differences", () => {
       }),
     );
     expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-      "3 days free",
+      /3 days free/,
+    );
+    expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
+      /Most popular/,
     );
     expect(screen.getByText("Yearly")).toBeTruthy();
-    expect(screen.queryByText("Most popular")).toBeNull();
+    expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
+      "Save 90% vs weekly",
+    );
     expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
     screen.unmount();
   });
@@ -348,7 +364,10 @@ describe("CalAiPaywall layout differences", () => {
       CALAI_HEADLINES[1],
     );
     expect(screen.getByText("3 days free")).toBeTruthy();
-    expect(screen.queryByText("Most popular")).toBeNull();
+    expect(screen.getByText("Most popular")).toBeTruthy();
+    expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
+      "Save 90% vs weekly",
+    );
     expect(screen.getByText("Weekly")).toBeTruthy();
     expect(screen.queryByTestId("plan-price-line")).toBeNull();
     expect(screen.getByTestId("paywall-cta")).not.toHaveStyle({

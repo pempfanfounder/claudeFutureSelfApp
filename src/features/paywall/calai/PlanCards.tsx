@@ -6,23 +6,28 @@ import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import type { PaywallData } from "../useOffering";
-import { billingLabel, perWeekLabel, planTitle, splitPlans } from "./pricing";
+import {
+  billingLabel,
+  perWeekLabel,
+  planTitle,
+  savingsPercent,
+  splitPlans,
+} from "./pricing";
 
 interface PlanCardsProps {
   data: PaywallData;
 }
 
 /**
- * Cal AI's two stacked plan cards in Future Self chrome: the yearly plan
- * wears a "3 days free" tab (replacing Most popular / Best choice) and a
- * filled check; the weekly plan is a plain outlined card. Title stays
- * Yearly — the tab is the trial badge, not the plan name. Shown even
- * when RevenueCat eligibility is still unknown, which is common on
- * TestFlight before the first purchase.
+ * Cal AI's two stacked plan cards: yearly title stays "Yearly". The tab
+ * shows both "3 days free" and "Most popular". Save X% vs weekly sits
+ * under the title at body size so the cheaper yearly plan is obvious —
+ * not a tiny eyebrow pill, and not a substitute for the plan name.
  */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
+  const savings = savingsPercent(plans);
   const ordered = [plans.annual, plans.weekly].filter(
     (p): p is PurchasesPackage => p !== null,
   );
@@ -60,6 +65,9 @@ export function PlanCards({ data }: PlanCardsProps) {
                 <AppText variant="eyebrow" tone="ctaInk">
                   3 days free
                 </AppText>
+                <AppText variant="eyebrow" tone="ctaInk">
+                  Most popular
+                </AppText>
               </View>
             ) : null}
             <View style={styles.row}>
@@ -85,6 +93,15 @@ export function PlanCards({ data }: PlanCardsProps) {
                 <AppText variant="lead" style={styles.title}>
                   {planTitle(pkg)}
                 </AppText>
+                {isAnnual && savings !== null ? (
+                  <AppText
+                    variant="body"
+                    style={[styles.save, { color: colors.ink }]}
+                    testID="plan-yearly-save"
+                  >
+                    {`Save ${savings}% vs weekly`}
+                  </AppText>
+                ) : null}
                 {isAnnual ? (
                   <AppText variant="body" tone="ink2" style={styles.billing}>
                     {billingLabel(pkg)}
@@ -120,15 +137,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     overflow: "hidden",
   },
-  cardWithTab: { paddingTop: spacing.lg + 22 },
+  cardWithTab: { paddingTop: spacing.lg + 26 },
   tab: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 24,
+    height: 28,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing.md,
   },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   radio: {
@@ -141,6 +160,7 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1 },
   title: { fontFamily: type.sansSemi },
+  save: { marginTop: 2, fontFamily: type.sansSemi },
   billing: { marginTop: 2, fontFamily: type.sansMed },
   price: { fontFamily: type.sansMed },
 });

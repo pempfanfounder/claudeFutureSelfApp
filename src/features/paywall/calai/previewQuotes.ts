@@ -12,8 +12,8 @@ export interface PreviewNotification {
  * The two older cards are one-liners because only their top strip shows.
  *
  * Paywall-only cuts (TestFlight 13 Sep 2026): drop the ellipsis on owner
- * #11, and swap the middle affirmation for the locked start-now line.
- * The library itself is unchanged.
+ * #11 and end the line with a period; swap the middle affirmation for
+ * the locked start-now line. The library itself is unchanged.
  */
 const PREVIEW: { id: string; time: string; body?: string }[] = [
   { id: "local:q11", time: "Now" },
@@ -23,7 +23,10 @@ const PREVIEW: { id: string; time: string; body?: string }[] = [
 
 function paywallBody(id: string, catalogBody: string, override?: string): string {
   if (override) return override;
-  if (id === "local:q11") return catalogBody.replace(/\s*…\s*$/u, "");
+  if (id === "local:q11") {
+    const stripped = catalogBody.replace(/\s*…\s*$/u, "").trimEnd();
+    return stripped.endsWith(".") ? stripped : `${stripped}.`;
+  }
   return catalogBody;
 }
 
