@@ -420,7 +420,7 @@ function FeedContent() {
           accessibilityLabel="Profile"
         >
           <Image
-            source={require("../../../../assets/images/splash-icon.png")}
+            source={require("../../../assets/images/splash-icon.png")}
             style={styles.avatarLogo}
             resizeMode="cover"
             accessibilityIgnoresInvertColors
