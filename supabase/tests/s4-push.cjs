@@ -55,6 +55,11 @@ function fixture(o = {}) {
       };
     if (o.failRpc === name)
       return { data: null, error: { message: "fixture DB unavailable" } };
+    if (
+      o.failWith?.name === name &&
+      calls.filter((c) => c.name === name).length <= (o.failWith.times ?? 1e9)
+    )
+      return { data: null, error: o.failWith.error, status: o.failWith.status };
     if (name === "queue_read")
       return {
         data: [
@@ -69,13 +74,16 @@ function fixture(o = {}) {
       };
     if (name === "claim_push_job")
       return {
-        data: {
-          outcome: o.claim ?? "claimed",
-          delivery_id: D,
-          lease_token: "send-lease",
-          job,
-          content: null,
-        },
+        data:
+          "claimData" in o
+            ? o.claimData
+            : {
+                outcome: o.claim ?? "claimed",
+                delivery_id: D,
+                lease_token: "send-lease",
+                job,
+                content: null,
+              },
         error: null,
       };
     if (name === "prepare_push_delivery")
@@ -555,6 +563,193 @@ test("curated content is transmitted verbatim to every attempted registration", 
         m.data.delivery_id === D,
     ),
   );
+});
+// postgrest-js shapes: a failed fetch resolves with status 0 and code "";
+// PostgREST/Kong errors carry the HTTP status and, for PostgREST, a code.
+const transport = {
+  error: {
+    message:
+      "TypeError: error sending request for url (https://x.supabase.co/rest/v1/rpc/queue_read): connection reset",
+    details: "STACK-CANARY",
+    hint: "",
+    code: "",
+  },
+  status: 0,
+};
+const pgrst503 = {
+  error: {
+    message: "Database connection error. Retrying the connection.",
+    details: "SQL-CANARY",
+    hint: "HINT-CANARY",
+    code: "PGRST001",
+  },
+  status: 503,
+};
+const sqlError = {
+  error: {
+    message: "invalid queue read",
+    details: "SQL-CANARY select 1",
+    hint: "HINT-CANARY",
+    code: "P0001",
+  },
+  status: 400,
+};
+const rpcLogs = (f) =>
+  f.logs
+    .filter((l) => l.startsWith("{"))
+    .map((l) => JSON.parse(l))
+    .filter((l) => l.event === "push_rpc_failure");
+const firstRpc = { dispatch: "queue_read", receipts: "claim_push_receipts" };
+test("first RPC transport failure is retried once and the run succeeds", async () => {
+  for (const kind of ["dispatch", "receipts"]) {
+    const f = fixture({
+      failWith: { name: firstRpc[kind], ...transport, times: 1 },
+      fastTimeout: true,
+    });
+    const r = await f.call(kind);
+    assert.equal(r.status, 200, kind);
+    assert.equal(f.calls.filter((c) => c.name === firstRpc[kind]).length, 2);
+    const logged = rpcLogs(f);
+    assert.equal(logged.length, 1);
+    assert.equal(logged[0].step, firstRpc[kind]);
+    assert.equal(logged[0].function, `push-${kind}`);
+    assert.equal(logged[0].reason, "rpc_error");
+    assert.equal(logged[0].status, 0);
+    assert.equal(logged[0].transient, true);
+    assert.equal(logged[0].attempt, 0);
+    assert.equal(logged[0].aborted, false);
+    assert.equal(typeof logged[0].elapsed_ms, "number");
+    assert.equal(typeof logged[0].deadline_ms, "number");
+    assert.ok(logged[0].message.startsWith("TypeError: error sending request"));
+  }
+});
+test("persistent 5xx on the first RPC yields one retry and a 503 with the cause", async () => {
+  for (const kind of ["dispatch", "receipts"]) {
+    const f = fixture({
+      failWith: { name: firstRpc[kind], ...pgrst503 },
+      fastTimeout: true,
+    });
+    const r = await f.call(kind);
+    assert.equal(r.status, 503);
+    assert.equal(f.calls.filter((c) => c.name === firstRpc[kind]).length, 2);
+    assert.equal(f.fetches, 0);
+    assert.deepEqual(r.body, {
+      ok: false,
+      error:
+        kind === "dispatch" ? "queue unavailable" : "receipt claim unavailable",
+      reason: "rpc_error",
+      step: firstRpc[kind],
+      code: "PGRST001",
+      status: 503,
+    });
+    assert.deepEqual(
+      rpcLogs(f).map((l) => l.attempt),
+      [0, 1],
+    );
+    const all = f.logs.join("\n") + JSON.stringify(r.body);
+    assert.equal(all.includes("CANARY"), false);
+  }
+});
+test("SQL/client errors on the first RPC are not retried and keep their code", async () => {
+  for (const kind of ["dispatch", "receipts"]) {
+    const f = fixture({ failWith: { name: firstRpc[kind], ...sqlError } });
+    const r = await f.call(kind);
+    assert.equal(r.status, 503);
+    assert.equal(f.calls.filter((c) => c.name === firstRpc[kind]).length, 1);
+    assert.equal(r.body.reason, "rpc_error");
+    assert.equal(r.body.code, "P0001");
+    assert.equal(r.body.status, 400);
+    const logged = rpcLogs(f);
+    assert.equal(logged.length, 1);
+    assert.equal(logged[0].transient, false);
+    assert.equal(logged[0].message, "invalid queue read");
+    assert.equal(
+      (f.logs.join("\n") + JSON.stringify(r.body)).includes("CANARY"),
+      false,
+    );
+  }
+});
+test("legacy error shape without status is not treated as transient", async () => {
+  for (const kind of ["dispatch", "receipts"]) {
+    const f = fixture({ failRpc: firstRpc[kind] });
+    const r = await f.call(kind);
+    assert.equal(r.status, 503);
+    assert.equal(f.calls.filter((c) => c.name === firstRpc[kind]).length, 1);
+    assert.equal(r.body.reason, "rpc_error");
+    assert.equal(r.body.code, undefined);
+  }
+});
+test("later lease-bearing RPCs are never retried by the transport policy", async () => {
+  // claim_push_job: a lost response would leave an unrecoverable duplicate
+  // claim, so it stays single-shot and only the message counts as failed.
+  const f = fixture({
+    failWith: { name: "claim_push_job", ...transport },
+    fastTimeout: true,
+  });
+  const r = await f.call();
+  assert.equal(r.status, 503);
+  assert.equal(f.calls.filter((c) => c.name === "claim_push_job").length, 1);
+  assert.equal(f.fetches, 0);
+  assert.equal(r.body.persistence_errors, 1);
+  assert.equal(r.body.reason, "message_failures");
+  const logged = rpcLogs(f);
+  assert.equal(logged.length, 1);
+  assert.equal(logged[0].step, "claim_push_job");
+  assert.equal(logged[0].msg_id, 1);
+  // finish_push_send keeps its existing response-loss retry (2 attempts).
+  const g = fixture({ failWith: { name: "finish_push_send", ...pgrst503 } });
+  const s = await g.call();
+  assert.equal(s.status, 503);
+  assert.equal(g.calls.filter((c) => c.name === "finish_push_send").length, 2);
+  assert.deepEqual(
+    rpcLogs(g)
+      .filter((l) => l.step === "finish_push_send")
+      .map((l) => [l.attempt, l.code, l.delivery_id]),
+    [
+      [0, "PGRST001", D],
+      [1, "PGRST001", D],
+    ],
+  );
+});
+test("receipt persistence 503 body names the failing step and code", async () => {
+  const f = fixture({
+    failWith: { name: "finish_push_receipts", ...pgrst503 },
+  });
+  const r = await f.call("receipts");
+  assert.equal(r.status, 503);
+  assert.deepEqual(r.body, {
+    ok: false,
+    error: "receipt persistence unavailable",
+    reason: "rpc_error",
+    step: "finish_push_receipts",
+    code: "PGRST001",
+    status: 503,
+    checked: 0,
+  });
+  assert.equal(f.logs.join("\n").includes("CANARY"), false);
+});
+test("shape rejections and provider failures are reported without payloads", async () => {
+  const f = fixture({ claimData: "not-a-record" });
+  const r = await f.call();
+  assert.equal(r.status, 503);
+  const logged = rpcLogs(f);
+  assert.equal(logged.length, 1);
+  assert.equal(logged[0].reason, "invalid_response");
+  assert.equal(logged[0].step, "process_message");
+  assert.equal(logged[0].message, "invalid claim");
+  const g = fixture({ transport: "failure" });
+  const s = await g.call("receipts");
+  assert.equal(s.status, 503);
+  assert.equal(s.body.reason, "provider_unavailable");
+  const provider = g.logs
+    .filter((l) => l.startsWith("{"))
+    .map((l) => JSON.parse(l))
+    .filter((l) => l.event === "push_provider_failure");
+  assert.equal(provider.length, 1);
+  assert.equal(provider[0].step, "expo_get_receipts");
+  assert.equal(provider[0].aborted, false);
+  assert.equal(provider[0].message, undefined);
+  assert.equal(g.logs.join("\n").includes("SECRET-CANARY"), false);
 });
 (async () => {
   const results = [];

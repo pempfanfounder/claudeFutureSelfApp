@@ -4,8 +4,17 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createAdminClient } from "../_shared/admin.ts";
 import { requireDispatchSecret } from "../_shared/auth.ts";
 import { json } from "../_shared/http.ts";
-import { readBoundedJson, record } from "../_shared/input.ts";
+import { InputError, readBoundedJson, record } from "../_shared/input.ts";
 import { PUSH_RPC_DEADLINE_MS } from "../_shared/rpc-deadline.ts";
+import {
+  describeDbError,
+  failureBody,
+  logFailure,
+  retryOnceIfTransient,
+  RpcFailure,
+} from "../_shared/rpc-failure.ts";
+
+const FN = "push-receipts";
 
 interface Pending {
   id: string;
@@ -30,15 +39,32 @@ async function rpc(
 ): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PUSH_RPC_DEADLINE_MS);
+  const started = Date.now();
+  let result: { data: unknown; error: unknown; status?: number };
   try {
-    const { data, error } = await db
-      .rpc(name, args)
-      .abortSignal(controller.signal);
-    if (error) throw new Error("database operation failed");
-    return data;
+    result = await db.rpc(name, args).abortSignal(controller.signal);
+  } catch (thrown) {
+    // postgrest-js resolves with `error` rather than rejecting, so this is
+    // only reached for unexpected client-side throws.
+    throw new RpcFailure(
+      name,
+      describeDbError(thrown, undefined, controller.signal.aborted),
+      Date.now() - started,
+      controller.signal.aborted,
+      PUSH_RPC_DEADLINE_MS,
+    );
   } finally {
     clearTimeout(timeout);
   }
+  if (result.error)
+    throw new RpcFailure(
+      name,
+      describeDbError(result.error, result.status, controller.signal.aborted),
+      Date.now() - started,
+      controller.signal.aborted,
+      PUSH_RPC_DEADLINE_MS,
+    );
+  return result.data;
 }
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
@@ -47,12 +73,41 @@ Deno.serve(async (req) => {
   const db = createAdminClient();
   let claim;
   try {
-    claim = record(await rpc(db, "claim_push_receipts"), "receipt claim");
-  } catch {
-    return json({ error: "receipt claim unavailable" }, 503);
+    // Safe to run twice: every finish call below uses the lease token from
+    // the response we actually received. If a first call committed a lease
+    // but its response was lost, the retry sees that lease as active and
+    // returns an empty batch (same as today's failure: those attempts wait
+    // out their 45 s lease), so no token is ever used across the boundary.
+    claim = record(
+      await retryOnceIfTransient(FN, "claim_push_receipts", () =>
+        rpc(db, "claim_push_receipts"),
+      ),
+      "receipt claim",
+    );
+  } catch (error) {
+    if (error instanceof InputError)
+      logFailure(FN, "claim_push_receipts", error);
+    return json(
+      failureBody("receipt claim unavailable", error, "claim_push_receipts"),
+      503,
+    );
   }
-  if (!Array.isArray(claim.attempts) || claim.attempts.length > 300)
-    return json({ error: "invalid receipt batch" }, 503);
+  if (!Array.isArray(claim.attempts) || claim.attempts.length > 300) {
+    logFailure(
+      FN,
+      "claim_push_receipts",
+      new InputError("invalid receipt batch"),
+    );
+    return json(
+      {
+        ok: false,
+        error: "invalid receipt batch",
+        reason: "invalid_response",
+        step: "claim_push_receipts",
+      },
+      503,
+    );
+  }
   const attempts = claim.attempts as Pending[];
   if (attempts.length === 0)
     return json({
@@ -101,8 +156,20 @@ Deno.serve(async (req) => {
             : "unknown_receipt_error",
       };
     });
-  } catch {
+  } catch (error) {
     providerFailed = true;
+    // Provider messages may echo request content, so only the error class and
+    // whether our abort fired are logged.
+    console.error(
+      JSON.stringify({
+        event: "push_provider_failure",
+        function: FN,
+        step: "expo_get_receipts",
+        reason: "provider_unavailable",
+        name: (error as { name?: unknown } | null)?.name ?? typeof error,
+        aborted: controller.signal.aborted,
+      }),
+    );
     results = attempts.map((a) => ({
       attempt_id: a.id,
       state: "pending",
@@ -121,21 +188,39 @@ Deno.serve(async (req) => {
         }),
         "receipt result",
       );
-    } catch {
+    } catch (error) {
+      logFailure(FN, "finish_push_receipts", error, { attempt: retry });
       if (retry === 1)
         return json(
-          { error: "receipt persistence unavailable", checked: 0 },
+          {
+            ...failureBody(
+              "receipt persistence unavailable",
+              error,
+              "finish_push_receipts",
+            ),
+            checked: 0,
+          },
           503,
         );
     }
   }
   if (persisted?.outcome !== "persisted")
-    return json({ error: "receipt claim superseded", checked: 0 }, 503);
+    return json(
+      {
+        ok: false,
+        error: "receipt claim superseded",
+        reason: "superseded",
+        step: "finish_push_receipts",
+        checked: 0,
+      },
+      503,
+    );
   return json(
     {
       ...persisted,
       expired: Number(claim.expired ?? 0),
       legacy_imported: Number(claim.legacy_imported ?? 0),
+      ...(providerFailed ? { ok: false, reason: "provider_unavailable" } : {}),
     },
     providerFailed ? 503 : 200,
   );
