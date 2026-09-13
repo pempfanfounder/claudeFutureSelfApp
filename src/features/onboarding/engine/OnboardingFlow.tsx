@@ -23,10 +23,12 @@ import { TimelinePaywall } from "@/features/paywall/TimelinePaywall";
 import { useOffering } from "@/features/paywall/useOffering";
 
 import { getVariantConfig } from "../variants";
+import { isUnderMinimumAge } from "./ageGate";
 import { completeOnboarding } from "./completeOnboarding";
 import { onboardingProgress, PROGRESS_BAR_FAMILIES } from "./progress";
 import { resolveText } from "./resolve";
 import { useOnboardingStore } from "./store";
+import { AgeStopScreen } from "./steps/AgeStopScreen";
 import { AppIconStep } from "./steps/AppIconStep";
 import { IamStep } from "./steps/IamStep";
 import { NotificationsStep } from "./steps/NotificationsStep";
@@ -62,6 +64,9 @@ export function OnboardingFlow() {
   );
   const [trialReminder, setTrialReminder] = useState(true);
   const [switchAuthVisible, setSwitchAuthVisible] = useState(false);
+  // Soft age gate (Terms: 16+). While true the age step is replaced by
+  // the stop screen; the answer that triggered it is never stored.
+  const [ageBlocked, setAgeBlocked] = useState(false);
 
   const ctx = useMemo<OnboardingContext>(
     () => ({
@@ -112,6 +117,12 @@ export function OnboardingFlow() {
   const handleAnswer = useCallback(
     (value: string | string[] | null) => {
       if (!step || !variant) return;
+      if (isUnderMinimumAge(step, value)) {
+        // Nothing is recorded (not locally, not in analytics): the app
+        // must not knowingly hold a child's data. The user can go back.
+        setAgeBlocked(true);
+        return;
+      }
       if (step.modelKey && value !== null) {
         if (step.modelKey === "name" && typeof value === "string") {
           setName(value);
@@ -184,6 +195,8 @@ export function OnboardingFlow() {
   const canGoBack = stepIndex > 0 && steps[stepIndex - 1]?.type !== "preparing";
 
   const renderStep = () => {
+    if (ageBlocked)
+      return <AgeStopScreen onBack={() => setAgeBlocked(false)} />;
     switch (step.type) {
       case "notifications":
         return (
@@ -337,7 +350,7 @@ export function OnboardingFlow() {
         </View>
       ) : null}
 
-      {showBack ? (
+      {showBack && !ageBlocked ? (
         <Pressable
           onPress={goBack}
           style={[styles.back, { top: insets.top + spacing.lg }]}
@@ -351,8 +364,9 @@ export function OnboardingFlow() {
 
       <View
         // Key by step id so each step mounts fresh (streaming state,
-        // selections, entering animations).
-        key={step.id}
+        // selections, entering animations). Leaving the age stop remounts
+        // the question with its selection cleared.
+        key={ageBlocked ? `${step.id}:age-stop` : step.id}
         style={[
           styles.body,
           !isFullBleed && { paddingHorizontal: spacing.xl },

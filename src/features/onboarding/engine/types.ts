@@ -5,6 +5,11 @@ export interface StepOption {
   slug: string;
   label: string;
   emoji?: string;
+  /**
+   * Choosing this option means the user is below the step's `minAge`.
+   * The flow stops on the age screen instead of recording the answer.
+   */
+  underAge?: boolean;
 }
 
 export type StepType =
@@ -80,6 +85,12 @@ export interface OnboardingStep {
   mockLine?: string;
   /** Skip the step when it doesn't apply (e.g. no trial configured). */
   condition?: (ctx: OnboardingContext) => boolean;
+  /**
+   * Age question: answers below this age (a typed number, or an option
+   * flagged `underAge`) are not stored and the flow shows the soft age
+   * stop instead of continuing. Matches the Terms (16+).
+   */
+  minAge?: number;
   /** Stella family: hide the thin top progress bar (finale screens). */
   hideProgress?: boolean;
 }
