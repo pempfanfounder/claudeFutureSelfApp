@@ -25,7 +25,7 @@ jest.mock("@/lib/supabase", () => ({
 jest.mock("react-native-purchases", () => ({
   __esModule: true,
   LOG_LEVEL: { DEBUG: "DEBUG", ERROR: "ERROR" },
-  PACKAGE_TYPE: { MONTHLY: "MONTHLY", ANNUAL: "ANNUAL" },
+  PACKAGE_TYPE: { WEEKLY: "WEEKLY", ANNUAL: "ANNUAL" },
   default: {
     configure: jest.fn(),
     setLogLevel: jest.fn(),
@@ -71,17 +71,17 @@ test("a stale weekly package cannot invoke the store purchase", async () => {
   expect(Purchases.purchasePackage).not.toHaveBeenCalled();
 });
 
-const monthly = {
-  identifier: "$rc_monthly",
-  packageType: "MONTHLY",
-  product: { identifier: "synthetic-monthly" },
+const weekly = {
+  identifier: "$rc_weekly",
+  packageType: "WEEKLY",
+  product: { identifier: "weekly" },
 } as never;
 
 test("an anonymous identity cannot invoke the store purchase or restore", async () => {
   useAppState.getState().setUserId("fs-local-guest");
   (Purchases.purchasePackage as jest.Mock).mockClear();
   (Purchases.restorePurchases as jest.Mock).mockClear();
-  const purchase = await purchasePackage(monthly);
+  const purchase = await purchasePackage(weekly);
   const restore = await restorePurchases();
   expect(purchase).toEqual({
     status: "error",
@@ -108,7 +108,7 @@ test("a linked identity can still invoke the store purchase", async () => {
   (Purchases.purchasePackage as jest.Mock).mockResolvedValue({
     customerInfo: active,
   });
-  const result = await purchasePackage(monthly);
+  const result = await purchasePackage(weekly);
   expect(result.status).toBe("purchased");
   expect(Purchases.purchasePackage).toHaveBeenCalled();
 });

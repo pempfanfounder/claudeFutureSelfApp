@@ -178,8 +178,17 @@ export const PURCHASE_ACCOUNT_REQUIRED =
 export function purchaseRequiresAccount(isAnonymous: boolean): boolean {
   return isAnonymous === true;
 }
+/**
+ * The app sells exactly two plans: WEEKLY and ANNUAL (owner decision,
+ * 2026-09-13; no monthly, no lifetime). Matching is by RevenueCat package
+ * type, so the App Store Connect / Play product identifiers behind
+ * `$rc_weekly` and `$rc_annual` stay configurable in the RevenueCat
+ * dashboard (see docs/SETUP_REQUIRED.md § 2).
+ */
+export const ALLOWED_PACKAGE_TYPES = ["WEEKLY", "ANNUAL"] as const;
+export type AllowedPackageType = (typeof ALLOWED_PACKAGE_TYPES)[number];
 export function isAllowedPackage(pkg: PurchasesPackage): boolean {
-  return pkg.packageType === "MONTHLY" || pkg.packageType === "ANNUAL";
+  return (ALLOWED_PACKAGE_TYPES as readonly string[]).includes(pkg.packageType);
 }
 const syncPending = new Map<string, Promise<void>>();
 export async function syncEntitlementToServer(
@@ -210,7 +219,7 @@ async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
   if (purchaseRequiresAccount(useAppState.getState().isAnonymous))
     return { status: "error", message: PURCHASE_ACCOUNT_REQUIRED };
   if (pkg && !isAllowedPackage(pkg))
-    return { status: "error", message: "Choose a monthly or yearly plan." };
+    return { status: "error", message: "Choose a weekly or yearly plan." };
   if (transactionRunning)
     return {
       status: "error",

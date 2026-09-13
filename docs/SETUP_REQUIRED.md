@@ -10,7 +10,8 @@ gracefully until configured. Work through the sections in order.
 > set. ✅ RevenueCat: entitlement + Test Store products + offering + webhook
 > in place. ✅ App Store Connect: app **"Future Self — Daily Quotes"**
 > created; products `yearly` ($59.99/yr, 3-day trial), `monthly`, `lifetime`
-> created; **Paid Apps agreement active**. ✅ Sentry: EU org
+> created (**superseded 2026-09-13:** only `yearly` + a new `weekly` are
+> sold, see § 2); **Paid Apps agreement active**. ✅ Sentry: EU org
 > `future-self-i2`, project `futureself`, DSN + source-map token in `.env`.
 > ⚠️ **Bundle id changed to `com.futureself.mobile`** (Apple refused
 > `com.futureself.app`); app.json + native projects already updated. iOS App

@@ -19,7 +19,7 @@ import {
 import { useOffering } from "@/features/paywall/useOffering";
 import { getCompletedOnboardingVariant } from "@/features/onboarding/engine/store";
 
-/** Local package selection enforces the approved monthly/yearly offer boundary.
+/** Local package selection enforces the approved weekly/yearly offer boundary.
  * An unverified remote paywall cannot enforce the same package guard. */
 export default function PaywallRoute() {
   const displayName = useAppState((s) => s.displayName);
@@ -28,7 +28,7 @@ export default function PaywallRoute() {
   const [savingReminder, setSavingReminder] = useState(false);
   const calAi = calAiVersion(PAYWALL_VARIANT);
   const isNote = variant === "stella-founder" || variant === "stella-claude";
-  const offering = useOffering(isNote && !calAi ? "monthly" : "annual");
+  const offering = useOffering(isNote && !calAi ? "weekly" : "annual");
   useEffect(() => {
     let active = true;
     const identity = captureIdentity();

@@ -69,9 +69,9 @@ describe("subscriptionDisclosure", () => {
   });
 
   it("omits the trial lead when there is no free intro", () => {
-    const pkg = fakePackage({ packageType: "MONTHLY", priceString: "$9.99" });
+    const pkg = fakePackage({ packageType: "WEEKLY", priceString: "$6.99" });
     const text = subscriptionDisclosure(pkg);
-    expect(text).toMatch(/^\$9\.99 per month\./);
+    expect(text).toMatch(/^\$6\.99 per week\./);
     expect(text).toContain("renews automatically");
   });
 
@@ -162,19 +162,19 @@ describe("compactDisclosure (Cal AI paywalls)", () => {
     expect(compactDisclosure(withIntro, "unknown")).toMatch(
       /^\$59\.99 per year\./,
     );
-    const monthly = fakePackage({
-      packageType: "MONTHLY",
-      priceString: "$9.99",
+    const weekly = fakePackage({
+      packageType: "WEEKLY",
+      priceString: "$6.99",
     });
-    expect(compactDisclosure(monthly)).toBe(
-      "$9.99 per month. Renews automatically unless cancelled in the App Store.",
+    expect(compactDisclosure(weekly)).toBe(
+      "$6.99 per week. Renews automatically unless cancelled in the App Store.",
     );
   });
 
   it("keeps the price and period visible for every allowed plan", () => {
     for (const [packageType, period] of [
       ["ANNUAL", "year"],
-      ["MONTHLY", "month"],
+      ["WEEKLY", "week"],
     ] as const) {
       const text = compactDisclosure(
         fakePackage({ packageType, priceString: "€ 4,99" }),

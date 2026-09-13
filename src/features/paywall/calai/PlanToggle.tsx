@@ -8,7 +8,8 @@ import { radii, shadows, spacing, type } from "@/design-system/tokens";
 import type { PaywallData } from "../useOffering";
 import {
   billingLabel,
-  perMonthLabel,
+  perWeekLabel,
+  planTitle,
   savingsPercent,
   splitPlans,
 } from "./pricing";
@@ -18,19 +19,19 @@ interface PlanToggleProps {
 }
 
 /**
- * Yearly / Monthly as a segmented control with a single price line
+ * Yearly / Weekly as a segmented control with a single price line
  * underneath — the whole plan choice in two taps' worth of UI.
  */
 export function PlanToggle({ data }: PlanToggleProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
   const savings = savingsPercent(plans);
-  const ordered = [plans.annual, plans.monthly].filter(
+  const ordered = [plans.annual, plans.weekly].filter(
     (p): p is PurchasesPackage => p !== null,
   );
   if (ordered.length === 0) return null;
   const selected = data.pkg;
-  const perMonth = selected ? perMonthLabel(selected) : null;
+  const perWeek = selected ? perWeekLabel(selected) : null;
 
   return (
     <View>
@@ -62,7 +63,7 @@ export function PlanToggle({ data }: PlanToggleProps) {
                 tone={on ? "ink" : "ink3"}
                 style={styles.segmentLabel}
               >
-                {isAnnual ? "Yearly" : "Monthly"}
+                {planTitle(pkg)}
               </AppText>
               {isAnnual && savings !== null ? (
                 <View
@@ -85,7 +86,7 @@ export function PlanToggle({ data }: PlanToggleProps) {
       {selected ? (
         <View style={styles.priceRow} testID="plan-price-line">
           <AppText variant="h3" style={styles.perMonth}>
-            {perMonth ?? selected.product.priceString}
+            {perWeek ?? selected.product.priceString}
           </AppText>
           <AppText variant="label" tone="ink2">
             {billingLabel(selected)}

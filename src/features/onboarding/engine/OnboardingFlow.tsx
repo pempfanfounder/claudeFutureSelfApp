@@ -60,7 +60,7 @@ export function OnboardingFlow() {
   const config = variant ? getVariantConfig(variant) : null;
   const calAi = calAiVersion(PAYWALL_VARIANT);
   const offering = useOffering(
-    config?.paywallStyle === "note" && !calAi ? "monthly" : "annual",
+    config?.paywallStyle === "note" && !calAi ? "weekly" : "annual",
   );
   const [trialReminder, setTrialReminder] = useState(true);
   const [switchAuthVisible, setSwitchAuthVisible] = useState(false);

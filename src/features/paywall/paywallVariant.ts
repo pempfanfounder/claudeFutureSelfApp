@@ -8,7 +8,7 @@
  *               tab), pill CTA.
  *  - "calai-2"  Fanned stack bleeding behind the headline over a
  *               near-black-to-surface gradient; same plan cards.
- *  - "calai-3"  Segmented Yearly / Monthly toggle, one price line, 65 pt CTA.
+ *  - "calai-3"  Segmented Yearly / Weekly toggle, one price line, 65 pt CTA.
  *  - "calai-4"  Hybrid: calai-1's straight stack, plan cards and CTA over
  *               calai-2's gradient treatment in the warm ink brown.
  *  - "legacy"   The pre-existing Timeline / Note paywalls per variant.

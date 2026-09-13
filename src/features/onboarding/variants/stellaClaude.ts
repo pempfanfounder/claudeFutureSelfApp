@@ -232,7 +232,12 @@ export const stellaClaude: VariantConfig = {
       id: "auth",
       type: "auth-sheet",
       headline: "Save your progress",
-      sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
+      // Only promise a trial when the store actually grants one (same
+      // gate as the paywall's trialInfo); otherwise stay trial-agnostic.
+      sub: (ctx) =>
+        ctx.trialLength
+          ? "Sign in with Apple, Google, or email. Then you can start your trial."
+          : "Sign in with Apple, Google, or email. Then you can unlock Future Self.",
       condition: (ctx) => ctx.isAnonymous,
     },
     {

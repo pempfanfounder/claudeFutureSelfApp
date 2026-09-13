@@ -5,17 +5,19 @@ import { storeName } from "@/lib/storeName";
 
 import { periodLabel, trialInfo, type TrialEligibility } from "../useOffering";
 
-/** Annual and monthly packages picked out of the approved offering. */
+/** Annual and weekly packages picked out of the approved offering. */
 export interface PlanPair {
   annual: PurchasesPackage | null;
-  monthly: PurchasesPackage | null;
+  weekly: PurchasesPackage | null;
 }
+
+/** Weeks in a year for the per-week comparison (Apple uses the same). */
+export const WEEKS_PER_YEAR = 52;
 
 export function splitPlans(packages: PurchasesPackage[]): PlanPair {
   return {
     annual: packages.find((p) => p.packageType === PACKAGE_TYPE.ANNUAL) ?? null,
-    monthly:
-      packages.find((p) => p.packageType === PACKAGE_TYPE.MONTHLY) ?? null,
+    weekly: packages.find((p) => p.packageType === PACKAGE_TYPE.WEEKLY) ?? null,
   };
 }
 
@@ -54,49 +56,51 @@ export function formatLikePriceString(
   );
 }
 
-/** "$5.00/mo" for a yearly plan; "$9.99/mo" for a monthly one. */
-export function perMonthLabel(pkg: PurchasesPackage): string | null {
+/** "$0.69/wk" for a yearly plan; "$6.99/wk" for a weekly one. */
+export function perWeekLabel(pkg: PurchasesPackage): string | null {
   const price = pkg.product.price;
   if (typeof price !== "number" || !Number.isFinite(price) || price <= 0)
     return null;
-  const months =
+  const weeks =
     pkg.packageType === PACKAGE_TYPE.ANNUAL
-      ? 12
-      : pkg.packageType === PACKAGE_TYPE.MONTHLY
+      ? WEEKS_PER_YEAR
+      : pkg.packageType === PACKAGE_TYPE.WEEKLY
         ? 1
         : null;
-  if (months === null) return null;
-  const monthly = formatLikePriceString(
-    pkg.product.priceString,
-    price / months,
-  );
-  return monthly ? `${monthly}/mo` : null;
+  if (weeks === null) return null;
+  const weekly = formatLikePriceString(pkg.product.priceString, price / weeks);
+  return weekly ? `${weekly}/wk` : null;
 }
 
 /**
- * Whole-percent saving of the yearly plan against twelve monthly
- * payments, from the store's own prices. Null when either price is
- * missing or the yearly plan is not actually cheaper.
+ * Whole-percent saving of the yearly plan against 52 weekly payments,
+ * from the store's own prices. Null when either price is missing or the
+ * yearly plan is not actually cheaper.
  */
 export function savingsPercent(plans: PlanPair): number | null {
   const annual = plans.annual?.product.price;
-  const monthly = plans.monthly?.product.price;
+  const weekly = plans.weekly?.product.price;
   if (
     typeof annual !== "number" ||
-    typeof monthly !== "number" ||
+    typeof weekly !== "number" ||
     !(annual > 0) ||
-    !(monthly > 0)
+    !(weekly > 0)
   )
     return null;
-  const percent = Math.round((1 - annual / (monthly * 12)) * 100);
+  const percent = Math.round((1 - annual / (weekly * WEEKS_PER_YEAR)) * 100);
   return percent > 0 ? percent : null;
 }
 
-/** "billed yearly" / "billed monthly" tail for a plan card. */
+/** "billed yearly" / "billed weekly" tail for a plan card. */
 export function billingLabel(pkg: PurchasesPackage): string {
   return pkg.packageType === PACKAGE_TYPE.ANNUAL
     ? `${pkg.product.priceString} billed yearly`
-    : `${pkg.product.priceString} billed monthly`;
+    : `${pkg.product.priceString} billed weekly`;
+}
+
+/** Plan card / toggle title for an allowed package. */
+export function planTitle(pkg: PurchasesPackage): string {
+  return pkg.packageType === PACKAGE_TYPE.ANNUAL ? "Yearly" : "Weekly";
 }
 
 /**

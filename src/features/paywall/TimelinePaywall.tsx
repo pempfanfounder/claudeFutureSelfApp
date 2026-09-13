@@ -9,7 +9,12 @@ import {
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-import { AppText, Button, Icon, type IconName } from "@/design-system/components";
+import {
+  AppText,
+  Button,
+  Icon,
+  type IconName,
+} from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";

@@ -3,7 +3,8 @@ import type { PurchasesPackage } from "react-native-purchases";
 import {
   billingLabel,
   formatLikePriceString,
-  perMonthLabel,
+  perWeekLabel,
+  planTitle,
   savingsPercent,
   splitPlans,
 } from "@/features/paywall/calai/pricing";
@@ -22,7 +23,12 @@ jest.mock("react-native-purchases", () => ({
     addCustomerInfoUpdateListener: jest.fn(),
   },
   LOG_LEVEL: { DEBUG: "DEBUG", ERROR: "ERROR" },
-  PACKAGE_TYPE: { ANNUAL: "ANNUAL", MONTHLY: "MONTHLY", LIFETIME: "LIFETIME" },
+  PACKAGE_TYPE: {
+    ANNUAL: "ANNUAL",
+    WEEKLY: "WEEKLY",
+    MONTHLY: "MONTHLY",
+    LIFETIME: "LIFETIME",
+  },
 }));
 
 function pkg(
@@ -42,7 +48,8 @@ function pkg(
   } as unknown as PurchasesPackage;
 }
 
-const annual = pkg("ANNUAL", 59.99, "$59.99");
+const annual = pkg("ANNUAL", 35.99, "$35.99");
+const weekly = pkg("WEEKLY", 6.99, "$6.99");
 const monthly = pkg("MONTHLY", 9.99, "$9.99");
 
 describe("formatLikePriceString", () => {
@@ -63,34 +70,47 @@ describe("formatLikePriceString", () => {
 });
 
 describe("plan maths from real prices", () => {
-  it("computes the saving of yearly against 12 months", () => {
-    expect(savingsPercent(splitPlans([annual, monthly]))).toBe(50);
+  it("splits the offering into the two sold plans and ignores the rest", () => {
+    expect(splitPlans([monthly, weekly, annual])).toEqual({ annual, weekly });
+    expect(splitPlans([monthly])).toEqual({ annual: null, weekly: null });
+  });
+
+  it("computes the saving of yearly against 52 weeks", () => {
+    // 35.99 vs 52 × 6.99 = 363.48 → 90%
+    expect(savingsPercent(splitPlans([annual, weekly]))).toBe(90);
     expect(
       savingsPercent(
         splitPlans([
           pkg("ANNUAL", 34.99, "€ 34,99"),
-          pkg("MONTHLY", 9.99, "€ 9,99"),
+          pkg("WEEKLY", 1.99, "€ 1,99"),
         ]),
       ),
-    ).toBe(71);
+    ).toBe(66);
   });
 
   it("hides the saving when yearly is not cheaper or a plan is missing", () => {
     expect(savingsPercent(splitPlans([annual]))).toBeNull();
+    expect(savingsPercent(splitPlans([weekly]))).toBeNull();
     expect(
-      savingsPercent(splitPlans([pkg("ANNUAL", 130, "$130.00"), monthly])),
+      savingsPercent(splitPlans([pkg("ANNUAL", 400, "$400.00"), weekly])),
     ).toBeNull();
+    // A monthly package is not sold, so it never feeds the saving.
+    expect(savingsPercent(splitPlans([annual, monthly]))).toBeNull();
   });
 
-  it("derives a per-month figure for both plans", () => {
-    expect(perMonthLabel(annual)).toBe("$5.00/mo");
-    expect(perMonthLabel(monthly)).toBe("$9.99/mo");
-    expect(perMonthLabel(pkg("LIFETIME", 99, "$99.00"))).toBeNull();
+  it("derives a per-week figure for both plans", () => {
+    expect(perWeekLabel(annual)).toBe("$0.69/wk");
+    expect(perWeekLabel(weekly)).toBe("$6.99/wk");
+    expect(perWeekLabel(pkg("ANNUAL", 34.99, "€ 34,99"))).toBe("€ 0,67/wk");
+    expect(perWeekLabel(monthly)).toBeNull();
+    expect(perWeekLabel(pkg("LIFETIME", 99, "$99.00"))).toBeNull();
   });
 
-  it("labels the billing cadence", () => {
-    expect(billingLabel(annual)).toBe("$59.99 billed yearly");
-    expect(billingLabel(monthly)).toBe("$9.99 billed monthly");
+  it("labels the billing cadence and the plan", () => {
+    expect(billingLabel(annual)).toBe("$35.99 billed yearly");
+    expect(billingLabel(weekly)).toBe("$6.99 billed weekly");
+    expect(planTitle(annual)).toBe("Yearly");
+    expect(planTitle(weekly)).toBe("Weekly");
   });
 });
 
