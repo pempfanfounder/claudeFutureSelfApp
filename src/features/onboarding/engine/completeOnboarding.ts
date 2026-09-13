@@ -11,6 +11,7 @@ import type { Database } from "@/lib/database.types";
 import type { OnboardingVariant } from "@/lib/experiments";
 import { monitoring } from "@/lib/monitoring";
 import { getIdentitySupabase } from "@/lib/supabase";
+import { clampDailyCounts } from "@/features/notifications/dailyCap";
 import { saveNotificationPreferences } from "@/features/notifications/preferences";
 import { registerDevice } from "@/features/notifications/push";
 import {
@@ -139,11 +140,13 @@ async function flushOnboarding(
         .update({ display_name: name })
         .eq("id", identity.userId!),
     );
+  // A pending payload persisted by an older build may still hold 20 + 20.
+  const counts = clampDailyCounts(notificationPrefs);
   await saveNotificationPreferences(
     identity,
     {
-      quotes_per_day: notificationPrefs.quotesPerDay,
-      affirmations_per_day: notificationPrefs.affirmationsPerDay,
+      quotes_per_day: counts.quotesPerDay,
+      affirmations_per_day: counts.affirmationsPerDay,
       window_start_minutes: notificationPrefs.windowStartMinutes,
       window_end_minutes: notificationPrefs.windowEndMinutes,
       trial_reminder: pending.payload.trialReminder,

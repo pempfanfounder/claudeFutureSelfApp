@@ -10,7 +10,8 @@ gracefully until configured. Work through the sections in order.
 > set. ✅ RevenueCat: entitlement + Test Store products + offering + webhook
 > in place. ✅ App Store Connect: app **"Future Self — Daily Quotes"**
 > created; products `yearly` ($59.99/yr, 3-day trial), `monthly`, `lifetime`
-> created; **Paid Apps agreement active**. ✅ Sentry: EU org
+> created (**superseded 2026-09-13:** only `yearly` + a new `weekly` are
+> sold, see § 2); **Paid Apps agreement active**. ✅ Sentry: EU org
 > `future-self-i2`, project `futureself`, DSN + source-map token in `.env`.
 > ⚠️ **Bundle id changed to `com.futureself.mobile`** (Apple refused
 > `com.futureself.app`); app.json + native projects already updated. iOS App
@@ -130,25 +131,39 @@ few nights, then arm it with
 The RevenueCat project already exists (see credentials below); what's left is
 store-console product setup and the real per-platform keys before release.
 
-1. RevenueCat project is live; iOS + Android apps for `com.futureself.app`
+1. RevenueCat project is live; iOS + Android apps for `com.futureself.mobile`
    are added.
-2. App Store Connect / Play Console: create three products —
-   a **monthly** subscription, a **yearly** subscription (both with an
-   introductory free trial — `iam-*` paywalls sell the yearly, falling back
-   to monthly), and a **lifetime** non-consumable. There's currently no
-   weekly product; the `stella-*` paywalls prefer `offering.weekly` (kept
-   for future flexibility) but fall back to monthly today. Any prices you
-   like — the app reads real prices and trial eligibility from the store at
-   runtime and never hardcodes them.
-3. RevenueCat: entitlement **`FutureSelffffff Pro`** already exists (its id
-   is wired via `EXPO_PUBLIC_RC_ENTITLEMENT_ID` in `.env` — the app reads it
-   from config rather than hardcoding it, defaulting to `"premium"` if unset).
-   Attach all three products (monthly, yearly, lifetime) to that entitlement
-   **and** to the **current Offering** in the dashboard. The client also
-   treats *any* active entitlement as premium as a misconfiguration
-   safety net (with a loud `__DEV__` warning if it's not the configured one)
-   — but that's a fallback, not a substitute for wiring the entitlement id
-   correctly.
+2. **Plans sold: WEEKLY and ANNUAL only** (owner decision 2026-09-13; no
+   monthly, no lifetime). The app filters the offering by RevenueCat
+   _package type_ (`isAllowedPackage` in `src/lib/purchases.ts`:
+   `WEEKLY` + `ANNUAL`), so the store product identifiers are free to
+   change in the RevenueCat dashboard; the ones below are what exists /
+   is expected today. App Store Connect product IDs are **unprefixed**.
+
+   | Plan   | App Store Connect product ID | Play product ID | RevenueCat package | Target price |
+   | ------ | ---------------------------- | --------------- | ------------------ | ------------ |
+   | Yearly | `yearly` (exists)            | `yearly`        | `$rc_annual`       | 35.99 / year |
+   | Weekly | `weekly` (**create**)        | `weekly`        | `$rc_weekly`       | 6.99 / week  |
+
+   Both live in offering **`default`** (the current offering) and unlock
+   entitlement **`FutureSelffffff Pro`** (typo is live, keep it; the id is
+   read from `EXPO_PUBLIC_RC_ENTITLEMENT_ID` in `eas.json`/`.env`). The
+   `monthly` and `lifetime` products created in August must **not** be
+   attached to the offering or to the 1.0.0 submission: the app cannot
+   sell them and a listed-but-unpurchasable IAP invites a 2.1 rejection.
+   Delete them or leave them unattached. Prices are read live from the
+   store (the paywall derives "$0.69/wk", "Save 90%" etc. from real store
+   numbers, never hardcoded); the free trial, if any, is an introductory
+   offer on the store product and is only advertised when the store
+   reports eligibility (`trialInfo`). The trial decision is still open
+   with the owner; the code supports both.
+
+3. RevenueCat: attach `weekly` **and** `yearly` (App Store _and_ Play
+   products) to entitlement `FutureSelffffff Pro` **and** to offering
+   `default` as `$rc_weekly` / `$rc_annual`. The client also treats _any_
+   active entitlement as premium as a misconfiguration safety net (with a
+   loud `__DEV__` warning if it's not the configured one) — but that's a
+   fallback, not a substitute for wiring the entitlement id correctly.
 4. **API keys:** a RevenueCat **Test Store** key
    (`test_AyrDXEiqnvraxCsTJnuzvAOQAxx`) is already wired into `.env` for both
    `EXPO_PUBLIC_REVENUECAT_IOS_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
@@ -173,9 +188,10 @@ store-console product setup and the real per-platform keys before release.
 
    Listing only one app ID is still valid, but events from the other
    platform's app are then rejected with `400 event scope mismatch`.
+
 6. **Server API key** (fallback entitlement sync when the webhook lags):
    `supabase secrets set REVENUECAT_SECRET_API_KEY=<RevenueCat secret key>`.
-   `sync-entitlement` treats the user as premium if *any* entitlement in the
+   `sync-entitlement` treats the user as premium if _any_ entitlement in the
    RevenueCat subscriber record is active, mirroring the client fallback.
 7. **Customer Center** (`react-native-purchases-ui`): Settings → "Manage
    subscription" already presents RevenueCat's native Customer Center when
@@ -250,6 +266,64 @@ locally, so users never switch funnels either way.
    EAS build secrets (never `EXPO_PUBLIC_*`). The `@sentry/react-native`
    config plugin is already in `app.json`.
 
+## 5b. Sign in with Apple token revocation on account deletion (~10 min)
+
+App Store Guideline 5.1.1(v) requires that deleting an account also revokes
+the user's Sign in with Apple grant through Apple's REST API. The app signs
+in natively (identity token → `supabase.auth.linkIdentity`), so **no Apple
+refresh token is ever stored** — neither by Supabase (`auth.identities`
+holds only the Apple `sub`/email) nor by us. The flow therefore works like
+this:
+
+1. When an Apple-linked user taps Delete, the app shows the native Apple
+   sheet once more (`requestAppleRevocationCode`) and sends the fresh
+   `authorizationCode` (valid ~5 min) to `delete-account` as
+   `apple_authorization_code`.
+2. `delete-account` builds an ES256 client-secret JWT from the secrets
+   below, exchanges the code at `https://appleid.apple.com/auth/token`, and
+   revokes the returned refresh token at `/auth/revoke`
+   (`_shared/apple-revocation.ts`).
+3. Then `auth.admin.deleteUser` runs. It cascades to `auth.identities`, so
+   the Apple identity link is removed even if step 2 could not run.
+
+Revocation is **best effort**: the deletion always completes. If the user
+cancels the Apple sheet, the secrets are missing or Apple answers with an
+error, the function logs one line
+`{"event":"apple_revocation_failed","reason":…}` (no code, no token, no
+PII) in the Supabase function logs and continues.
+
+Set these four function secrets (all from the Apple Developer account):
+
+```bash
+# Team ID (Membership page)
+supabase secrets set APPLE_TEAM_ID=XH7C5Y9M67
+# Certificates, Identifiers & Profiles → Keys → the key with
+# "Sign in with Apple" enabled → its Key ID
+supabase secrets set APPLE_KEY_ID=<10-char key id>
+# client_id for native apps = the bundle id
+supabase secrets set APPLE_CLIENT_ID=com.futureself.mobile
+# The .p8 downloaded for that key (PEM; newlines may also be sent as \n)
+supabase secrets set APPLE_PRIVATE_KEY="$(cat AuthKey_<key id>.p8)"
+```
+
+Notes:
+
+- A key with **Sign in with Apple** enabled is required; the App Store
+  Connect API key (`AuthKey_RQUZ7CT4QG.p8`, used by `eas submit`) and the
+  APNs key are different keys and will be rejected with `invalid_client`.
+  If none exists yet: Keys → + → name it `Future Self Sign in with Apple`,
+  tick Sign in with Apple, configure with the `com.futureself.mobile` App
+  ID, download the `.p8` once (it cannot be re-downloaded), store it
+  outside the repo.
+- Without the secrets the function logs `reason: "not_configured"` on
+  every Apple-account deletion — fine for development, not for release.
+- Verify on a device: sign in with Apple, delete the account, then check
+  Settings → Apple ID → Sign-In & Security → Sign in with Apple: Future
+  Self must no longer be listed. In Supabase → Edge Functions → Logs the
+  deletion must show no `apple_revocation_failed` line.
+- Google- or email-only accounts never touch Apple: the function checks
+  `user.identities` for `provider === "apple"` before doing anything.
+
 ## 6. Store-listing / legal
 
 - `https://futureself.app/terms` and `/privacy` are referenced by the
@@ -261,21 +335,22 @@ locally, so users never switch funnels either way.
 
 ## Environment variable reference
 
-| Variable                                                     | Where                    | Purpose                |
-| ------------------------------------------------------------ | ------------------------ | ---------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env`                   | set ✅                 |
-| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `_ANDROID_KEY`            | `.env`                   | set ✅ (Test Store — replace with real keys for release) |
-| `EXPO_PUBLIC_RC_ENTITLEMENT_ID`                              | `.env`                   | set ✅ (`FutureSelffffff Pro`; defaults to `"premium"`) |
-| `EXPO_PUBLIC_USE_RC_PAYWALL_GATE`                            | `.env` (optional)        | opt in to RC Paywall on the standalone gate only |
-| `EXPO_PUBLIC_POSTHOG_API_KEY` / `_HOST`                      | `.env`                   | set ✅                 |
-| `EXPO_PUBLIC_SENTRY_DSN`                                     | `.env`                   | crash reporting        |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `_IOS_CLIENT_ID`        | `.env`                   | Google sign-in         |
-| `EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED` / `EXPO_PUBLIC_TURNSTILE_SITE_KEY` / `_BASE_URL` | `.env` / EAS env | Turnstile on anonymous sign-in (§ 1b; off by default) |
-| `EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE`                    | `.env` (dev only)        | force a funnel         |
-| `EXPO_PUBLIC_DEV_MOCK_PURCHASES`                             | `.env` (dev only)        | mock paywall           |
-| `DISPATCH_SECRET`                                            | supabase secrets + vault | cron → dispatcher auth |
-| `REVENUECAT_WEBHOOK_SECRET`                                  | supabase secrets         | webhook auth           |
-| `REVENUECAT_WEBHOOK_APP_ID`                                  | supabase secrets         | accepted RC app IDs (comma-separated, e.g. `app6bb4e06e68,app6bbf4b6d0c`) |
-| `REVENUECAT_WEBHOOK_ENVIRONMENT`                             | supabase secrets         | accepted RC environment (`PRODUCTION` / `SANDBOX`) |
-| `REVENUECAT_SECRET_API_KEY`                                  | supabase secrets         | entitlement sync       |
-| `SENTRY_AUTH_TOKEN` (+ org/project)                          | EAS secrets              | source maps            |
+| Variable                                                                            | Where                    | Purpose                                                                   |
+| ----------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`                        | `.env`                   | set ✅                                                                    |
+| `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `_ANDROID_KEY`                                   | `.env`                   | set ✅ (Test Store — replace with real keys for release)                  |
+| `EXPO_PUBLIC_RC_ENTITLEMENT_ID`                                                     | `.env`                   | set ✅ (`FutureSelffffff Pro`; defaults to `"premium"`)                   |
+| `EXPO_PUBLIC_USE_RC_PAYWALL_GATE`                                                   | `.env` (optional)        | opt in to RC Paywall on the standalone gate only                          |
+| `EXPO_PUBLIC_POSTHOG_API_KEY` / `_HOST`                                             | `.env`                   | set ✅                                                                    |
+| `EXPO_PUBLIC_SENTRY_DSN`                                                            | `.env`                   | crash reporting                                                           |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `_IOS_CLIENT_ID`                               | `.env`                   | Google sign-in                                                            |
+| `EXPO_PUBLIC_AUTH_CAPTCHA_ENABLED` / `EXPO_PUBLIC_TURNSTILE_SITE_KEY` / `_BASE_URL` | `.env` / EAS env         | Turnstile on anonymous sign-in (§ 1b; off by default)                     |
+| `EXPO_PUBLIC_ONBOARDING_VARIANT_OVERRIDE`                                           | `.env` (dev only)        | force a funnel                                                            |
+| `EXPO_PUBLIC_DEV_MOCK_PURCHASES`                                                    | `.env` (dev only)        | mock paywall                                                              |
+| `DISPATCH_SECRET`                                                                   | supabase secrets + vault | cron → dispatcher auth                                                    |
+| `REVENUECAT_WEBHOOK_SECRET`                                                         | supabase secrets         | webhook auth                                                              |
+| `REVENUECAT_WEBHOOK_APP_ID`                                                         | supabase secrets         | accepted RC app IDs (comma-separated, e.g. `app6bb4e06e68,app6bbf4b6d0c`) |
+| `REVENUECAT_WEBHOOK_ENVIRONMENT`                                                    | supabase secrets         | accepted RC environment (`PRODUCTION` / `SANDBOX`)                        |
+| `REVENUECAT_SECRET_API_KEY`                                                         | supabase secrets         | entitlement sync                                                          |
+| `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_CLIENT_ID` / `APPLE_PRIVATE_KEY`          | supabase secrets         | Sign in with Apple revocation on account deletion (§ 5b)                  |
+| `SENTRY_AUTH_TOKEN` (+ org/project)                                                 | EAS secrets              | source maps                                                               |

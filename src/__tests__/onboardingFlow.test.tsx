@@ -313,6 +313,75 @@ describe("OnboardingFlow smoke render", () => {
     screen.unmount();
   });
 
+  it("stops an under-16 band choice on iam-claude without storing it", async () => {
+    const ageIndex = indexOfStep("iam-claude", (s) => s.id === "age");
+    const screen = renderVariant("iam-claude", ageIndex);
+    expect(screen.getByText("16 to 17")).toBeTruthy();
+    expect(screen.queryByText("Under 18")).toBeNull();
+    jest.useFakeTimers();
+    try {
+      fireEvent.press(screen.getByTestId("option-u16"));
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+    expect(screen.getByTestId("age-stop")).toBeTruthy();
+    expect(
+      screen.getByText("Future Self is made for people aged 16 and over."),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("continue")).toBeNull();
+    const state = useOnboardingStore.getState();
+    expect(state.answers["raw.age_band"]).toBeUndefined();
+    expect(state.stepIndex).toBe(ageIndex);
+    // The only way out is back to the question, with nothing selected.
+    fireEvent.press(screen.getByTestId("age-stop-back"));
+    expect(screen.queryByTestId("age-stop")).toBeNull();
+    expect(screen.getByTestId("option-u16")).toBeTruthy();
+    expect(useOnboardingStore.getState().stepIndex).toBe(ageIndex);
+    screen.unmount();
+  });
+
+  it("lets a 16 to 17 choice on iam-claude continue as before", async () => {
+    const ageIndex = indexOfStep("iam-claude", (s) => s.id === "age");
+    const screen = renderVariant("iam-claude", ageIndex);
+    jest.useFakeTimers();
+    try {
+      fireEvent.press(screen.getByTestId("option-16-17"));
+      act(() => {
+        jest.advanceTimersByTime(400);
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+    expect(screen.queryByTestId("age-stop")).toBeNull();
+    const state = useOnboardingStore.getState();
+    expect(state.answers["raw.age_band"]).toBe("16-17");
+    expect(state.stepIndex).toBe(ageIndex + 1);
+    screen.unmount();
+  });
+
+  it("stops a typed age under 16 on stella-claude without storing it", async () => {
+    const ageIndex = indexOfStep("stella-claude", (s) => s.id === "age");
+    const screen = renderVariant("stella-claude", ageIndex);
+    const input = await screen.findByTestId(
+      "text-input",
+      {},
+      { timeout: 8000 },
+    );
+    fireEvent.changeText(input, "12");
+    fireEvent(input, "submitEditing");
+    expect(screen.getByTestId("age-stop")).toBeTruthy();
+    expect(screen.queryByTestId("continue")).toBeNull();
+    const state = useOnboardingStore.getState();
+    expect(state.answers["raw.age"]).toBeUndefined();
+    expect(state.stepIndex).toBe(ageIndex);
+    fireEvent.press(screen.getByTestId("age-stop-back"));
+    expect(screen.queryByTestId("age-stop")).toBeNull();
+    screen.unmount();
+  });
+
   it("renders the timeline paywall step for iam-claude", async () => {
     const paywallIndex = indexOfStep("iam-claude", (s) => s.type === "paywall");
     const screen = renderVariant("iam-claude", paywallIndex);

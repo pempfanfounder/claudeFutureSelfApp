@@ -40,8 +40,11 @@ export const iamClaude: VariantConfig = {
       headline: (ctx) =>
         ctx.name ? `How old are you, ${ctx.name}?` : "How old are you?",
       sub: "Your age helps us personalize your quotes and affirmations",
+      // Terms of Service: 16+. "Under 16" stops the flow (soft gate, no
+      // answer stored); the 16 to 17 band replaces the old "Under 18".
       options: [
-        { slug: "u18", label: "Under 18" },
+        { slug: "u16", label: "Under 16", underAge: true },
+        { slug: "16-17", label: "16 to 17" },
         { slug: "18-24", label: "18 to 24" },
         { slug: "25-34", label: "25 to 34" },
         { slug: "35-44", label: "35 to 44" },
@@ -49,6 +52,7 @@ export const iamClaude: VariantConfig = {
         { slug: "55+", label: "55+" },
       ],
       skippable: true,
+      minAge: 16,
       modelKey: "raw.age_band",
     },
     {
@@ -124,8 +128,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "repetition",
       type: "info",
-      headline:
-        "The thoughts you hear most are the ones you end up believing.",
+      headline: "The thoughts you hear most are the ones you end up believing.",
       cta: "Continue",
     },
     {
@@ -474,7 +477,12 @@ export const iamClaude: VariantConfig = {
       id: "save-account",
       type: "auth-sheet",
       headline: "Save your progress",
-      sub: "Sign in with Apple, Google, or email. Then you can start your trial.",
+      // Only promise a trial when the store actually grants one (same
+      // gate as the paywall's trialInfo); otherwise stay trial-agnostic.
+      sub: (ctx) =>
+        ctx.trialLength
+          ? "Sign in with Apple, Google, or email. Then you can start your trial."
+          : "Sign in with Apple, Google, or email. Then you can unlock Future Self.",
       condition: (ctx) => ctx.isAnonymous,
     },
     {

@@ -53,6 +53,7 @@ import {
   clearOnboardingState,
 } from "@/features/onboarding/engine/store";
 import { clearWidgets } from "@/features/widgets/widgetSync";
+import { requestAppleRevocationCode } from "./appleRevocation";
 import {
   requestAccountDeletion,
   getPendingDeletion,
@@ -678,8 +679,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const shared = getSupabase();
     if (!shared || !identity.userId)
       return { ok: false, reason: "unavailable" };
+    // Apple-linked accounts: re-confirm with Apple first so the server can
+    // revoke the Sign in with Apple grant (5.1.1(v)). Cancelling the sheet
+    // only skips revocation; the deletion itself still runs.
+    const appleAuthorizationCode = await requestAppleRevocationCode(
+      session,
+      appleAvailable,
+    );
+    if (!isCurrentIdentity(identity))
+      return {
+        ok: false,
+        reason: "error",
+        message: "Account changed. Please try again.",
+      };
     try {
-      await requestAccountDeletion(identity);
+      await requestAccountDeletion(identity, {
+        appleAuthorizationCode: appleAuthorizationCode ?? undefined,
+      });
     } catch (error) {
       monitoring.captureError(error, { area: "auth.deleteAccount" });
       return {
@@ -734,7 +750,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     retryInitialization();
     return { ok: true };
-  }, [retryInitialization]);
+  }, [retryInitialization, session, appleAvailable]);
 
   const recoverPendingDeletion = useCallback(async (): Promise<AuthOutcome> => {
     try {

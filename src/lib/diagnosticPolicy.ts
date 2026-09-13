@@ -72,6 +72,7 @@ const COUNTS = new Set([
 ]);
 const BOOLEANS = new Set(["premium", "is_anonymous", "streak_reminder"]);
 const AREAS = new Set([
+  "app.render",
   "appIcon.apply",
   "feed.sync",
   "feed.load",
@@ -89,6 +90,7 @@ const AREAS = new Set([
   "auth.signInGoogle",
   "auth.signOut",
   "auth.deleteAccount",
+  "auth.appleRevoke",
   "purchases.configure",
   "purchases.refresh",
   "purchases.sync",

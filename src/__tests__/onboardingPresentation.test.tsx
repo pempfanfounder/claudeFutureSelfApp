@@ -123,8 +123,18 @@ describe("previewStorePackage", () => {
   it("builds an annual package the paywall can purchase in mock mode", () => {
     const pkg = previewStorePackage("annual");
     expect(pkg.packageType).toBe("ANNUAL");
-    expect(pkg.product.priceString).toBe("$59.99");
+    expect(pkg.identifier).toBe("$rc_annual");
+    expect(pkg.product.identifier).toBe("yearly");
+    expect(pkg.product.priceString).toBe("$35.99");
     expect(pkg.product.introPrice?.periodUnit).toBe("DAY");
     expect(pkg.product.introPrice?.periodNumberOfUnits).toBe(3);
+  });
+
+  it("builds the weekly package that mirrors the live RevenueCat mapping", () => {
+    const pkg = previewStorePackage("weekly");
+    expect(pkg.packageType).toBe("WEEKLY");
+    expect(pkg.identifier).toBe("$rc_weekly");
+    expect(pkg.product.identifier).toBe("weekly");
+    expect(pkg.product.priceString).toBe("$6.99");
   });
 });

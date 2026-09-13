@@ -1,6 +1,7 @@
 import { useAppState } from "@/lib/appState";
 import {
   getIsPremium,
+  isAllowedPackage,
   purchasePackage,
   purchaseRequiresAccount,
   restorePurchases,
@@ -24,7 +25,7 @@ jest.mock("@/lib/supabase", () => ({
 jest.mock("react-native-purchases", () => ({
   __esModule: true,
   LOG_LEVEL: { DEBUG: "DEBUG", ERROR: "ERROR" },
-  PACKAGE_TYPE: { MONTHLY: "MONTHLY", ANNUAL: "ANNUAL" },
+  PACKAGE_TYPE: { WEEKLY: "WEEKLY", ANNUAL: "ANNUAL" },
   default: {
     configure: jest.fn(),
     setLogLevel: jest.fn(),
@@ -34,10 +35,15 @@ jest.mock("react-native-purchases", () => ({
   },
 }));
 
+const weekly = {
+  identifier: "$rc_weekly",
+  packageType: "WEEKLY",
+  product: { identifier: "weekly", priceString: "$6.99" },
+} as never;
 const monthly = {
   identifier: "$rc_monthly",
   packageType: "MONTHLY",
-  product: { identifier: "synthetic-monthly", priceString: "$9.99" },
+  product: { identifier: "monthly", priceString: "$9.99" },
 } as never;
 
 const ACCOUNT_GATE =
@@ -54,7 +60,7 @@ test("purchaseRequiresAccount is true only for anonymous identities", () => {
 });
 
 test("an anonymous identity cannot mock-purchase premium", async () => {
-  const result = await purchasePackage(monthly);
+  const result = await purchasePackage(weekly);
   expect(result).toEqual({ status: "error", message: ACCOUNT_GATE });
   expect(await getIsPremium()).toBe(false);
 });
@@ -67,9 +73,25 @@ test("an anonymous identity cannot restore a receipt onto a guest", async () => 
 
 test("a linked identity can still mock-purchase premium", async () => {
   useAppState.getState().setAnonymous(false);
-  const result = await purchasePackage(monthly);
+  const result = await purchasePackage(weekly);
   expect(result.status).toBe("purchased");
   expect(await getIsPremium()).toBe(true);
+});
+
+test("only weekly and yearly packages can be bought (no monthly, no lifetime)", async () => {
+  useAppState.getState().setUserId("fs-local-plan-guard");
+  useAppState.getState().setAnonymous(false);
+  expect(isAllowedPackage(weekly)).toBe(true);
+  expect(isAllowedPackage(monthly)).toBe(false);
+  expect(
+    isAllowedPackage({ packageType: "LIFETIME", product: {} } as never),
+  ).toBe(false);
+  const result = await purchasePackage(monthly);
+  expect(result).toEqual({
+    status: "error",
+    message: "Choose a weekly or yearly plan.",
+  });
+  expect(await getIsPremium()).toBe(false);
 });
 
 test("a linked identity can still mock-restore premium", async () => {

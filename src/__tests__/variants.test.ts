@@ -160,6 +160,22 @@ describe("onboarding variant configs", () => {
         expect(keys.has("obstacles")).toBe(true);
       });
 
+      it("promises a trial on the save-account step only when the store grants one", () => {
+        const paywallIndex = config.steps.findIndex(
+          (s) => s.type === "paywall",
+        );
+        const saveAccount = config.steps[paywallIndex - 1]!;
+        expect(saveAccount.type).toBe("auth-sheet");
+        expect(resolveText(saveAccount.sub, CTX)).toBe(
+          "Sign in with Apple, Google, or email. Then you can start your trial.",
+        );
+        expect(
+          resolveText(saveAccount.sub, { ...CTX, trialLength: null }),
+        ).toBe(
+          "Sign in with Apple, Google, or email. Then you can unlock Future Self.",
+        );
+      });
+
       it("asks for notification permission inside the funnel", () => {
         expect(config.steps.some((s) => s.type === "notifications")).toBe(true);
       });

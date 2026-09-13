@@ -1,12 +1,19 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { shadows, spacing } from "@/design-system/tokens";
+import { radii, shadows, spacing } from "@/design-system/tokens";
 import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
@@ -27,7 +34,17 @@ interface CalAiPaywallProps {
   /** Close control appears after this delay; null (or no onClose) = hard gate. */
   closeDelayMs?: number | null;
   onClose?: () => void;
+  /**
+   * "Remind me before the trial ends" switch, shown only when the store
+   * grants a trial and both props are supplied. Backed by
+   * `notification_prefs.trial_reminder`; the hourly `fs-trial-reminders`
+   * cron sends the push 12–36 h before the trial converts.
+   */
+  trialReminder?: boolean;
+  onTrialReminderChange?: (value: boolean) => void;
 }
+
+export const TRIAL_REMINDER_LABEL = "Remind me 1 day before the trial ends";
 
 /** One headline per version, in the app's voice. Users don't read: no sub. */
 export const CALAI_HEADLINES: Record<CalAiVersion, string> = {
@@ -53,6 +70,8 @@ export function CalAiPaywall({
   onPurchased,
   closeDelayMs = null,
   onClose,
+  trialReminder,
+  onTrialReminderChange,
 }: CalAiPaywallProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -214,6 +233,29 @@ export function CalAiPaywall({
           </AppText>
         ) : null}
 
+        {data.trialLength &&
+        trialReminder !== undefined &&
+        onTrialReminderChange ? (
+          <View
+            style={[
+              styles.reminderRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            testID="trial-reminder-row"
+          >
+            <AppText variant="body" style={styles.reminderLabel}>
+              {TRIAL_REMINDER_LABEL}
+            </AppText>
+            <Switch
+              value={trialReminder}
+              onValueChange={onTrialReminderChange}
+              disabled={data.loading}
+              trackColor={{ true: colors.ctaBg }}
+              testID="trial-reminder-toggle"
+            />
+          </View>
+        ) : null}
+
         <View style={styles.spacer} />
 
         <View style={styles.ctaWrap}>
@@ -285,6 +327,18 @@ const styles = StyleSheet.create({
   plans: { paddingHorizontal: spacing.xl, marginTop: spacing.xxl },
   notice: { paddingHorizontal: spacing.xl, marginTop: spacing.lg },
   retry: { paddingHorizontal: spacing.xl, marginTop: spacing.md },
+  reminderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  reminderLabel: { flex: 1 },
   spacer: { flex: 1, minHeight: spacing.xxl },
   ctaWrap: { paddingHorizontal: spacing.xl },
   ctaTall: { minHeight: V3_CTA_HEIGHT },

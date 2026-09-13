@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Platform } from "react-native";
 import Purchases, {
   PACKAGE_TYPE,
   type PurchasesPackage,
@@ -12,6 +13,7 @@ import {
   useAppState,
 } from "@/lib/appState";
 import { getCurrentOffering, isAllowedPackage } from "@/lib/purchases";
+import { storeAccountName, storeSubscriptionsLocation } from "@/lib/storeName";
 
 export interface PaywallData {
   loading: boolean;
@@ -19,7 +21,7 @@ export interface PaywallData {
   retry?: () => void;
   /** Active selected package to purchase. Null when RevenueCat is unavailable. */
   pkg: PurchasesPackage | null;
-  /** Only approved monthly and yearly packages from the active offering. */
+  /** Only approved weekly and yearly packages from the active offering. */
   allPackages: PurchasesPackage[];
   /** Change the selected package */
   selectPackage: (pkg: PurchasesPackage) => void;
@@ -98,14 +100,19 @@ export function trialInfo(
   }
 }
 
-/** Guideline 3.1.2 disclosure for the selected package. */
+/**
+ * Guideline 3.1.2 / Play subscription disclosure for the selected
+ * package. Store wording follows the platform ("App Store" on iOS,
+ * "Google Play" on Android).
+ */
 export function subscriptionDisclosure(
   pkg: PurchasesPackage | null,
   eligibility: TrialEligibility = "unknown",
+  platform: string = Platform.OS,
 ): string | null {
   if (!pkg) return null;
   if (pkg.packageType === PACKAGE_TYPE.LIFETIME) {
-    return `One-time purchase of ${pkg.product.priceString}. Charged to your App Store account at confirmation.`;
+    return `One-time purchase of ${pkg.product.priceString}. Charged to ${storeAccountName(platform)} at confirmation.`;
   }
   const period = periodLabel(pkg); // "year" | "month" | "week"
   const trial = trialInfo(pkg, eligibility);
@@ -113,9 +120,9 @@ export function subscriptionDisclosure(
     ? `${trial.label} free, then ${pkg.product.priceString} per ${period}.`
     : `${pkg.product.priceString} per ${period}.`;
   return (
-    `${lead} Payment is charged to your App Store account at confirmation. ` +
+    `${lead} Payment is charged to ${storeAccountName(platform)} at confirmation. ` +
     `The subscription renews automatically unless cancelled at least 24 hours ` +
-    `before the end of the current period. Manage or cancel anytime in App Store settings.`
+    `before the end of the current period. Manage or cancel anytime in ${storeSubscriptionsLocation(platform)}.`
   );
 }
 
@@ -124,21 +131,27 @@ export function subscriptionDisclosure(
  * store). Callers only use this when a trial exists; the null branch is
  * the defensive fallback.
  */
-/** Local preview product when RevenueCat is mocked (staging Simulator). */
-export function previewStorePackage(
-  prefer: "annual" | "monthly",
-): PurchasesPackage {
+/** Which of the two sold plans a paywall preselects. */
+export type PreferredPlan = "annual" | "weekly";
+
+/**
+ * Local preview product when RevenueCat is mocked (staging Simulator).
+ * Mirrors the live setup: offering `default`, packages `$rc_annual` /
+ * `$rc_weekly` over App Store Connect products `yearly` / `weekly`
+ * (35.99 / 6.99). The real paywall never uses these numbers.
+ */
+export function previewStorePackage(prefer: PreferredPlan): PurchasesPackage {
   const annual = prefer === "annual";
   return {
-    identifier: annual ? "$rc_annual" : "$rc_monthly",
-    packageType: annual ? PACKAGE_TYPE.ANNUAL : PACKAGE_TYPE.MONTHLY,
+    identifier: annual ? "$rc_annual" : "$rc_weekly",
+    packageType: annual ? PACKAGE_TYPE.ANNUAL : PACKAGE_TYPE.WEEKLY,
     offeringIdentifier: "default",
     product: {
-      identifier: annual ? "yearly" : "monthly",
+      identifier: annual ? "yearly" : "weekly",
       description: "Future Self",
-      title: annual ? "Yearly" : "Monthly",
-      price: annual ? 59.99 : 9.99,
-      priceString: annual ? "$59.99" : "$9.99",
+      title: annual ? "Yearly" : "Weekly",
+      price: annual ? 35.99 : 6.99,
+      priceString: annual ? "$35.99" : "$6.99",
       currencyCode: "USD",
       introPrice: {
         price: 0,
@@ -164,7 +177,7 @@ export function ctaLabel(trialLength: string | null): string {
 }
 
 /** Loaded only after AuthProvider has settled the store identity. */
-export function useOffering(prefer: "annual" | "monthly"): PaywallData {
+export function useOffering(prefer: PreferredPlan): PaywallData {
   const generation = useAppState((s) => s.identityGeneration);
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -238,7 +251,7 @@ export function useOffering(prefer: "annual" | "monthly"): PaywallData {
           isAllowedPackage,
         );
         if (!packages.length)
-          throw new Error("No monthly or yearly store package is available.");
+          throw new Error("No weekly or yearly store package is available.");
         const eligibility: Record<string, TrialEligibility> = {};
         try {
           const statuses = await withDeadline(
@@ -265,7 +278,7 @@ export function useOffering(prefer: "annual" | "monthly"): PaywallData {
         const pkg =
           packages.find(
             (p) =>
-              p.packageType === (prefer === "annual" ? "ANNUAL" : "MONTHLY"),
+              p.packageType === (prefer === "annual" ? "ANNUAL" : "WEEKLY"),
           ) ?? packages[0]!;
         const trial = trialInfo(pkg, eligibility[pkg.product.identifier]);
         setData({

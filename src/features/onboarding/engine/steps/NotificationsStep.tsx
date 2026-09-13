@@ -14,6 +14,11 @@ import { spacing } from "@/design-system/tokens";
 
 import { DAILY_LIMIT } from "@/features/content/types";
 import {
+  applyCountChange,
+  dailyCapHint,
+  type DailyCountKey,
+} from "@/features/notifications/dailyCap";
+import {
   getPermissionStatus,
   requestNotificationPermission,
 } from "@/features/notifications/push";
@@ -136,6 +141,10 @@ export function NotificationsStep({
   // 30-minute grid and moves the other bound so start ≤ end − 60.
   const changeWindow = (key: WindowKey, minutes: number) =>
     setNotificationPrefs(applyWindowChange(notificationPrefs, key, minutes));
+  // Quotes + affirmations stay within the combined daily cap: raising one
+  // lowers the other when needed (the hint line under the card says so).
+  const changeCount = (key: DailyCountKey, value: number) =>
+    setNotificationPrefs(applyCountChange(notificationPrefs, key, value));
 
   return (
     <Animated.View entering={FadeInRight.duration(280)} style={styles.root}>
@@ -161,16 +170,25 @@ export function NotificationsStep({
               label="Quotes"
               value={notificationPrefs.quotesPerDay}
               max={DAILY_LIMIT}
-              onChange={(v) => setNotificationPrefs({ quotesPerDay: v })}
+              onChange={(v) => changeCount("quotesPerDay", v)}
             />
             <CountRow
               id="affirmations"
               label="Affirmations"
               value={notificationPrefs.affirmationsPerDay}
               max={DAILY_LIMIT}
-              onChange={(v) => setNotificationPrefs({ affirmationsPerDay: v })}
+              onChange={(v) => changeCount("affirmationsPerDay", v)}
             />
           </GroupCard>
+          <AppText
+            variant="label"
+            tone="ink3"
+            center
+            style={styles.capHint}
+            testID="daily-cap-hint"
+          >
+            {dailyCapHint(notificationPrefs)}
+          </AppText>
           <TimeWindowCard range={notificationPrefs} onChange={changeWindow} />
         </View>
       </ScrollView>
@@ -241,6 +259,9 @@ const styles = StyleSheet.create({
   sub: { marginTop: spacing.md },
   mock: { marginTop: spacing.xl },
   rows: { marginTop: spacing.xxl, gap: spacing.md },
+  // Sits between the count card and the time card; negative gap share so
+  // the screen still fits a 6.1" phone without scrolling.
+  capHint: { marginTop: -spacing.xs, marginBottom: -spacing.xs },
   footer: { paddingBottom: spacing.sm },
   // Two label lines at most, so the denied state still fits without
   // scrolling on a 6.1" phone.

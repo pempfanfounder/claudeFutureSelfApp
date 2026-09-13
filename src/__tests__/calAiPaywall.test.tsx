@@ -8,6 +8,7 @@ import { LOCAL_CATALOG } from "@/features/content/localCatalog";
 import {
   CALAI_HEADLINES,
   CalAiPaywall,
+  TRIAL_REMINDER_LABEL,
 } from "@/features/paywall/calai/CalAiPaywall";
 import type { CalAiVersion } from "@/features/paywall/paywallVariant";
 import type { PaywallData } from "@/features/paywall/useOffering";
@@ -22,14 +23,23 @@ jest.mock("react-native-purchases", () => ({
     addCustomerInfoUpdateListener: jest.fn(),
   },
   LOG_LEVEL: { DEBUG: "DEBUG", ERROR: "ERROR" },
-  PACKAGE_TYPE: { ANNUAL: "ANNUAL", MONTHLY: "MONTHLY" },
+  PACKAGE_TYPE: { ANNUAL: "ANNUAL", WEEKLY: "WEEKLY" },
 }));
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() },
 }));
-jest.mock("@/features/paywall/PrivacyChoicesSheet", () => ({
-  PrivacyChoicesSheet: () => null,
-}));
+jest.mock("@/features/paywall/PrivacyChoicesSheet", () => {
+  const mockReact = require("react");
+  const ReactNative = require("react-native");
+  return {
+    PrivacyChoicesSheet: ({ visible }: any) =>
+      visible
+        ? mockReact.createElement(ReactNative.View, {
+            testID: "privacy-choices-sheet",
+          })
+        : null,
+  };
+});
 jest.mock("@/lib/analytics", () => ({
   analytics: { capture: jest.fn() },
 }));
@@ -37,7 +47,7 @@ jest.mock("@/lib/purchases", () => ({
   purchasePackage: jest.fn(async () => ({ status: "purchased" })),
   restorePurchases: jest.fn(async () => ({ status: "purchased" })),
   isAllowedPackage: (pkg: { packageType: string }) =>
-    pkg.packageType === "MONTHLY" || pkg.packageType === "ANNUAL",
+    pkg.packageType === "WEEKLY" || pkg.packageType === "ANNUAL",
 }));
 jest.mock("@/features/auth/AuthProvider", () => ({
   useAuth: jest.fn(),
@@ -57,22 +67,22 @@ const annual = {
   identifier: "$rc_annual",
   packageType: "ANNUAL",
   product: {
-    identifier: "synthetic-annual",
-    price: 59.99,
-    priceString: "$59.99",
+    identifier: "yearly",
+    price: 35.99,
+    priceString: "$35.99",
     title: "Yearly",
     introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 },
   },
 } as NonNullable<PaywallData["pkg"]>;
 
-const monthly = {
-  identifier: "$rc_monthly",
-  packageType: "MONTHLY",
+const weekly = {
+  identifier: "$rc_weekly",
+  packageType: "WEEKLY",
   product: {
-    identifier: "synthetic-monthly",
-    price: 9.99,
-    priceString: "$9.99",
-    title: "Monthly",
+    identifier: "weekly",
+    price: 6.99,
+    priceString: "$6.99",
+    title: "Weekly",
     introPrice: null,
   },
 } as NonNullable<PaywallData["pkg"]>;
@@ -81,16 +91,16 @@ function makeData(overrides: Partial<PaywallData> = {}): PaywallData {
   return {
     loading: false,
     pkg: annual,
-    allPackages: [annual, monthly],
+    allPackages: [annual, weekly],
     selectPackage: jest.fn(),
-    priceLine: "$59.99/year",
+    priceLine: "$35.99/year",
     trialLength: "3 days",
     trialDays: 3,
     devMock: false,
     unavailable: false,
     eligibility: {
-      "synthetic-annual": "eligible",
-      "synthetic-monthly": "ineligible",
+      yearly: "eligible",
+      weekly: "ineligible",
     },
     ...overrides,
   };
@@ -158,16 +168,20 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         new RegExp(`^Future SelfNow${escaped}$`),
       );
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        "3 days free, then $59.99 per year. Renews automatically unless cancelled in the App Store.",
+        "3 days free, then $35.99 per year. Renews automatically unless cancelled in the App Store.",
       );
-      // Trimmed footer: exactly Terms · Privacy · Restore.
+      // Compact footer: Terms · Privacy · Restore · Privacy choices. The
+      // last one is the non-payer's route to support and account deletion
+      // (Guideline 5.1.1(v)).
       expect(screen.getByTestId("paywall-links")).toHaveTextContent(
-        "Terms·Privacy·Restore",
+        "Terms·Privacy·Restore·Privacy choices",
       );
       expect(screen.getByTestId("terms")).toBeTruthy();
       expect(screen.getByTestId("privacy")).toBeTruthy();
       expect(screen.getByTestId("restore")).toBeTruthy();
-      expect(screen.queryByText("Privacy choices")).toBeNull();
+      expect(screen.queryByTestId("privacy-choices-sheet")).toBeNull();
+      fireEvent.press(screen.getByTestId("privacy-choices"));
+      expect(screen.getByTestId("privacy-choices-sheet")).toBeTruthy();
       expect(screen.queryByText(/Sign in/)).toBeNull();
       expect(screen.queryByText(/24 hours/)).toBeNull();
       expect(analytics.capture).toHaveBeenCalledWith("paywall_viewed", {
@@ -177,14 +191,16 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("shows the real saving, per-month prices and trial, and selects plans", () => {
+    it("shows the real saving, per-week prices and trial, and selects plans", () => {
       const data = makeData();
       const { screen } = renderPaywall(version, data);
-      expect(screen.getByText("Save 50%")).toBeTruthy();
-      expect(screen.getByText("$5.00/mo")).toBeTruthy();
-      expect(screen.getByText("$59.99 billed yearly")).toBeTruthy();
-      fireEvent.press(screen.getByTestId("plan-$rc_monthly"));
-      expect(data.selectPackage).toHaveBeenCalledWith(monthly);
+      expect(screen.getByText("Save 90%")).toBeTruthy();
+      expect(screen.getByText("$0.69/wk")).toBeTruthy();
+      expect(screen.getByText("$35.99 billed yearly")).toBeTruthy();
+      expect(screen.queryByText(/monthly/i)).toBeNull();
+      expect(screen.queryByText(/\/mo\b/)).toBeNull();
+      fireEvent.press(screen.getByTestId("plan-$rc_weekly"));
+      expect(data.selectPackage).toHaveBeenCalledWith(weekly);
       screen.unmount();
     });
 
@@ -208,12 +224,12 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         makeData({
           trialLength: null,
           trialDays: null,
-          eligibility: { "synthetic-annual": "ineligible" },
+          eligibility: { yearly: "ineligible" },
         }),
       );
       expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        "$59.99 per year. Renews automatically unless cancelled in the App Store.",
+        "$35.99 per year. Renews automatically unless cancelled in the App Store.",
       );
       expect(screen.queryByText(/free/)).toBeNull();
       screen.unmount();
@@ -249,7 +265,7 @@ describe("CalAiPaywall layout differences", () => {
   it("v1 and v2 stack plan cards with a Most popular tab; v3 uses a toggle", () => {
     const one = renderPaywall(1);
     expect(one.screen.getByText("Most popular")).toBeTruthy();
-    expect(one.screen.getByText("Monthly")).toBeTruthy();
+    expect(one.screen.getByText("Weekly")).toBeTruthy();
     expect(one.screen.queryByTestId("plan-price-line")).toBeNull();
     one.screen.unmount();
 
@@ -261,7 +277,7 @@ describe("CalAiPaywall layout differences", () => {
     const three = renderPaywall(3);
     expect(three.screen.queryByText("Most popular")).toBeNull();
     expect(three.screen.getByTestId("plan-price-line")).toHaveTextContent(
-      "$5.00/mo$59.99 billed yearly",
+      "$0.69/wk$35.99 billed yearly",
     );
     expect(three.screen.getByTestId("paywall-cta")).toHaveStyle({
       minHeight: 65,
@@ -294,7 +310,7 @@ describe("CalAiPaywall layout differences", () => {
       CALAI_HEADLINES[1],
     );
     expect(screen.getByText("Most popular")).toBeTruthy();
-    expect(screen.getByText("Monthly")).toBeTruthy();
+    expect(screen.getByText("Weekly")).toBeTruthy();
     expect(screen.queryByTestId("plan-price-line")).toBeNull();
     expect(screen.getByTestId("paywall-cta")).not.toHaveStyle({
       minHeight: 65,
@@ -303,11 +319,42 @@ describe("CalAiPaywall layout differences", () => {
   });
 
   it("v3 price line follows the selected plan", () => {
-    const { screen } = renderPaywall(3, makeData({ pkg: monthly }));
+    const { screen } = renderPaywall(3, makeData({ pkg: weekly }));
     expect(screen.getByTestId("plan-price-line")).toHaveTextContent(
-      "$9.99/mo$9.99 billed monthly",
+      "$6.99/wk$6.99 billed weekly",
     );
     screen.unmount();
+  });
+});
+
+describe("CalAiPaywall trial reminder toggle", () => {
+  it("shows the switch only when the store grants a trial and reports changes", () => {
+    const onTrialReminderChange = jest.fn();
+    const { screen } = renderPaywall(1, makeData(), {
+      trialReminder: true,
+      onTrialReminderChange,
+    });
+    expect(screen.getByTestId("trial-reminder-row")).toHaveTextContent(
+      TRIAL_REMINDER_LABEL,
+    );
+    const toggle = screen.getByTestId("trial-reminder-toggle");
+    expect(toggle.props.value).toBe(true);
+    fireEvent(toggle, "valueChange", false);
+    expect(onTrialReminderChange).toHaveBeenCalledWith(false);
+    screen.unmount();
+  });
+
+  it("hides the switch without a trial, and when the caller does not wire it", () => {
+    const noTrial = renderPaywall(
+      1,
+      makeData({ trialLength: null, trialDays: null }),
+      { trialReminder: true, onTrialReminderChange: jest.fn() },
+    );
+    expect(noTrial.screen.queryByTestId("trial-reminder-row")).toBeNull();
+    noTrial.screen.unmount();
+    const unwired = renderPaywall(1);
+    expect(unwired.screen.queryByTestId("trial-reminder-row")).toBeNull();
+    unwired.screen.unmount();
   });
 });
 

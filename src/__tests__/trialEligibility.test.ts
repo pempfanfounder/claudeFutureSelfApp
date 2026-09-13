@@ -35,6 +35,6 @@ jest.mock("react-native-purchases", () => ({
 }));
 jest.mock("@/lib/purchases", () => ({
   isAllowedPackage: (p: { packageType: string }) =>
-    ["MONTHLY", "ANNUAL"].includes(p.packageType),
+    ["WEEKLY", "ANNUAL"].includes(p.packageType),
   getCurrentOffering: jest.fn(),
 }));

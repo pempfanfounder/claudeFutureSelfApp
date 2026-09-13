@@ -12,6 +12,10 @@ import {
 import { AppText } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
+import {
+  APPLE_DELETION_NOTE,
+  hasAppleIdentity,
+} from "@/features/auth/appleRevocation";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { LEGAL_URLS } from "@/lib/legal";
 
@@ -39,7 +43,9 @@ export function PrivacyChoicesSheet({
   const confirmDelete = () => {
     Alert.alert(
       "Delete account & data",
-      "This permanently deletes your account and everything in it. Continue?",
+      "This permanently deletes your account and everything in it." +
+        (hasAppleIdentity(auth.session) ? ` ${APPLE_DELETION_NOTE}` : "") +
+        " Continue?",
       [
         { text: "Cancel", style: "cancel" },
         {

@@ -8,7 +8,8 @@ import { radii, shadows, spacing, type } from "@/design-system/tokens";
 import { trialInfo, type PaywallData } from "../useOffering";
 import {
   billingLabel,
-  perMonthLabel,
+  perWeekLabel,
+  planTitle,
   savingsPercent,
   splitPlans,
 } from "./pricing";
@@ -19,14 +20,15 @@ interface PlanCardsProps {
 
 /**
  * Cal AI's two stacked plan cards in Future Self chrome: the yearly plan
- * wears a "MOST POPULAR" tab and a filled check; the monthly plan is a
- * plain outlined card with an empty radio. Savings come from real prices.
+ * wears a "MOST POPULAR" tab and a filled check; the weekly plan is a
+ * plain outlined card with an empty radio. Both show a per-week price;
+ * the saving is yearly against 52 weekly payments, from real prices.
  */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
   const savings = savingsPercent(plans);
-  const ordered = [plans.annual, plans.monthly].filter(
+  const ordered = [plans.annual, plans.weekly].filter(
     (p): p is PurchasesPackage => p !== null,
   );
   if (ordered.length === 0) return null;
@@ -40,12 +42,9 @@ export function PlanCards({ data }: PlanCardsProps) {
           pkg,
           data.eligibility?.[pkg.product.identifier],
         );
-        const title = isAnnual
-          ? savings !== null
-            ? `Save ${savings}%`
-            : "Yearly"
-          : "Monthly";
-        const perMonth = perMonthLabel(pkg);
+        const title =
+          isAnnual && savings !== null ? `Save ${savings}%` : planTitle(pkg);
+        const perWeek = perWeekLabel(pkg);
         return (
           <Pressable
             key={pkg.identifier}
@@ -109,13 +108,13 @@ export function PlanCards({ data }: PlanCardsProps) {
                   </AppText>
                 ) : null}
               </View>
-              {perMonth ? (
+              {perWeek ? (
                 <AppText
                   variant="lead"
                   tone={selected ? "ink" : "ink3"}
                   style={styles.price}
                 >
-                  {perMonth}
+                  {perWeek}
                 </AppText>
               ) : (
                 <AppText variant="lead" tone={selected ? "ink" : "ink3"}>

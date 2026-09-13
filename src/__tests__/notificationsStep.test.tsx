@@ -190,6 +190,33 @@ describe("NotificationsStep (iam)", () => {
     );
   });
 
+  it("keeps quotes + affirmations within 20 a day: raising one lowers the other", () => {
+    act(() => {
+      useOnboardingStore.getState().setNotificationPrefs({
+        quotesPerDay: 12,
+        affirmationsPerDay: 8,
+      });
+    });
+    const { screen } = renderStep();
+    expect(screen.getByTestId("daily-cap-hint")).toHaveTextContent(
+      "20 a day is the maximum. Raising one lowers the other.",
+    );
+    fireEvent.press(screen.getByTestId("quotes-plus"));
+    expect(prefs().quotesPerDay).toBe(13);
+    expect(prefs().affirmationsPerDay).toBe(7);
+    expect(screen.getByTestId("affirmations-value")).toHaveTextContent(/^7$/);
+    fireEvent.press(screen.getByTestId("affirmations-plus"));
+    expect(prefs().quotesPerDay).toBe(12);
+    expect(prefs().affirmationsPerDay).toBe(8);
+    // Lowering makes room without touching the other count.
+    fireEvent.press(screen.getByTestId("quotes-minus"));
+    expect(prefs().quotesPerDay).toBe(11);
+    expect(prefs().affirmationsPerDay).toBe(8);
+    expect(screen.getByTestId("daily-cap-hint")).toHaveTextContent(
+      "Up to 20 a day in total. You're at 19.",
+    );
+  });
+
   it("renders the iOS compact pickers and applies picked times", () => {
     const { screen } = renderStep();
     const start = screen.getByTestId("start-picker");

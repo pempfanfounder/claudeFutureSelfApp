@@ -26,6 +26,17 @@ Everything here happens in the Supabase dashboard:
 Because step 2 chooses content at send time, editing `content_items` or
 `campaigns` changes what goes out from the next minute onward.
 
+**Daily cap.** A user gets at most **20 notifications a day in total**
+(`quotes_per_day + affirmations_per_day <= 20`, each kind 0–20). Enforced
+three times: the pickers lower the other count when one rises, the client
+refuses to send a total above 20, and the database rejects it
+(`notification_prefs_daily_total_check` + `save_notification_prefs`, migration
+`20260913090000_daily_notification_cap`). Rows that predate the migration and
+exceeded 20 were rewritten proportionally (quotes rounded down, affirmations
+take the remainder; 20 + 20 → 10 + 10) and rescheduled. Deploy order: migration
+first (`supabase db push`), then the app build; older builds only fail when
+saving a total above 20.
+
 ---
 
 ## Content: activate, deactivate, prioritize
@@ -117,8 +128,47 @@ Notes:
 
 ## Trial-ending reminders
 
-Users on a free trial get one "Your trial ends soon" push 12–36 hours before
-the trial converts (enqueued hourly at :30).
+Users on a free trial get one "Your free trial ends soon" push 12–36 hours
+before the trial converts (enqueued hourly at :30). The whole chain, verified
+2026-09-13:
+
+1. **Toggle.** "Remind me 1 day before the trial ends" on the paywall (Cal AI
+   and legacy timeline, shown only when the store grants a trial) and in
+   Profile → Notifications → "Before trial ends". Default **on**.
+   Onboarding stores the paywall choice as `raw.trial_reminder` and writes it
+   at completion; Settings and the standalone gate write immediately. All of
+   them call the `save_notification_prefs` RPC, which lands in
+   `notification_prefs.trial_reminder`.
+2. **Trial end.** RevenueCat → `revenuecat-webhook` (or the client's
+   `sync-entitlement` right after purchase) → `reconcileEntitlement` fetches
+   the subscriber, and `period_type = "trial"` on the active entitlement
+   becomes `entitlements.trial_expires_at` (`apply_canonical_entitlement`,
+   `source = 'canonical-api'`). Legacy rows without the column fall back to
+   `expires_at` when `period_type = 'trial'`.
+3. **Cron.** `fs-trial-reminders` (`30 * * * *`) →
+   `enqueue_trial_reminders(200)`: premium users whose trial ends in 12–36 h,
+   `trial_reminder = true`, an active device with a token and `granted`
+   permission, inside their delivery window and outside quiet hours
+   (`push_eligibility`), not already claimed for this trial anchor and no
+   trial push in the last 48 h. Consumes the `push_schedule` and
+   `push_enqueue` budgets like every other producer; refuses while the
+   pipeline is paused. Result: one `push_schedule_claims` row (key
+   `<user>:trial:<epoch>`) and one `push_jobs` message (`kind =
+'trial_reminder'`, `slot = 0`, `trial_expires_at`).
+4. **Send.** `push-dispatch` re-runs `push_eligibility` at send time (a late
+   opt-out or a changed trial anchor skips the job), builds the fixed text
+   `buildTrialReminder()` with deep link `futureself://settings`, records the
+   `notification_deliveries` row and sends via Expo.
+5. **Tap.** `useNotificationNavigation` opens `/settings` (Profile), where
+   "Manage subscription" opens the RevenueCat Customer Center or the store's
+   subscriptions page.
+
+There is **no on-device (expo-notifications) fallback**: the reminder is
+server-sent only, so it needs a registered push token. Sandbox trials last
+minutes, not days, so the 12–36 h window never opens in a sandbox test; to
+exercise the chain, set a test user's `trial_expires_at` to `now() + interval
+'24 hours'` and run `select public.enqueue_trial_reminders(200);` as the
+service role (fixture: `supabase/tests/trial-reminder.sql`).
 
 ```sql
 -- Turn it off for one user.

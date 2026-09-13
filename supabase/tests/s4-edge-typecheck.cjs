@@ -5,7 +5,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..", "functions");
 const virtual = path.join(__dirname, "s4-runtime-fixture.d.ts");
 const declarations = `declare const Deno: { env: { get(name:string):string|undefined }; serve(handler:(request:Request)=>Response|Promise<Response>):void };
-declare module 'npm:@supabase/supabase-js@2' { export type SupabaseClient=any; export interface User { id:string }; export function createClient(...args:any[]):any; }`;
+declare module 'npm:@supabase/supabase-js@2' { export type SupabaseClient=any; export interface User { id:string; identities?: { provider: string }[] }; export function createClient(...args:any[]):any; }`;
 const options = {
   strict: true,
   noEmit: true,

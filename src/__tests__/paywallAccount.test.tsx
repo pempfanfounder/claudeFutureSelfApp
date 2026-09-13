@@ -16,7 +16,7 @@ jest.mock("react-native-purchases", () => ({
     addCustomerInfoUpdateListener: jest.fn(),
   },
   LOG_LEVEL: { DEBUG: "DEBUG", ERROR: "ERROR" },
-  PACKAGE_TYPE: { ANNUAL: "ANNUAL", MONTHLY: "MONTHLY" },
+  PACKAGE_TYPE: { ANNUAL: "ANNUAL", WEEKLY: "WEEKLY" },
 }));
 jest.mock("expo-router", () => ({
   router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() },
@@ -31,7 +31,7 @@ jest.mock("@/lib/purchases", () => ({
   purchasePackage: jest.fn(async () => ({ status: "purchased" })),
   restorePurchases: jest.fn(async () => ({ status: "purchased" })),
   isAllowedPackage: (pkg: { packageType: string }) =>
-    pkg.packageType === "MONTHLY" || pkg.packageType === "ANNUAL",
+    pkg.packageType === "WEEKLY" || pkg.packageType === "ANNUAL",
 }));
 jest.mock("@/features/auth/AuthProvider", () => ({
   useAuth: jest.fn(),
