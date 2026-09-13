@@ -287,7 +287,7 @@ General shape (verify, do not rely on this):
 - [ ] **Screenshots** — required: 6.9" and 6.5" iPhone. Others are optional/inherited. Portrait only. Note your paywall-first flow means screenshots must sell the *content*, not the gate.
 - [ ] **App preview video** (optional)
 - [ ] **Support URL** (required) and **Marketing URL** (optional) — `joinfutureself.com`
-- [ ] **Privacy Policy URL** (required) — currently the Supabase functions URL
+- [ ] **Privacy Policy URL** (required) — `https://joinfutureself.com/privacy/` (the Supabase `legal` function now only redirects there)
 - [ ] **License Agreement** — either accept Apple's standard EULA or attach your custom Terms (see Blocker 7)
 - [ ] **Age rating questionnaire** — motivational content should land at 4+
 - [ ] **Pricing and availability** — including whether to ship outside the EU at launch
