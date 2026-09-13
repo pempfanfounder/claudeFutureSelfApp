@@ -15,6 +15,7 @@ import {
   type Identity,
 } from "@/lib/appState";
 import { restorePurchases } from "@/lib/purchases";
+import { storeName, storeSubscriptionsLocation } from "@/lib/storeName";
 
 import {
   APPLE_DELETION_NOTE,
@@ -187,7 +188,7 @@ export default function AccountScreen() {
     confirmation.current = action;
     Alert.alert(
       "Delete account",
-      "This permanently deletes your account, personalization, streaks, and saved quotes. Deleting an account does not cancel an App Store subscription. Manage or cancel it in App Store settings." +
+      `This permanently deletes your account, personalization, streaks, and saved quotes. Deleting an account does not cancel a ${storeName()} subscription. Manage or cancel it in ${storeSubscriptionsLocation()}.` +
         (hasAppleIdentity(auth.session) ? ` ${APPLE_DELETION_NOTE}` : "") +
         " Continue?",
       [

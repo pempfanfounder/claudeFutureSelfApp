@@ -1,4 +1,7 @@
+import { Platform } from "react-native";
 import { PACKAGE_TYPE, type PurchasesPackage } from "react-native-purchases";
+
+import { storeName } from "@/lib/storeName";
 
 import { periodLabel, trialInfo, type TrialEligibility } from "../useOffering";
 
@@ -104,6 +107,7 @@ export function billingLabel(pkg: PurchasesPackage): string {
 export function compactDisclosure(
   pkg: PurchasesPackage | null,
   eligibility: TrialEligibility = "unknown",
+  platform: string = Platform.OS,
 ): string | null {
   if (!pkg) return null;
   if (pkg.packageType === PACKAGE_TYPE.LIFETIME) {
@@ -113,5 +117,6 @@ export function compactDisclosure(
   const lead = trial
     ? `${trial.label} free, then ${pkg.product.priceString} per ${periodLabel(pkg)}.`
     : `${pkg.product.priceString} per ${periodLabel(pkg)}.`;
-  return `${lead} Renews automatically unless cancelled in the App Store.`;
+  const store = storeName(platform);
+  return `${lead} Renews automatically unless cancelled in ${store === "App Store" ? "the App Store" : store}.`;
 }

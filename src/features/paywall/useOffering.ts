@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Platform } from "react-native";
 import Purchases, {
   PACKAGE_TYPE,
   type PurchasesPackage,
@@ -12,6 +13,7 @@ import {
   useAppState,
 } from "@/lib/appState";
 import { getCurrentOffering, isAllowedPackage } from "@/lib/purchases";
+import { storeAccountName, storeSubscriptionsLocation } from "@/lib/storeName";
 
 export interface PaywallData {
   loading: boolean;
@@ -98,14 +100,19 @@ export function trialInfo(
   }
 }
 
-/** Guideline 3.1.2 disclosure for the selected package. */
+/**
+ * Guideline 3.1.2 / Play subscription disclosure for the selected
+ * package. Store wording follows the platform ("App Store" on iOS,
+ * "Google Play" on Android).
+ */
 export function subscriptionDisclosure(
   pkg: PurchasesPackage | null,
   eligibility: TrialEligibility = "unknown",
+  platform: string = Platform.OS,
 ): string | null {
   if (!pkg) return null;
   if (pkg.packageType === PACKAGE_TYPE.LIFETIME) {
-    return `One-time purchase of ${pkg.product.priceString}. Charged to your App Store account at confirmation.`;
+    return `One-time purchase of ${pkg.product.priceString}. Charged to ${storeAccountName(platform)} at confirmation.`;
   }
   const period = periodLabel(pkg); // "year" | "month" | "week"
   const trial = trialInfo(pkg, eligibility);
@@ -113,9 +120,9 @@ export function subscriptionDisclosure(
     ? `${trial.label} free, then ${pkg.product.priceString} per ${period}.`
     : `${pkg.product.priceString} per ${period}.`;
   return (
-    `${lead} Payment is charged to your App Store account at confirmation. ` +
+    `${lead} Payment is charged to ${storeAccountName(platform)} at confirmation. ` +
     `The subscription renews automatically unless cancelled at least 24 hours ` +
-    `before the end of the current period. Manage or cancel anytime in App Store settings.`
+    `before the end of the current period. Manage or cancel anytime in ${storeSubscriptionsLocation(platform)}.`
   );
 }
 
