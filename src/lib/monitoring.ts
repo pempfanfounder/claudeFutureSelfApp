@@ -10,8 +10,14 @@ export function initMonitoring() {
     environment: config.appEnvironment,
     sendDefaultPii: false,
     tracesSampleRate: 0,
-    enableNative: false,
-    enableNativeCrashHandling: false,
+    // Native crash reporting is on (owner decision 2026-09-13): a hard
+    // crash in the iOS/Android layer is otherwise invisible until someone
+    // reads the App Store Connect crash logs. Native crash events are
+    // captured by the platform SDK and skip the JS `beforeSend` scrubber
+    // below, so they carry the platform's crash context (stack, device,
+    // OS); still no IP/user data (`sendDefaultPii: false`, no setUser).
+    enableNative: true,
+    enableNativeCrashHandling: true,
     enableAutoSessionTracking: false,
     attachScreenshot: false,
     attachViewHierarchy: false,

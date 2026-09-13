@@ -30,6 +30,7 @@ import {
   type Identity,
 } from "@/lib/appState";
 import { initMonitoring, withMonitoring } from "@/lib/monitoring";
+import { RootErrorBoundary } from "@/lib/RootErrorBoundary";
 import { AuthSheet } from "@/features/auth/AuthSheet";
 import { getPendingDeletion } from "@/features/auth/deletion";
 import { AuthProvider, useAuth } from "@/features/auth/AuthProvider";
@@ -311,15 +312,17 @@ function RootLayout() {
   }, []);
   // Font failure uses the platform fallback so it cannot hold the splash forever.
   return (
-    <FontAvailability.Provider value={fontsLoaded}>
-      <ThemeProvider>
-        <AuthProvider>
-          <AccountRoutes
-            fontsSettled={fontsLoaded || Boolean(fontError) || fontDeadline}
-          />
-        </AuthProvider>
-      </ThemeProvider>
-    </FontAvailability.Provider>
+    <RootErrorBoundary>
+      <FontAvailability.Provider value={fontsLoaded}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AccountRoutes
+              fontsSettled={fontsLoaded || Boolean(fontError) || fontDeadline}
+            />
+          </AuthProvider>
+        </ThemeProvider>
+      </FontAvailability.Provider>
+    </RootErrorBoundary>
   );
 }
 export default withMonitoring(RootLayout);

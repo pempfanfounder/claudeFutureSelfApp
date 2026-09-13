@@ -72,6 +72,7 @@ const COUNTS = new Set([
 ]);
 const BOOLEANS = new Set(["premium", "is_anonymous", "streak_reminder"]);
 const AREAS = new Set([
+  "app.render",
   "appIcon.apply",
   "feed.sync",
   "feed.load",
