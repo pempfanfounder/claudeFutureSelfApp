@@ -2,6 +2,7 @@ import { render } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
+import { Icon } from "@/design-system/components";
 import { StreakCommitStep } from "@/features/onboarding/engine/steps/StreakCommitStep";
 import type {
   OnboardingContext,
@@ -25,7 +26,7 @@ const STEP: OnboardingStep = {
   cta: (c) => `I'm in for ${c.answers["raw.streak_goal"] ?? "21"} days`,
 };
 
-test("sits the day 1 in one large theme flame", () => {
+test("burns the serif day 1 — numeral burn, not a flame icon ring", () => {
   const screen = render(
     <SafeAreaProvider
       initialMetrics={{
@@ -43,9 +44,15 @@ test("sits the day 1 in one large theme flame", () => {
       </ThemeProvider>
     </SafeAreaProvider>,
   );
-  expect(screen.getByTestId("streak-flame")).toBeTruthy();
+  expect(screen.getByTestId("streak-numeral-burn")).toBeTruthy();
+  expect(screen.getByTestId("streak-day-1")).toHaveTextContent("1");
+  expect(screen.queryByTestId("streak-flame")).toBeNull();
   expect(screen.queryByTestId("streak-flame-tick")).toBeNull();
-  expect(screen.getByText("1")).toBeTruthy();
+  expect(
+    screen
+      .UNSAFE_getAllByType(Icon)
+      .some((node) => node.props.name === "flame"),
+  ).toBe(false);
   expect(
     screen.getByText("3 readings a day. That's the whole ask."),
   ).toBeTruthy();

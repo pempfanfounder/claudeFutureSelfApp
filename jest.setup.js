@@ -8,6 +8,16 @@ jest.mock("react-native-view-shot", () => ({
   captureRef: jest.fn(async () => "file:///tmp/quote-card.png"),
 }));
 
+jest.mock("@react-native-masked-view/masked-view", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: ({ children, maskElement, ...rest }) =>
+      React.createElement(View, rest, maskElement, children),
+  };
+});
+
 // The native date/time picker has no JS fallback under Jest (its module
 // registry throws). Render a plain View that carries the props through so
 // tests can find it by testID and fire `onValueChange` directly; the

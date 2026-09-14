@@ -1,5 +1,7 @@
+import MaskedView from "@react-native-masked-view/masked-view";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   FadeInRight,
@@ -15,7 +17,7 @@ import Animated, {
 import { AppText, Button, Icon } from "@/design-system/components";
 import { useMotionPreference } from "@/design-system/motion";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, spacing } from "@/design-system/tokens";
+import { radii, spacing, type } from "@/design-system/tokens";
 
 import { resolveLines, resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
@@ -23,10 +25,27 @@ import { weekStrip } from "./weekStrip";
 
 const DEFAULT_GOAL_DAYS = "21";
 const DAY_CHECK_SIZE = 14;
-/** Large enough that the day "1" sits inside the body of the flame. */
-const FLAME_SIZE = 200;
-const INNER_FLAME_SIZE = 156;
-const HERO_SIZE = 220;
+const HERO_WIDTH = 200;
+const HERO_HEIGHT = 210;
+/** Preview option 7: 4.4rem serif 1. */
+const NUMERAL_SIZE = 70;
+const GRADIENT_HEIGHT = Math.round(NUMERAL_SIZE * 2.8);
+const GRADIENT_TRAVEL = GRADIENT_HEIGHT - NUMERAL_SIZE;
+const RISE_MS = 2800;
+const HALO_MS = 2400;
+const TIP_MS = 2600;
+
+/** Brand fire stops from the numeral-burn preview (cream, terracotta, gold, umber). */
+const BURN_COLORS = [
+  "#2A1E16",
+  "#B4553C",
+  "#C9A97A",
+  "#4A2418",
+  "#B4553C",
+  "#F3E9DC",
+  "#93432F",
+] as const;
+const BURN_STOPS = [0, 0.18, 0.36, 0.52, 0.7, 0.86, 1] as const;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -46,107 +65,116 @@ function chosenGoalDays(ctx: OnboardingContext): string {
 }
 
 /**
- * One very large theme-colored flame with the day "1" sitting in it.
- * Scale + opacity flicker reads as burning; Reduce Motion freezes it.
+ * Preview option 7 — Numeral burn. The serif "1" is the flame: Future Self
+ * fire colors rise through the glyph. A terracotta halo and ghost tongue
+ * breathe behind it. Upright only (scale / fade, no rotate). Reduce Motion
+ * freezes the still frame.
  */
-function BurningFlame({ color }: { color: string }) {
+function NumeralBurn() {
   const reduced = useMotionPreference();
-  const burn = useSharedValue(1);
-  const flicker = useSharedValue(0.92);
-  const inner = useSharedValue(0.88);
+  const rise = useSharedValue(0);
+  const halo = useSharedValue(0.5);
+  const tip = useSharedValue(0.5);
   useEffect(() => {
-    cancelAnimation(burn);
-    cancelAnimation(flicker);
-    cancelAnimation(inner);
+    cancelAnimation(rise);
+    cancelAnimation(halo);
+    cancelAnimation(tip);
     if (reduced) {
-      burn.set(1);
-      flicker.set(1);
-      inner.set(0.92);
+      rise.set(0);
+      halo.set(0.5);
+      tip.set(0.5);
       return;
     }
-    burn.set(
+    rise.set(0);
+    rise.set(
+      withRepeat(
+        withTiming(1, { duration: RISE_MS, easing: Easing.linear }),
+        -1,
+        false,
+      ),
+    );
+    halo.set(
       withRepeat(
         withSequence(
-          withTiming(1.06, {
-            duration: 420,
+          withTiming(1, {
+            duration: HALO_MS / 2,
             easing: Easing.inOut(Easing.quad),
           }),
-          withTiming(0.96, {
-            duration: 280,
-            easing: Easing.inOut(Easing.quad),
-          }),
-          withTiming(1.04, {
-            duration: 360,
-            easing: Easing.inOut(Easing.quad),
-          }),
-          withTiming(0.98, {
-            duration: 240,
+          withTiming(0, {
+            duration: HALO_MS / 2,
             easing: Easing.inOut(Easing.quad),
           }),
         ),
         -1,
       ),
     );
-    flicker.set(
+    tip.set(
       withRepeat(
         withSequence(
-          withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0.78, {
-            duration: 140,
+          withTiming(1, {
+            duration: TIP_MS / 2,
             easing: Easing.inOut(Easing.quad),
           }),
-          withTiming(0.95, {
-            duration: 220,
+          withTiming(0, {
+            duration: TIP_MS / 2,
             easing: Easing.inOut(Easing.quad),
           }),
-          withTiming(0.82, {
-            duration: 160,
-            easing: Easing.inOut(Easing.quad),
-          }),
-        ),
-        -1,
-      ),
-    );
-    inner.set(
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 260, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0.72, {
-            duration: 200,
-            easing: Easing.inOut(Easing.quad),
-          }),
-          withTiming(0.9, { duration: 180, easing: Easing.inOut(Easing.quad) }),
         ),
         -1,
       ),
     );
     return () => {
-      cancelAnimation(burn);
-      cancelAnimation(flicker);
-      cancelAnimation(inner);
+      cancelAnimation(rise);
+      cancelAnimation(halo);
+      cancelAnimation(tip);
     };
-  }, [reduced, burn, flicker, inner]);
-  const outerStyle = useAnimatedStyle(() => ({
-    opacity: flicker.get(),
-    transform: [{ scale: burn.get() }],
-  }));
-  const innerStyle = useAnimatedStyle(() => ({
-    opacity: inner.get(),
-    transform: [{ scale: 0.92 + (1 - inner.get()) * 0.12 }],
+  }, [reduced, rise, halo, tip]);
+  const haloStyle = useAnimatedStyle(() => {
+    const t = halo.get();
+    return {
+      opacity: 0.55 + t * 0.4,
+      transform: [{ scale: 0.88 + t * 0.24 }],
+    };
+  });
+  const ghostStyle = useAnimatedStyle(() => {
+    const t = tip.get();
+    return {
+      opacity: 0.55 + t * 0.4,
+      transform: [{ translateY: 4 - t * 10 }, { scaleY: 0.92 + t * 0.16 }],
+    };
+  });
+  const burnStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -rise.get() * GRADIENT_TRAVEL }],
   }));
   return (
-    <View pointerEvents="none" testID="streak-flame" style={styles.flameWrap}>
-      <Animated.View style={[styles.flameLayer, outerStyle]}>
-        <Icon name="flame" size={FLAME_SIZE} color={color} weight="bold" />
+    <View pointerEvents="none" testID="streak-numeral-burn" style={styles.flameWrap}>
+      <Animated.View style={[styles.halo, haloStyle]} />
+      <Animated.View style={[styles.ghostFlame, ghostStyle]}>
+        <View style={styles.ghostTongue} />
+        <View style={styles.ghostBase} />
       </Animated.View>
-      <Animated.View style={[styles.flameLayer, innerStyle]}>
-        <Icon
-          name="flame"
-          size={INNER_FLAME_SIZE}
-          color={color}
-          weight="bold"
-        />
-      </Animated.View>
+      <View style={styles.numeralGlow}>
+        <MaskedView
+          style={styles.numeralMask}
+          maskElement={
+            <View style={styles.numeralMaskFill}>
+              <Text style={styles.numeral} testID="streak-day-1">
+                1
+              </Text>
+            </View>
+          }
+        >
+          <Animated.View style={[styles.burnStrip, burnStyle]}>
+            <LinearGradient
+              colors={BURN_COLORS}
+              locations={BURN_STOPS}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        </MaskedView>
+      </View>
     </View>
   );
 }
@@ -181,10 +209,7 @@ export function StreakCommitStep({
           style={styles.dayWrap}
         >
           <View style={styles.dayHero}>
-            <BurningFlame color={colors.accent} />
-            <AppText variant="display" center style={styles.dayNumeral}>
-              1
-            </AppText>
+            <NumeralBurn />
           </View>
           <View
             style={[
@@ -289,8 +314,8 @@ const styles = StyleSheet.create({
   },
   dayWrap: { alignItems: "center", marginBottom: spacing.xl },
   dayHero: {
-    width: HERO_SIZE,
-    height: HERO_SIZE,
+    width: HERO_WIDTH,
+    height: HERO_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -299,16 +324,69 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  flameLayer: {
+  halo: {
     position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(180, 85, 60, 0.28)",
+  },
+  ghostFlame: {
+    position: "absolute",
+    width: 120,
+    height: 150,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    transformOrigin: "bottom",
+  },
+  ghostTongue: {
+    position: "absolute",
+    top: 8,
+    width: 56,
+    height: 118,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    backgroundColor: "rgba(180, 85, 60, 0.22)",
+  },
+  ghostBase: {
+    width: 86,
+    height: 44,
+    borderRadius: 18,
+    backgroundColor: "rgba(180, 85, 60, 0.2)",
+    marginBottom: 0,
+  },
+  numeralGlow: {
+    zIndex: 3,
+    shadowColor: "#B4553C",
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  numeralMask: {
+    width: 88,
+    height: NUMERAL_SIZE,
+    overflow: "hidden",
+  },
+  numeralMaskFill: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "transparent",
   },
-  dayNumeral: {
-    fontSize: 56,
-    lineHeight: 62,
-    // Flame.fill is pointed at the top; sit the 1 in the body.
-    transform: [{ translateY: 18 }],
+  numeral: {
+    fontFamily: type.serif,
+    fontSize: NUMERAL_SIZE,
+    lineHeight: NUMERAL_SIZE,
+    letterSpacing: NUMERAL_SIZE * -0.03,
+    color: "#000000",
+    fontWeight: "400",
+    textAlign: "center",
+  },
+  burnStrip: {
+    width: 88,
+    height: GRADIENT_HEIGHT,
   },
   groundLine: { width: 72, height: 2, borderRadius: 1, marginTop: spacing.xs },
   sub: { marginTop: spacing.md },
