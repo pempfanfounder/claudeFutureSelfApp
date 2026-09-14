@@ -2,12 +2,12 @@ import {
   APP_ICON_IDS,
   APP_ICON_SOURCES,
   DEFAULT_APP_ICON_ID,
+  RETIRED_APP_ICON_IDS,
   appIconIdFromName,
   appIconNameFor,
   applyAppIcon,
   getCurrentAppIconId,
 } from "@/design-system/appIcons";
-import { THEMES } from "@/design-system/themes";
 
 const mockSetAlternateAppIcon = jest.fn(async (name: string | null) => name);
 const mockGetAppIconName = jest.fn<string | null, []>(() => null);
@@ -30,8 +30,21 @@ beforeEach(() => {
 });
 
 describe("app icon catalogue", () => {
-  it("offers exactly one icon per theme, in theme order", () => {
-    expect(APP_ICON_IDS).toEqual(THEMES.map((t) => t.id));
+  it("offers exactly the nine full-bleed icons, without Soft Bloom or Inkwell", () => {
+    expect(APP_ICON_IDS).toEqual([
+      "minimal_sand",
+      "ocean_clarity",
+      "terracotta",
+      "midnight_focus",
+      "arctic",
+      "sun",
+      "sunrise_momentum",
+      "golden_success",
+      "evergreen",
+    ]);
+    expect([...RETIRED_APP_ICON_IDS]).toEqual(["soft_bloom", "ink_well"]);
+    expect(APP_ICON_IDS).not.toContain("soft_bloom");
+    expect(APP_ICON_IDS).not.toContain("ink_well");
   });
 
   it("bundles a static image source for every icon id", () => {
@@ -40,6 +53,11 @@ describe("app icon catalogue", () => {
     }
     expect(Object.keys(APP_ICON_SOURCES).sort()).toEqual(
       [...APP_ICON_IDS].sort(),
+    );
+    // Default tile must be the real Home Screen icon, not a generated
+    // copy that used to show a lighter sand frame around the mark.
+    expect(APP_ICON_SOURCES.minimal_sand).toEqual(
+      require("../../assets/images/icon.png"),
     );
   });
 
@@ -53,7 +71,8 @@ describe("app icon catalogue", () => {
     // runtime must address icons the way the asset catalogue names them.
     expect(appIconNameFor("minimal_sand")).toBe("MinimalSand");
     expect(appIconNameFor("ink_well")).toBe("InkWell");
-    expect(appIconNameFor("evergreen")).toBe("Evergreen");
+    expect(appIconNameFor("sun")).toBe("Sun");
+    expect(appIconNameFor("arctic")).toBe("Arctic");
     expect(appIconNameFor("sunrise_momentum")).toBe("SunriseMomentum");
     for (const id of APP_ICON_IDS) {
       expect(appIconIdFromName(appIconNameFor(id))).toBe(id);
@@ -95,8 +114,26 @@ describe("applyAppIcon", () => {
   });
 
   it("reports success after applying", async () => {
+    await expect(applyAppIcon("evergreen")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Evergreen");
+  });
+
+  it("maps retired icons back to the default and resets a leftover native icon", async () => {
+    mockGetAppIconName.mockReturnValue("SoftBloom");
+    await expect(applyAppIcon("soft_bloom")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith(null);
+    mockSetAlternateAppIcon.mockClear();
+    mockGetAppIconName.mockReturnValue("InkWell");
+    await expect(applyAppIcon("ink_well")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith(null);
+  });
+
+  it("applies restored Arctic and Sun by their PascalCase names", async () => {
     await expect(applyAppIcon("arctic")).resolves.toBe(true);
     expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Arctic");
+    mockGetAppIconName.mockReturnValue("Arctic");
+    await expect(applyAppIcon("sun")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Sun");
   });
 
   it("ignores ids that are not app icons", async () => {
@@ -106,7 +143,7 @@ describe("applyAppIcon", () => {
 
   it("reports failure on devices without alternate-icon support", async () => {
     mockSupports = false;
-    await expect(applyAppIcon("arctic")).resolves.toBe(false);
+    await expect(applyAppIcon("evergreen")).resolves.toBe(false);
     expect(mockSetAlternateAppIcon).not.toHaveBeenCalled();
   });
 
@@ -119,10 +156,10 @@ describe("applyAppIcon", () => {
       .spyOn(console, "warn")
       .mockImplementation(() => {});
     mockSetAlternateAppIcon.mockRejectedValueOnce(new Error("nope"));
-    await expect(applyAppIcon("arctic")).resolves.toBe(false);
+    await expect(applyAppIcon("evergreen")).resolves.toBe(false);
     expect(consoleError).toHaveBeenCalled();
     expect(consoleWarn).toHaveBeenCalledWith(
-      expect.stringContaining('could not apply "arctic"'),
+      expect.stringContaining('could not apply "evergreen"'),
       expect.any(Error),
     );
     consoleError.mockRestore();
@@ -141,6 +178,18 @@ describe("getCurrentAppIconId", () => {
     expect(getCurrentAppIconId()).toBe("ocean_clarity");
   });
 
+  it("treats a leftover retired icon as the default in the picker", () => {
+    mockGetAppIconName.mockReturnValue("SoftBloom");
+    expect(getCurrentAppIconId()).toBe("minimal_sand");
+    mockGetAppIconName.mockReturnValue("InkWell");
+    expect(getCurrentAppIconId()).toBe("minimal_sand");
+  });
+
+  it("maps restored Arctic back to its theme id", () => {
+    mockGetAppIconName.mockReturnValue("Arctic");
+    expect(getCurrentAppIconId()).toBe("arctic");
+  });
+
   it("falls back to minimal_sand for unknown names", () => {
     mockGetAppIconName.mockReturnValue("Legacy");
     expect(getCurrentAppIconId()).toBe("minimal_sand");
@@ -148,7 +197,7 @@ describe("getCurrentAppIconId", () => {
 
   it("reports the default when alternate icons are unsupported", () => {
     mockSupports = false;
-    mockGetAppIconName.mockReturnValue("Arctic");
+    mockGetAppIconName.mockReturnValue("SoftBloom");
     expect(getCurrentAppIconId()).toBe("minimal_sand");
   });
 });

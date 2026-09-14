@@ -112,7 +112,7 @@ const reset = () => {
     reset();
     await api.syncWidgets();
     assert.equal(calls[0][1], "daily");
-    assert.match(JSON.stringify(calls[0]), /Your daily words return here\./);
+    assert.match(JSON.stringify(calls[0]), /Future Self/);
     console.log(
       "PASS empty " +
         os +
@@ -175,7 +175,7 @@ const reset = () => {
   assert.equal(calls.length, 3);
   assert.equal(calls[1][0], "schedule");
   assert.equal(calls[2][0], "update");
-  assert.match(JSON.stringify(calls[1]), /Your daily words return here\./);
+  assert.match(JSON.stringify(calls[1]), /Future Self/);
   assert.match(JSON.stringify(calls[2]), /I am becoming\./);
   console.log(
     "PASS departed account write settles before neutral clear; stale personal follow-up skipped",

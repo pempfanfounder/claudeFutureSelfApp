@@ -48,7 +48,7 @@ describe("age questions match the Terms (16+)", () => {
   it("iam-claude offers 16 to 17 instead of Under 18 and gates Under 16", () => {
     const age = VARIANT_CONFIGS["iam-claude"].steps.find((s) => s.id === "age");
     expect(age?.minAge).toBe(MINIMUM_AGE);
-    expect(age?.skippable).toBe(true);
+    expect(age?.skippable).toBeFalsy();
     const labels = age?.options?.map((o) => o.label) ?? [];
     expect(labels).not.toContain("Under 18");
     expect(labels).toContain("16 to 17");
@@ -62,7 +62,7 @@ describe("age questions match the Terms (16+)", () => {
     );
     expect(age?.type).toBe("text");
     expect(age?.minAge).toBe(MINIMUM_AGE);
-    expect(age?.skippable).toBe(true);
+    expect(age?.skippable).toBeFalsy();
   });
 
   it("uses friendly copy without dashes and names the age", () => {

@@ -12,6 +12,9 @@ import { AppText } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing } from "@/design-system/tokens";
 
+/** Live push title and every in-app notification mock (paywall stack, onboarding). */
+export const NOTIFICATION_APP_TITLE = "Future Self";
+
 interface MockNotificationProps {
   /** Notification body — the quote/affirmation preview. */
   body: string;
@@ -34,7 +37,7 @@ const PEEK = 8;
 /**
  * The single iOS-style banner (app icon, "Future Self", time, body).
  * Shared between the onboarding notifications step and the paywall's
- * stacked hero so both previews are literally the same drawing.
+ * stacked hero so both previews match the live push title.
  */
 export function NotificationCard({
   body,
@@ -69,7 +72,7 @@ export function NotificationCard({
       </View>
       <View style={styles.text}>
         <View style={styles.titleRow}>
-          <AppText variant="label">Future Self</AppText>
+          <AppText variant="label">{NOTIFICATION_APP_TITLE}</AppText>
           <AppText variant="label" tone="ink3">
             {time}
           </AppText>
@@ -84,9 +87,9 @@ export function NotificationCard({
 
 /**
  * I Am-style preview of what a delivery looks like: an iOS notification
- * group — the front banner (app icon, "Future Self", "Now", body) with a
- * slightly narrower second card peeking out below it. The front card
- * drops in from above once on mount, like a real banner.
+ * group — the front banner (app icon, "Future Self", "Now",
+ * body) with a slightly narrower second card peeking out below it. The
+ * front card drops in from above once on mount, like a real banner.
  */
 export function MockNotification({ body }: MockNotificationProps) {
   const colors = useColors();

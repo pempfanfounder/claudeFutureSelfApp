@@ -57,6 +57,7 @@ test("retry after an acknowledged preference write only retries schedule recalcu
   await act(async () => {
     fireEvent.press(screen.getByLabelText("Quotes: increase"));
   });
+  expect(screen.queryByText("Saving…")).toBeNull();
   expect(saveNotificationPreferences).toHaveBeenCalledTimes(1);
   expect((saveNotificationPreferences as jest.Mock).mock.calls[0][1]).toEqual({
     quotes_per_day: 4,

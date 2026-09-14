@@ -224,7 +224,7 @@ export function SaveAccountScreen({
               {providers.apple ? (
                 <ProviderButton
                   label="Sign in with Apple"
-                  variant="solid"
+                  variant="apple"
                   icon={(color) => (
                     <Icon name="apple" size={ICON_SIZE} color={color} />
                   )}

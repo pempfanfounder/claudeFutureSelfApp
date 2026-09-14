@@ -133,6 +133,15 @@ export const THEMES: Theme[] = [
     accent: "#7BA3AE",
     preview: "Minimal. Cold light.",
   },
+  {
+    id: "sun",
+    name: "Sun",
+    category: "seasonal",
+    bg: "#F5C542",
+    ink: "#3A2410",
+    accent: "#E0891F",
+    preview: "Midday. Full light.",
+  },
 ];
 
 export function themeById(id: string): Theme | undefined {

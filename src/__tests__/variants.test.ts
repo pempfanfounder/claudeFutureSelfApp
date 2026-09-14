@@ -449,6 +449,33 @@ describe("iam-claude conversion refinements", () => {
     );
   });
 
+  it("carries the locked TestFlight picks (2026-09-13)", () => {
+    expect(resolveText(stepById("familiarity").headline, dummyCtx)).toBe(
+      "Have you tried affirmations yet?",
+    );
+    expect(resolveText(stepById("belief-manifestation").headline, dummyCtx)).toBe(
+      "Do you believe in manifestation?",
+    );
+    expect(resolveText(stepById("source").sub, dummyCtx)).toBe(
+      "Helps us find people like you.",
+    );
+    expect(
+      stepById("habit-helper").options?.find((o) => o.slug === "widget")?.label,
+    ).toBe("A widget on my Home and Lock Screen");
+    expect(
+      stepById("practice-mode").options?.find((o) => o.slug === "widget")
+        ?.label,
+    ).toBe("Seeing them on my Home and Lock Screen");
+    const obstacles = stepById("obstacles").options ?? [];
+    expect(obstacles.find((o) => o.slug === "self-doubt")?.emoji).toBe("💭");
+    expect(obstacles.find((o) => o.slug === "no-plan")?.emoji).toBe("❓");
+    expect(stepById("benefits").bullets).toEqual([
+      "Keep your goals in sight",
+      "Soften negative self-talk",
+      "Support your mental well-being",
+    ]);
+  });
+
   it("lets every future trait be picked (no cap)", () => {
     const traits = stepById("traits");
     expect(traits.type).toBe("chips");
@@ -524,13 +551,13 @@ describe("iam-claude conversion refinements", () => {
     const achieve = stepById("achieve");
     expect(achieve.trialCaption).toBe(true);
     expect(config.steps[config.steps.indexOf(achieve) + 1]?.id).toBe("result");
-    // The name personalizes the familiarity headline; falls back cleanly.
+    // The familiarity headline is the locked TestFlight pick.
     const familiarity = stepById("familiarity");
     expect(resolveText(familiarity.headline, dummyCtx)).toBe(
-      "Where are you with affirmations, Sam?",
+      "Have you tried affirmations yet?",
     );
     expect(resolveText(familiarity.headline, { ...dummyCtx, name: null })).toBe(
-      "Where are you with affirmations?",
+      "Have you tried affirmations yet?",
     );
   });
 });

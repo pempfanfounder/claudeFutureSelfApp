@@ -40,7 +40,8 @@ export const iamClaude: VariantConfig = {
       headline: (ctx) =>
         ctx.name ? `How old are you, ${ctx.name}?` : "How old are you?",
       sub: "Your age helps us personalize your quotes and affirmations",
-      // Terms of Service: 16+. "Under 16" stops the flow (soft gate, no
+      // Terms of Service: 16+. Required — Skip is off so the under-16
+      // gate always runs. "Under 16" stops the flow (soft gate, no
       // answer stored); the 16 to 17 band replaces the old "Under 18".
       options: [
         { slug: "u16", label: "Under 16", underAge: true },
@@ -51,7 +52,6 @@ export const iamClaude: VariantConfig = {
         { slug: "45-54", label: "45 to 54" },
         { slug: "55+", label: "55+" },
       ],
-      skippable: true,
       minAge: 16,
       modelKey: "raw.age_band",
     },
@@ -82,10 +82,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "familiarity",
       type: "single",
-      headline: (ctx) =>
-        ctx.name
-          ? `Where are you with affirmations, ${ctx.name}?`
-          : "Where are you with affirmations?",
+      headline: "Have you tried affirmations yet?",
       sub: "Your answer shapes how we introduce them",
       options: [
         { slug: "new", label: "Never really tried them" },
@@ -118,7 +115,7 @@ export const iamClaude: VariantConfig = {
       options: [
         { slug: "reminders", label: "Reminders through my day" },
         { slug: "progress", label: "Watching my streak build" },
-        { slug: "widget", label: "A widget on my Home or Lock Screen" },
+        { slug: "widget", label: "A widget on my Home and Lock Screen" },
         { slug: "fit", label: "Quotes that match my goals" },
         { slug: "unsure", label: "I don't know yet" },
       ],
@@ -170,8 +167,8 @@ export const iamClaude: VariantConfig = {
         { slug: "distraction", label: "My phone eats my day", emoji: "📱" },
         { slug: "motivation", label: "I start strong, then stop", emoji: "🔁" },
         { slug: "overwhelm", label: "I get overwhelmed", emoji: "🌀" },
-        { slug: "self-doubt", label: "I doubt myself", emoji: "🪞" },
-        { slug: "no-plan", label: "I don't have a clear plan", emoji: "🗺️" },
+        { slug: "self-doubt", label: "I doubt myself", emoji: "💭" },
+        { slug: "no-plan", label: "I don't have a clear plan", emoji: "❓" },
       ],
       skippable: true,
       modelKey: "obstacles",
@@ -265,7 +262,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "belief-manifestation",
       type: "single",
-      headline: "Where do you stand on manifestation?",
+      headline: "Do you believe in manifestation?",
       sub: "No right answer here",
       options: [
         { slug: "yes", label: "I'm a believer" },
@@ -378,7 +375,7 @@ export const iamClaude: VariantConfig = {
       // No "listening" option: the app has no audio.
       options: [
         { slug: "phone", label: "Reading them in the app" },
-        { slug: "widget", label: "Seeing them on my Home or Lock Screen" },
+        { slug: "widget", label: "Seeing them on my Home and Lock Screen" },
         { slug: "aloud", label: "Saying them out loud" },
         { slug: "journal", label: "Writing them in a journal" },
         { slug: "post-it", label: "Writing them on a post-it" },
@@ -450,7 +447,7 @@ export const iamClaude: VariantConfig = {
       id: "source",
       type: "single",
       headline: "One last thing: how did you find us?",
-      sub: "It helps a small team keep showing up there",
+      sub: "Helps us find people like you.",
       options: [
         { slug: "web", label: "Web search" },
         { slug: "app-store", label: "App Store" },

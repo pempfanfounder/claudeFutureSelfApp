@@ -105,6 +105,7 @@ afterEach(() => {
 
 import { AuthSheet } from "@/features/auth/AuthSheet";
 import { Button } from "@/design-system/components";
+import { ProviderButton } from "@/features/auth/ProviderButton";
 test.each(["result", "rejection"])(
   "conditional email resend recovers after late %s and keeps the pending SDK fenced",
   async (settlement) => {
@@ -297,7 +298,7 @@ test.each([true, false])(
       .mockReturnValueOnce(next.promise);
     const press = () =>
       screen
-        .UNSAFE_getAllByType(Button)
+        .UNSAFE_getAllByType(ProviderButton)
         .find((x) => x.props.testID === "auth-apple")!
         .props.onPress();
     let first!: Promise<unknown>;
@@ -347,7 +348,7 @@ test("provider cancellation is silent, ordinary failure is visible, and both all
     .mockResolvedValueOnce({ ok: true });
   const press = () =>
     screen
-      .UNSAFE_getAllByType(Button)
+      .UNSAFE_getAllByType(ProviderButton)
       .find((x) => x.props.testID === "auth-apple")!
       .props.onPress();
   await act(async () => {
@@ -381,7 +382,7 @@ test.each(["modal-close", "unmount"])(
     let task!: Promise<unknown>;
     act(() => {
       task = screen
-        .UNSAFE_getAllByType(Button)
+        .UNSAFE_getAllByType(ProviderButton)
         .find((x) => x.props.testID === "auth-apple")!
         .props.onPress();
     });

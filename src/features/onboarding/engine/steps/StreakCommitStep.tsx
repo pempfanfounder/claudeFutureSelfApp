@@ -1,8 +1,20 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeInRight, ZoomIn } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeInRight,
+  ZoomIn,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
 
 import { AppText, Button, Icon } from "@/design-system/components";
+import { useMotionPreference } from "@/design-system/motion";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing } from "@/design-system/tokens";
 
@@ -12,6 +24,12 @@ import { weekStrip } from "./weekStrip";
 
 const DEFAULT_GOAL_DAYS = "21";
 const DAY_CHECK_SIZE = 14;
+const FLAME_COUNT = 8;
+const RING_RADIUS = 46;
+const FLAME_SIZE = 14;
+const RING_SIZE = RING_RADIUS * 2 + FLAME_SIZE + 8;
+/** One full wheel-turn; Reduce Motion skips this. */
+const ORBIT_MS = 14000;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -28,6 +46,97 @@ interface StreakCommitStepProps {
 function chosenGoalDays(ctx: OnboardingContext): string {
   const goal = ctx.answers["raw.streak_goal"];
   return typeof goal === "string" && goal.length > 0 ? goal : DEFAULT_GOAL_DAYS;
+}
+
+/**
+ * Theme-colored flame ticks in a circle around the day "1". The ring
+ * orbits like a spinning wheel; each glyph stays upright (positions
+ * move, the flame itself never rotates). Reduce Motion freezes the
+ * orbit so the numeral stays readable.
+ */
+function FlameTick({
+  index,
+  color,
+  orbit,
+}: {
+  index: number;
+  color: string;
+  orbit: SharedValue<number>;
+}) {
+  const base = (index / FLAME_COUNT) * 2 * Math.PI - Math.PI / 2;
+  const tickStyle = useAnimatedStyle(() => {
+    const angle = base + orbit.get();
+    return {
+      transform: [
+        { translateX: Math.cos(angle) * RING_RADIUS },
+        { translateY: Math.sin(angle) * RING_RADIUS },
+      ],
+    };
+  });
+  return (
+    <Animated.View
+      testID="streak-flame-tick"
+      style={[styles.flameTick, tickStyle]}
+    >
+      <Icon name="flame" size={FLAME_SIZE} color={color} />
+    </Animated.View>
+  );
+}
+
+function FlameRing({ color }: { color: string }) {
+  const reduced = useMotionPreference();
+  const orbit = useSharedValue(0);
+  const pulse = useSharedValue(0.85);
+  useEffect(() => {
+    cancelAnimation(orbit);
+    cancelAnimation(pulse);
+    if (reduced) {
+      orbit.set(0);
+      pulse.set(0.85);
+      return;
+    }
+    orbit.set(0);
+    orbit.set(
+      withRepeat(
+        withTiming(Math.PI * 2, {
+          duration: ORBIT_MS,
+          easing: Easing.linear,
+        }),
+        -1,
+      ),
+    );
+    pulse.set(0.7);
+    pulse.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.55, {
+            duration: 900,
+            easing: Easing.inOut(Easing.quad),
+          }),
+        ),
+        -1,
+      ),
+    );
+    return () => {
+      cancelAnimation(orbit);
+      cancelAnimation(pulse);
+    };
+  }, [reduced, orbit, pulse]);
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: pulse.get(),
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      testID="streak-flame-ring"
+      style={[styles.flameRing, ringStyle]}
+    >
+      {Array.from({ length: FLAME_COUNT }, (_, i) => (
+        <FlameTick key={i} index={i} color={color} orbit={orbit} />
+      ))}
+    </Animated.View>
+  );
 }
 
 /**
@@ -59,9 +168,12 @@ export function StreakCommitStep({
           entering={ZoomIn.duration(500).delay(150)}
           style={styles.dayWrap}
         >
-          <AppText variant="display" center>
-            1
-          </AppText>
+          <View style={styles.dayHero}>
+            <FlameRing color={colors.accent} />
+            <AppText variant="display" center>
+              1
+            </AppText>
+          </View>
           <View
             style={[
               styles.groundLine,
@@ -164,6 +276,22 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   dayWrap: { alignItems: "center", marginBottom: spacing.xl },
+  dayHero: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flameRing: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flameTick: { position: "absolute" },
   groundLine: { width: 72, height: 2, borderRadius: 1, marginTop: spacing.xs },
   sub: { marginTop: spacing.md },
   weekCard: {

@@ -74,6 +74,11 @@ test("renders the title, the three provider pills and both consent boxes", () =>
   expect(screen.getByText("Sign in with Apple")).toBeTruthy();
   expect(screen.getByText("Sign in with Google")).toBeTruthy();
   expect(screen.getByText("Continue with email")).toBeTruthy();
+  const apple = screen.getByTestId("auth-apple");
+  const appleStyle = StyleSheet.flatten(
+    apple.props.style as StyleProp<ViewStyle>,
+  ) as { backgroundColor?: string };
+  expect(appleStyle.backgroundColor).toBe("#000000");
   // The glyph is decorative (hidden from assistive tech), so opt in.
   expect(
     screen.getByTestId("google-glyph", { includeHiddenElements: true }),

@@ -20,7 +20,7 @@ import {
   MOTION,
   useMotionPreference,
 } from "@/design-system/motion";
-import { useColors } from "@/design-system/ThemeProvider";
+import { useColors, useTheme } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 interface ProviderButtonProps {
@@ -28,8 +28,8 @@ interface ProviderButtonProps {
   /** Rendered left of the label; receives the resolved foreground color. */
   icon: (color: string, background: string) => ReactNode;
   onPress: () => void;
-  /** solid = high-contrast CTA (Apple); outline = card with a thin border. */
-  variant?: "solid" | "outline";
+  /** solid = theme CTA; outline = card; apple = true black / white. */
+  variant?: "solid" | "outline" | "apple";
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
@@ -37,12 +37,14 @@ interface ProviderButtonProps {
 }
 
 export const PROVIDER_BUTTON_HEIGHT = 58;
+const APPLE_BLACK = "#000000";
+const APPLE_WHITE = "#FFFFFF";
 
 /**
  * Tall, fully rounded sign-in pill with a centred icon + label pair.
- * Solid uses the theme CTA colors (dark ink on light themes, inverted on
- * dark themes — matching Apple's black/white button guidance); outline
- * uses the card surface with the strong border.
+ * Solid uses the theme CTA colors. Apple is true black on light themes
+ * and true white on dark themes (HIG: no custom tint). Outline uses the
+ * card surface with the strong border.
  */
 export function ProviderButton({
   label,
@@ -55,6 +57,7 @@ export function ProviderButton({
   testID,
 }: ProviderButtonProps) {
   const colors = useColors();
+  const { theme } = useTheme();
   const reduced = useMotionPreference();
   const [pressed, setPressed] = useState(false);
   const scale = useSharedValue(1);
@@ -66,9 +69,23 @@ export function ProviderButton({
     scale.set(1);
   }, [reduced, scale]);
 
-  const solid = variant === "solid";
-  const background = solid ? colors.ctaBg : colors.card;
-  const foreground = solid ? colors.ctaInk : colors.ink;
+  const apple = variant === "apple";
+  const solid = variant === "solid" || apple;
+  const darkApple = apple && theme.category === "dark";
+  const background = apple
+    ? darkApple
+      ? APPLE_WHITE
+      : APPLE_BLACK
+    : solid
+      ? colors.ctaBg
+      : colors.card;
+  const foreground = apple
+    ? darkApple
+      ? APPLE_BLACK
+      : APPLE_WHITE
+    : solid
+      ? colors.ctaInk
+      : colors.ink;
   const inert = Boolean(disabled || loading);
 
   const handlePress = () => {

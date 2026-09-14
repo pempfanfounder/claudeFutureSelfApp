@@ -155,6 +155,7 @@ export function OnboardingFlow() {
       setSwitchAuthVisible(true);
       return;
     }
+    if (step.minAge !== undefined) return;
     analytics.capture("onboarding_skipped", { variant, step: step.id });
     advance();
   }, [step, variant, advance]);

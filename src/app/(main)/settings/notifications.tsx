@@ -156,7 +156,6 @@ export default function NotificationSettingsScreen() {
     const identity = captureIdentity();
     busyRef.current = true;
     setBusy(true);
-    setStatus("Saving…");
     if (next) {
       const changes: PreferenceChanges = {};
       for (const key of PREFERENCE_KEYS)
@@ -233,7 +232,7 @@ export default function NotificationSettingsScreen() {
             >
               <AppText accessibilityRole="alert">{status}</AppText>
             </Pressable>
-          ) : busy ? (
+          ) : busy && !loaded ? (
             <AppText accessibilityRole="alert">Loading preferences…</AppText>
           ) : null}
           {permission !== "granted" ? (

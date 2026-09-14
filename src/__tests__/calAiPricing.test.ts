@@ -115,13 +115,16 @@ describe("plan maths from real prices", () => {
 });
 
 describe("preview notifications", () => {
-  it("shows three real catalog lines, newest first", () => {
+  it("shows three paywall lines, newest first, with the locked cuts", () => {
     const items = paywallPreviewNotifications();
     expect(items).toHaveLength(3);
     expect(items[0]!.time).toBe("Now");
-    for (const item of items) {
-      expect(LOCAL_CATALOG.some((c) => c.body === item.body)).toBe(true);
-    }
+    expect(items[0]!.body).toBe(
+      "Every day your window of opportunity gets smaller and smaller.",
+    );
+    expect(items[0]!.body).not.toMatch(/…/);
+    expect(items[1]!.body).toBe("I start now, not later.");
+    expect(LOCAL_CATALOG.some((c) => c.body === items[2]!.body)).toBe(true);
   });
 });
 

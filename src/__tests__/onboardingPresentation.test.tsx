@@ -87,6 +87,9 @@ describe("onboarding presentation", () => {
     expect(resolveOptionIcon("🔥")).toBe("flame");
     expect(resolveOptionIcon("🌫️")).toBe("fog");
     expect(resolveOptionIcon("❤️")).toBe("heartFill");
+    expect(resolveOptionIcon("😔")).toBe("pensive");
+    expect(resolveOptionIcon("💭")).toBe("thought");
+    expect(resolveOptionIcon("❓")).toBe("question");
   });
 
   it("keeps a brown primary CTA on screens that need a button", () => {

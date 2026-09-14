@@ -5,7 +5,7 @@ import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
-import { trialInfo, type PaywallData } from "../useOffering";
+import type { PaywallData } from "../useOffering";
 import {
   billingLabel,
   perWeekLabel,
@@ -19,10 +19,10 @@ interface PlanCardsProps {
 }
 
 /**
- * Cal AI's two stacked plan cards in Future Self chrome: the yearly plan
- * wears a "MOST POPULAR" tab and a filled check; the weekly plan is a
- * plain outlined card with an empty radio. Both show a per-week price;
- * the saving is yearly against 52 weekly payments, from real prices.
+ * Cal AI's two stacked plan cards: yearly title stays "Yearly". The tab
+ * shows both "3 days free" and "Most popular". Save X% vs weekly sits
+ * under the title at body size so the cheaper yearly plan is obvious —
+ * not a tiny eyebrow pill, and not a substitute for the plan name.
  */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
@@ -38,12 +38,6 @@ export function PlanCards({ data }: PlanCardsProps) {
       {ordered.map((pkg) => {
         const isAnnual = pkg.packageType === "ANNUAL";
         const selected = data.pkg?.identifier === pkg.identifier;
-        const trial = trialInfo(
-          pkg,
-          data.eligibility?.[pkg.product.identifier],
-        );
-        const title =
-          isAnnual && savings !== null ? `Save ${savings}%` : planTitle(pkg);
         const perWeek = perWeekLabel(pkg);
         return (
           <Pressable
@@ -64,7 +58,13 @@ export function PlanCards({ data }: PlanCardsProps) {
             ]}
           >
             {isAnnual ? (
-              <View style={[styles.tab, { backgroundColor: colors.ctaBg }]}>
+              <View
+                style={[styles.tab, { backgroundColor: colors.ctaBg }]}
+                testID="plan-yearly-tag"
+              >
+                <AppText variant="eyebrow" tone="ctaInk">
+                  3 days free
+                </AppText>
                 <AppText variant="eyebrow" tone="ctaInk">
                   Most popular
                 </AppText>
@@ -90,20 +90,20 @@ export function PlanCards({ data }: PlanCardsProps) {
                 ) : null}
               </View>
               <View style={styles.copy}>
-                <View style={styles.titleRow}>
-                  <AppText variant="lead" style={styles.title}>
-                    {title}
+                <AppText variant="lead" style={styles.title}>
+                  {planTitle(pkg)}
+                </AppText>
+                {isAnnual && savings !== null ? (
+                  <AppText
+                    variant="body"
+                    style={[styles.save, { color: colors.ink }]}
+                    testID="plan-yearly-save"
+                  >
+                    {`Save ${savings}% vs weekly`}
                   </AppText>
-                  {trial ? (
-                    <View
-                      style={[styles.trial, { backgroundColor: colors.accent }]}
-                    >
-                      <AppText variant="eyebrow">{`${trial.label} free`}</AppText>
-                    </View>
-                  ) : null}
-                </View>
+                ) : null}
                 {isAnnual ? (
-                  <AppText variant="label" tone="ink2" style={styles.billing}>
+                  <AppText variant="body" tone="ink2" style={styles.billing}>
                     {billingLabel(pkg)}
                   </AppText>
                 ) : null}
@@ -137,15 +137,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     overflow: "hidden",
   },
-  cardWithTab: { paddingTop: spacing.lg + 22 },
+  cardWithTab: { paddingTop: spacing.lg + 26 },
   tab: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 24,
+    height: 28,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing.md,
   },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   radio: {
@@ -157,13 +159,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   title: { fontFamily: type.sansSemi },
-  trial: {
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  billing: { marginTop: 2 },
+  save: { marginTop: 2, fontFamily: type.sansSemi },
+  billing: { marginTop: 2, fontFamily: type.sansMed },
   price: { fontFamily: type.sansMed },
 });

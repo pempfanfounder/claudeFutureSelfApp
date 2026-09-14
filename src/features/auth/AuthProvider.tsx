@@ -96,6 +96,8 @@ interface AuthContextValue {
   linkWithGoogle: () => Promise<AuthOutcome>;
   startEmailLink: (email: string) => Promise<AuthOutcome>;
   verifyEmailLink: (email: string, code: string) => Promise<AuthOutcome>;
+  startEmailSignIn: (email: string) => Promise<AuthOutcome>;
+  verifyEmailSignIn: (email: string, code: string) => Promise<AuthOutcome>;
   signInExistingWithApple: () => Promise<AuthOutcome>;
   signInExistingWithGoogle: () => Promise<AuthOutcome>;
   /**
@@ -523,6 +525,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [afterIdentityChange],
   );
 
+  const startEmailSignIn = useCallback(
+    async (email: string): Promise<AuthOutcome> => {
+      const supabase = getSupabase();
+      if (!supabase || !config.emailAuthEnabled)
+        return { ok: false, reason: "unavailable" };
+      let error;
+      try {
+        ({ error } = await runSharedAuthOperation(() =>
+          supabase.auth.signInWithOtp({
+            email,
+            options: { shouldCreateUser: false },
+          }),
+        ));
+      } catch (cause) {
+        return {
+          ok: false,
+          reason: "error",
+          message: (cause as Error).message,
+        };
+      }
+      if (error) {
+        monitoring.captureError(error, { area: "auth.emailStart" });
+        return { ok: false, reason: "error", message: error.message };
+      }
+      return { ok: true };
+    },
+    [],
+  );
+
+  const verifyEmailSignIn = useCallback(
+    async (email: string, code: string): Promise<AuthOutcome> => {
+      const identity = captureIdentity();
+      const supabase = getSupabase();
+      if (!supabase || !config.emailAuthEnabled)
+        return { ok: false, reason: "unavailable" };
+      if (!isCurrentIdentity(identity))
+        throw new Error("Account changed. Please retry.");
+      let data;
+      let error;
+      try {
+        ({ data, error } = await runSharedAuthOperation(() =>
+          supabase.auth.verifyOtp({
+            email,
+            token: code,
+            type: "email",
+          }),
+        ));
+      } catch (cause) {
+        return {
+          ok: false,
+          reason: "error",
+          message: (cause as Error).message,
+        };
+      }
+      if (error) {
+        return {
+          ok: false,
+          reason: "error",
+          message: "That code didn't match. Try again.",
+        };
+      }
+      analytics.capture("auth_signed_in", { provider: "email" });
+      const newUserId = data.session?.user.id ?? data.user?.id;
+      if (newUserId && useAppState.getState().userId === newUserId)
+        await reconcileOnboardingState(newUserId);
+      await afterIdentityChange();
+      return { ok: true };
+    },
+    [afterIdentityChange],
+  );
+
   const signInExistingWithApple =
     useCallback(async (): Promise<AuthOutcome> => {
       const identity = captureIdentity();
@@ -816,6 +889,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startEmailLink: (email) => runMutation(() => startEmailLink(email)),
       verifyEmailLink: (email, code) =>
         runMutation(() => verifyEmailLink(email, code)),
+      startEmailSignIn: (email) => runMutation(() => startEmailSignIn(email)),
+      verifyEmailSignIn: (email, code) =>
+        runMutation(() => verifyEmailSignIn(email, code)),
       signInExistingWithApple: () => runMutation(signInExistingWithApple),
       signInExistingWithGoogle: () => runMutation(signInExistingWithGoogle),
       recordConsent: (consent) => runMutation(() => recordConsent(consent)),
@@ -834,6 +910,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       linkWithGoogle,
       startEmailLink,
       verifyEmailLink,
+      startEmailSignIn,
+      verifyEmailSignIn,
       signInExistingWithApple,
       signInExistingWithGoogle,
       recordConsent,

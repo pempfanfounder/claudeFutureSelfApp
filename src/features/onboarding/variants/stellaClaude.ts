@@ -62,8 +62,8 @@ export const stellaClaude: VariantConfig = {
       placeholder: "28",
       keyboard: "number-pad",
       maxLength: 3,
-      skippable: true,
-      // Terms of Service: 16+. A typed age below 16 is never stored; the
+      // Terms of Service: 16+. Required — Skip is off so the under-16
+      // gate always runs. A typed age below 16 is never stored; the
       // flow shows the soft age stop instead.
       minAge: 16,
       modelKey: "raw.age",

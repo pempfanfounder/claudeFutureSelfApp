@@ -313,6 +313,14 @@ describe("OnboardingFlow smoke render", () => {
     screen.unmount();
   });
 
+  it("does not let the iam-claude age band be skipped", async () => {
+    const ageIndex = indexOfStep("iam-claude", (s) => s.id === "age");
+    const screen = renderVariant("iam-claude", ageIndex);
+    expect(screen.queryByText("Skip")).toBeNull();
+    expect(useOnboardingStore.getState().stepIndex).toBe(ageIndex);
+    screen.unmount();
+  });
+
   it("stops an under-16 band choice on iam-claude without storing it", async () => {
     const ageIndex = indexOfStep("iam-claude", (s) => s.id === "age");
     const screen = renderVariant("iam-claude", ageIndex);
@@ -359,6 +367,25 @@ describe("OnboardingFlow smoke render", () => {
     const state = useOnboardingStore.getState();
     expect(state.answers["raw.age_band"]).toBe("16-17");
     expect(state.stepIndex).toBe(ageIndex + 1);
+    screen.unmount();
+  });
+
+  it("does not let the stella-claude typed age be skipped or submitted blank", async () => {
+    const ageIndex = indexOfStep("stella-claude", (s) => s.id === "age");
+    const screen = renderVariant("stella-claude", ageIndex);
+    const input = await screen.findByTestId(
+      "text-input",
+      {},
+      { timeout: 8000 },
+    );
+    expect(screen.queryByText("Skip")).toBeNull();
+    fireEvent.changeText(input, "abc");
+    fireEvent(input, "submitEditing");
+    expect(useOnboardingStore.getState().stepIndex).toBe(ageIndex);
+    expect(useOnboardingStore.getState().answers["raw.age"]).toBeUndefined();
+    expect(screen.queryByTestId("age-stop")).toBeNull();
+    fireEvent.press(screen.getByTestId("continue"));
+    expect(useOnboardingStore.getState().stepIndex).toBe(ageIndex);
     screen.unmount();
   });
 

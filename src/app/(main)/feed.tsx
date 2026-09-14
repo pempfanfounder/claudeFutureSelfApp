@@ -11,6 +11,7 @@ import {
   AppState,
   findNodeHandle,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +36,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, shadows, spacing } from "@/design-system/tokens";
+import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import { ContentCard } from "@/features/content/ContentCard";
 import { useFeedStore } from "@/features/content/feedStore";
@@ -60,15 +61,27 @@ export type FeedRow = { kind: "item"; item: ContentItem } | { kind: "end" };
  * pager crashes iOS 26 (`UIAnimator` / `CFRunLoopWakeUp`). Swipe still
  * uses native paging.
  */
-export function programmaticPagerScroll(
-  pageWidth: number,
-  tab: ContentType,
-) {
+export function programmaticPagerScroll(pageWidth: number, tab: ContentType) {
   return {
     x: tab === "quote" ? 0 : pageWidth,
     y: 0,
     animated: false as const,
   };
+}
+
+/**
+ * Overlay copy for load/retry. `markViewed` queues a pending RPC and
+ * bumps `pendingCount` on every quote swipe *before* the server acks —
+ * that in-flight work is not a failed sync and must not show
+ * "waiting to sync / tap retry".
+ */
+export function feedRetryOverlayText(feed: {
+  loading: boolean;
+  error: string | null;
+  pendingCount: number;
+}): string | null {
+  if (feed.loading) return "Loading your quotes.";
+  return feed.error;
 }
 
 /**
@@ -82,6 +95,12 @@ export function pageLayout(pageHeight: number, index: number) {
 }
 
 const UNMEASURED_ROWS: FeedRow[] = [];
+
+/** Top-right streak chip; the top-left Future Self control is a square of the chip's min width. */
+const STREAK_CHIP_HEIGHT = 40;
+const STREAK_CHIP_MIN_WIDTH = 48;
+const HOME_MARK_SIZE = STREAK_CHIP_MIN_WIDTH;
+const HOME_MARK_RADIUS = 14;
 
 /**
  * Home route. Hosts the container-morph overlay so the three floating
@@ -119,8 +138,7 @@ function FeedContent() {
       width: quoteW.get() + (affirmationW.get() - quoteW.get()) * t,
       transform: [
         {
-          translateX:
-            quoteX.get() + (affirmationX.get() - quoteX.get()) * t,
+          translateX: quoteX.get() + (affirmationX.get() - quoteX.get()) * t,
         },
       ],
     };
@@ -278,6 +296,7 @@ function FeedContent() {
   };
 
   const viewedCount = feed.viewedToday.length;
+  const overlay = feedRetryOverlayText(feed);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
@@ -335,7 +354,7 @@ function FeedContent() {
           </ScrollView>
         ) : null}
       </View>
-      {feed.loading || feed.error || feed.pendingCount > 0 ? (
+      {overlay ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry daily content and pending changes"
@@ -357,10 +376,7 @@ function FeedContent() {
           }}
         >
           <AppText accessibilityRole="alert" center variant="label">
-            {feed.loading
-              ? "Loading your daily words…"
-              : (feed.error ??
-                `${feed.pendingCount} changes waiting to sync. Tap Retry.`)}
+            {overlay}
           </AppText>
           {feed.localOnlyCount > 0 ? (
             <AppText center variant="label">
@@ -397,15 +413,18 @@ function FeedContent() {
       <View style={[styles.top, { top: insets.top + spacing.sm }]}>
         <Pressable
           ref={avatarRef}
-          onPress={() =>
-            launch(avatarRef, "profile", styles.avatar.borderRadius)
-          }
+          onPress={() => launch(avatarRef, "profile", HOME_MARK_RADIUS)}
           style={[styles.avatar, { backgroundColor: colors.card }, shadows.sm]}
           testID="open-settings"
           accessibilityRole="button"
           accessibilityLabel="Profile"
         >
-          <AppText variant="label">fs</AppText>
+          <Image
+            source={require("../../../assets/images/splash-icon.png")}
+            style={styles.avatarLogo}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
         </Pressable>
 
         <View
@@ -459,14 +478,19 @@ function FeedContent() {
           ]}
         >
           {feed.completedToday ? (
-            <View style={styles.streakRow}>
-              <Icon name="sparkle" size={12} color={colors.accent} />
-              <AppText variant="label" tone="accent">
+            <View style={styles.streakRow} testID="home-streak">
+              <Icon name="sparkle" size={16} color={colors.ink} />
+              <AppText variant="body" tone="ink" style={styles.streakValue}>
                 {feed.currentStreak}
               </AppText>
             </View>
           ) : (
-            <AppText variant="label" tone="ink2">
+            <AppText
+              variant="body"
+              tone="ink"
+              style={styles.streakValue}
+              testID="home-streak"
+            >
               {`${Math.min(viewedCount, STREAK_TARGET)}/${STREAK_TARGET}`}
             </AppText>
           )}
@@ -565,7 +589,7 @@ export function FeedColumn({
             empty={items.length === 0}
             loading={feed.loading}
             failed={Boolean(feed.error)}
-            pending={feed.pendingCount > 0}
+            pending={Boolean(feed.error) && feed.pendingCount > 0}
           />
         )
       }
@@ -602,7 +626,7 @@ export function EndCard({
     <View style={[styles.endCard, { height }]}>
       <AppText variant="h2" center>
         {loading && empty
-          ? "Loading your daily words…"
+          ? "Loading your quotes."
           : empty
             ? "Your daily words aren’t available yet."
             : "That's the whole set for today."}
@@ -635,11 +659,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: HOME_MARK_SIZE,
+    height: HOME_MARK_SIZE,
+    borderRadius: HOME_MARK_RADIUS,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarLogo: {
+    width: HOME_MARK_SIZE,
+    height: HOME_MARK_SIZE,
+    borderRadius: HOME_MARK_RADIUS,
   },
   segment: {
     flexDirection: "row",
@@ -653,14 +683,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   streakChip: {
-    minWidth: 44,
-    height: 32,
+    minWidth: STREAK_CHIP_MIN_WIDTH,
+    height: STREAK_CHIP_HEIGHT,
     borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   streakRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  streakValue: { fontFamily: type.sansSemi, fontSize: 16, lineHeight: 20 },
   bottom: {
     position: "absolute",
     left: spacing.xl,
