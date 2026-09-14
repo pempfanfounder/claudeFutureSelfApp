@@ -30,21 +30,21 @@ beforeEach(() => {
 });
 
 describe("app icon catalogue", () => {
-  it("offers exactly the ten full-bleed icons, without Soft Bloom", () => {
+  it("offers exactly the nine full-bleed icons, without Soft Bloom or Inkwell", () => {
     expect(APP_ICON_IDS).toEqual([
       "minimal_sand",
       "ocean_clarity",
       "terracotta",
       "midnight_focus",
-      "ink_well",
       "arctic",
       "sun",
       "sunrise_momentum",
       "golden_success",
       "evergreen",
     ]);
-    expect([...RETIRED_APP_ICON_IDS]).toEqual(["soft_bloom"]);
+    expect([...RETIRED_APP_ICON_IDS]).toEqual(["soft_bloom", "ink_well"]);
     expect(APP_ICON_IDS).not.toContain("soft_bloom");
+    expect(APP_ICON_IDS).not.toContain("ink_well");
   });
 
   it("bundles a static image source for every icon id", () => {
@@ -122,12 +122,13 @@ describe("applyAppIcon", () => {
     mockGetAppIconName.mockReturnValue("SoftBloom");
     await expect(applyAppIcon("soft_bloom")).resolves.toBe(true);
     expect(mockSetAlternateAppIcon).toHaveBeenCalledWith(null);
+    mockSetAlternateAppIcon.mockClear();
+    mockGetAppIconName.mockReturnValue("InkWell");
+    await expect(applyAppIcon("ink_well")).resolves.toBe(true);
+    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith(null);
   });
 
-  it("applies restored Inkwell, Arctic and Sun by their PascalCase names", async () => {
-    await expect(applyAppIcon("ink_well")).resolves.toBe(true);
-    expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("InkWell");
-    mockGetAppIconName.mockReturnValue("InkWell");
+  it("applies restored Arctic and Sun by their PascalCase names", async () => {
     await expect(applyAppIcon("arctic")).resolves.toBe(true);
     expect(mockSetAlternateAppIcon).toHaveBeenCalledWith("Arctic");
     mockGetAppIconName.mockReturnValue("Arctic");
@@ -179,6 +180,8 @@ describe("getCurrentAppIconId", () => {
 
   it("treats a leftover retired icon as the default in the picker", () => {
     mockGetAppIconName.mockReturnValue("SoftBloom");
+    expect(getCurrentAppIconId()).toBe("minimal_sand");
+    mockGetAppIconName.mockReturnValue("InkWell");
     expect(getCurrentAppIconId()).toBe("minimal_sand");
   });
 

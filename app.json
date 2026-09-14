@@ -101,18 +101,6 @@
             }
           },
           {
-            "name": "InkWell",
-            "ios": {
-              "light": "./assets/icons/icon-ink_well.png",
-              "dark": "./assets/icons/icon-ink_well-dark.png",
-              "tinted": "./assets/icons/icon-ink_well-tinted.png"
-            },
-            "android": {
-              "foregroundImage": "./assets/icons/icon-ink_well.png",
-              "backgroundColor": "#1C140D"
-            }
-          },
-          {
             "name": "Arctic",
             "ios": {
               "light": "./assets/icons/icon-arctic.png",

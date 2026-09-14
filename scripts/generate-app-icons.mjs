@@ -7,7 +7,7 @@
  * For each id: `icon-<id>.png` (Light), `icon-<id>-dark.png` (Dark),
  * `icon-<id>-tinted.png` (Tinted). Opaque PNGs; iOS rejects alpha.
  *
- * Soft Bloom is not generated. Sun is a seasonal fill in THEMES.
+ * Soft Bloom and Inkwell are not generated. Sun is a seasonal fill in THEMES.
  *
  * Usage: node scripts/generate-app-icons.mjs
  */
@@ -28,7 +28,6 @@ const ICON_IDS = [
   "ocean_clarity",
   "terracotta",
   "midnight_focus",
-  "ink_well",
   "arctic",
   "sun",
   "sunrise_momentum",
@@ -170,13 +169,17 @@ async function main() {
     console.log(`wrote ${id} (${theme.bg} / ${theme.ink})`);
   }
 
-  // Soft Bloom stays out of the picker; drop a leftover generated file.
-  const retired = join(OUT_DIR, "icon-soft_bloom.png");
-  try {
-    await unlink(retired);
-    console.log(`removed ${retired}`);
-  } catch (error) {
-    if (error && error.code !== "ENOENT") throw error;
+  // Soft Bloom and Inkwell stay out of the picker; drop leftover files.
+  for (const id of ["soft_bloom", "ink_well"]) {
+    for (const suffix of ["", "-dark", "-tinted"]) {
+      const retired = join(OUT_DIR, `icon-${id}${suffix}.png`);
+      try {
+        await unlink(retired);
+        console.log(`removed ${retired}`);
+      } catch (error) {
+        if (error && error.code !== "ENOENT") throw error;
+      }
+    }
   }
 
   console.log(`${ICON_IDS.length} icons × light/dark/tinted → ${OUT_DIR}`);

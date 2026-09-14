@@ -20,8 +20,8 @@ import { THEMES } from "./themes";
  * the Home Screen — rather than a generated copy that used to show a
  * lighter sand frame the real icon does not have.
  *
- * Soft Bloom is not offered (TestFlight, Sep 2026). Inkwell, Arctic and
- * Sun are. Retired ids still resolve so a leftover Home Screen icon
+ * Soft Bloom and Inkwell are not offered (TestFlight, Sep 2026). Arctic
+ * and Sun are. Retired ids still resolve so a leftover Home Screen icon
  * can be reset to the default.
  *
  * iOS shows a system alert every time the icon changes. The onboarding
@@ -34,11 +34,11 @@ import { THEMES } from "./themes";
 export const DEFAULT_APP_ICON_ID = "minimal_sand";
 
 /** Alternate icons no longer offered; mapped back to the default. */
-export const RETIRED_APP_ICON_IDS = new Set(["soft_bloom"]);
+export const RETIRED_APP_ICON_IDS = new Set(["soft_bloom", "ink_well"]);
 
 /**
  * Icon ids in picker order. Independent of THEMES order so the grid
- * can list Inkwell / Arctic / Sun without Soft Bloom, and keep
+ * can list Arctic / Sun without Soft Bloom or Inkwell, and keep
  * Terracotta next to the dark set.
  */
 export const APP_ICON_IDS: string[] = [
@@ -46,7 +46,6 @@ export const APP_ICON_IDS: string[] = [
   "ocean_clarity",
   "terracotta",
   "midnight_focus",
-  "ink_well",
   "arctic",
   "sun",
   "sunrise_momentum",
@@ -65,7 +64,6 @@ export const APP_ICON_SOURCES: Record<string, ImageSourcePropType> = {
   ocean_clarity: require("../../assets/icons/icon-ocean_clarity.png"),
   terracotta: require("../../assets/icons/icon-terracotta.png"),
   midnight_focus: require("../../assets/icons/icon-midnight_focus.png"),
-  ink_well: require("../../assets/icons/icon-ink_well.png"),
   arctic: require("../../assets/icons/icon-arctic.png"),
   sun: require("../../assets/icons/icon-sun.png"),
   sunrise_momentum: require("../../assets/icons/icon-sunrise_momentum.png"),
@@ -142,7 +140,8 @@ export function getCurrentAppIconId(): string {
  * never sees the iOS "changed the icon" alert. The default (Minimal
  * Sand) is the bundled primary icon, so choosing it *resets* the
  * alternate icon (`setAlternateAppIcon(null)`) instead of selecting an
- * alternate by name. Retired icons (Soft Bloom) reset to the default.
+ * alternate by name. Retired icons (Soft Bloom, Inkwell) reset to the
+ * default.
  *
  * Resolves `true` when the Home Screen now shows the requested icon
  * (applied or already active) and `false` when it could not be changed
