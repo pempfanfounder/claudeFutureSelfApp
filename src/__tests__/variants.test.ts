@@ -560,4 +560,29 @@ describe("iam-claude conversion refinements", () => {
       "Have you tried affirmations yet?",
     );
   });
+
+  it("puts Future Self on the lock and home widget screens", () => {
+    expect(resolveText(stepById("widget-lock").headline, dummyCtx)).toBe(
+      "Put your Future Self on your lock screen.",
+    );
+    expect(resolveText(stepById("widget-home").headline, dummyCtx)).toBe(
+      "Put your Future Self on your home screen.",
+    );
+    const strings = userFacingStrings(config);
+    expect(strings).not.toContain("Put your future on your Lock Screen.");
+    expect(strings).not.toContain("One more: your Home Screen.");
+  });
+
+  it("shows Future Self on the drift-page notification mock", () => {
+    const notifications = stepById("notifications");
+    expect(resolveText(notifications.headline, dummyCtx)).toBe(
+      "This is how you won't drift.",
+    );
+    expect(notifications.mockLine).toBe(
+      "Your Future Self is counting on you to stay disciplined.",
+    );
+    expect(userFacingStrings(config)).not.toContain(
+      "Discipline is remembering what you want.",
+    );
+  });
 });

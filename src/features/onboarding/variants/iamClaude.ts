@@ -134,7 +134,7 @@ export const iamClaude: VariantConfig = {
       headline: "This is how you won't drift.",
       sub: "Future Self finds you through the day with the quotes you need to hear. You choose how often, and when.",
       cta: "Turn on reminders",
-      mockLine: "Discipline is remembering what you want.",
+      mockLine: "Your Future Self is counting on you to stay disciplined.",
     },
     {
       id: "goals",
@@ -489,7 +489,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "widget-lock",
       type: "widget-promo",
-      headline: "Put your future on your Lock Screen.",
+      headline: "Put your Future Self on your lock screen.",
       sub: "See your quotes without unlocking your phone",
       cta: "Got it",
       placeholder: "I will not waste today.",
@@ -497,7 +497,7 @@ export const iamClaude: VariantConfig = {
     {
       id: "widget-home",
       type: "widget-promo",
-      headline: "One more: your Home Screen.",
+      headline: "Put your Future Self on your home screen.",
       sub: "Touch and hold your Home Screen, tap Edit, and add Future Self",
       cta: "Got it",
       placeholder: "A year from now, you'll be glad you started today.",
