@@ -114,7 +114,7 @@ export function IamStep({ step, ctx, onAnswer, onSkip }: IamStepProps) {
       exiting={FadeOut.duration(150)}
       style={styles.root}
     >
-      {step.skippable ? (
+      {step.skippable && step.minAge === undefined ? (
         <Pressable onPress={onSkip} style={styles.skip} hitSlop={12}>
           <AppText variant="label" tone="ink3">
             Skip

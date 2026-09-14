@@ -3,11 +3,17 @@ import type { OnboardingStep } from "./types";
 /** Minimum age from the Terms of Service; the variants set `minAge` to it. */
 export const MINIMUM_AGE = 16;
 
+/** A typed age answer: 1–3 digits, same rule Continue uses on the age step. */
+export function isTypedAge(value: string): boolean {
+  return /^\d{1,3}$/.test(value.trim());
+}
+
 /**
  * True when an answer to an age step says the user is younger than the
  * step's `minAge`: a typed whole number below it, or an option flagged
- * `underAge`. Anything unparseable (letters, empty, a skipped step)
- * does not trigger the gate; the question stays skippable.
+ * `underAge`. Unparseable text does not trip the stop screen; the age
+ * step itself is required, so Continue stays off until a real number
+ * (or band) is given.
  */
 export function isUnderMinimumAge(
   step: Pick<OnboardingStep, "type" | "minAge" | "options">,
@@ -16,9 +22,8 @@ export function isUnderMinimumAge(
   if (step.minAge === undefined || value === null) return false;
   if (step.type === "text") {
     if (typeof value !== "string") return false;
-    const trimmed = value.trim();
-    if (!/^\d{1,3}$/.test(trimmed)) return false;
-    return Number(trimmed) < step.minAge;
+    if (!isTypedAge(value)) return false;
+    return Number(value.trim()) < step.minAge;
   }
   const slugs = Array.isArray(value) ? value : [value];
   return slugs.some(

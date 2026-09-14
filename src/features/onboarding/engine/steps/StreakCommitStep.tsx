@@ -1,7 +1,5 @@
-import MaskedView from "@react-native-masked-view/masked-view";
-import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   FadeInRight,
@@ -17,7 +15,7 @@ import Animated, {
 import { AppText, Button, Icon } from "@/design-system/components";
 import { useMotionPreference } from "@/design-system/motion";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, spacing, type } from "@/design-system/tokens";
+import { radii, spacing } from "@/design-system/tokens";
 
 import { resolveLines, resolveText } from "../resolve";
 import type { OnboardingContext, OnboardingStep } from "../types";
@@ -25,27 +23,10 @@ import { weekStrip } from "./weekStrip";
 
 const DEFAULT_GOAL_DAYS = "21";
 const DAY_CHECK_SIZE = 14;
-const HERO_WIDTH = 200;
-const HERO_HEIGHT = 210;
-/** Preview option 7: 4.4rem serif 1. */
-const NUMERAL_SIZE = 70;
-const GRADIENT_HEIGHT = Math.round(NUMERAL_SIZE * 2.8);
-const GRADIENT_TRAVEL = GRADIENT_HEIGHT - NUMERAL_SIZE;
-const RISE_MS = 2800;
-const HALO_MS = 2400;
-const TIP_MS = 2600;
-
-/** Brand fire stops from the numeral-burn preview (cream, terracotta, gold, umber). */
-const BURN_COLORS = [
-  "#2A1E16",
-  "#B4553C",
-  "#C9A97A",
-  "#4A2418",
-  "#B4553C",
-  "#F3E9DC",
-  "#93432F",
-] as const;
-const BURN_STOPS = [0, 0.18, 0.36, 0.52, 0.7, 0.86, 1] as const;
+const FLAME_COUNT = 8;
+const RING_RADIUS = 46;
+const FLAME_SIZE = 14;
+const RING_SIZE = RING_RADIUS * 2 + FLAME_SIZE + 8;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -65,58 +46,26 @@ function chosenGoalDays(ctx: OnboardingContext): string {
 }
 
 /**
- * Preview option 7 — Numeral burn. The serif "1" is the flame: Future Self
- * fire colors rise through the glyph. A terracotta halo and ghost tongue
- * breathe behind it. Upright only (scale / fade, no rotate). Reduce Motion
- * freezes the still frame.
+ * Theme-colored flame ticks around the day "1". They stay upright —
+ * no ring rotate / twist. Opacity pulse only; Reduce Motion freezes
+ * them so the numeral stays readable.
  */
-function NumeralBurn() {
+function FlameRing({ color }: { color: string }) {
   const reduced = useMotionPreference();
-  const rise = useSharedValue(0);
-  const halo = useSharedValue(0.5);
-  const tip = useSharedValue(0.5);
+  const pulse = useSharedValue(0.85);
   useEffect(() => {
-    cancelAnimation(rise);
-    cancelAnimation(halo);
-    cancelAnimation(tip);
+    cancelAnimation(pulse);
     if (reduced) {
-      rise.set(0);
-      halo.set(0.5);
-      tip.set(0.5);
+      pulse.set(0.85);
       return;
     }
-    rise.set(0);
-    rise.set(
-      withRepeat(
-        withTiming(1, { duration: RISE_MS, easing: Easing.linear }),
-        -1,
-        false,
-      ),
-    );
-    halo.set(
+    pulse.set(0.7);
+    pulse.set(
       withRepeat(
         withSequence(
-          withTiming(1, {
-            duration: HALO_MS / 2,
-            easing: Easing.inOut(Easing.quad),
-          }),
-          withTiming(0, {
-            duration: HALO_MS / 2,
-            easing: Easing.inOut(Easing.quad),
-          }),
-        ),
-        -1,
-      ),
-    );
-    tip.set(
-      withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: TIP_MS / 2,
-            easing: Easing.inOut(Easing.quad),
-          }),
-          withTiming(0, {
-            duration: TIP_MS / 2,
+          withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.55, {
+            duration: 900,
             easing: Easing.inOut(Easing.quad),
           }),
         ),
@@ -124,58 +73,39 @@ function NumeralBurn() {
       ),
     );
     return () => {
-      cancelAnimation(rise);
-      cancelAnimation(halo);
-      cancelAnimation(tip);
+      cancelAnimation(pulse);
     };
-  }, [reduced, rise, halo, tip]);
-  const haloStyle = useAnimatedStyle(() => {
-    const t = halo.get();
-    return {
-      opacity: 0.55 + t * 0.4,
-      transform: [{ scale: 0.88 + t * 0.24 }],
-    };
-  });
-  const ghostStyle = useAnimatedStyle(() => {
-    const t = tip.get();
-    return {
-      opacity: 0.55 + t * 0.4,
-      transform: [{ translateY: 4 - t * 10 }, { scaleY: 0.92 + t * 0.16 }],
-    };
-  });
-  const burnStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -rise.get() * GRADIENT_TRAVEL }],
+  }, [reduced, pulse]);
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: pulse.get(),
   }));
   return (
-    <View pointerEvents="none" testID="streak-numeral-burn" style={styles.flameWrap}>
-      <Animated.View style={[styles.halo, haloStyle]} />
-      <Animated.View style={[styles.ghostFlame, ghostStyle]}>
-        <View style={styles.ghostTongue} />
-        <View style={styles.ghostBase} />
-      </Animated.View>
-      <View style={styles.numeralGlow}>
-        <MaskedView
-          style={styles.numeralMask}
-          maskElement={
-            <View style={styles.numeralMaskFill}>
-              <Text style={styles.numeral} testID="streak-day-1">
-                1
-              </Text>
-            </View>
-          }
-        >
-          <Animated.View style={[styles.burnStrip, burnStyle]}>
-            <LinearGradient
-              colors={BURN_COLORS}
-              locations={BURN_STOPS}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-          </Animated.View>
-        </MaskedView>
-      </View>
-    </View>
+    <Animated.View
+      pointerEvents="none"
+      testID="streak-flame-ring"
+      style={[styles.flameRing, ringStyle]}
+    >
+      {Array.from({ length: FLAME_COUNT }, (_, i) => {
+        const angle = (i / FLAME_COUNT) * 2 * Math.PI - Math.PI / 2;
+        return (
+          <View
+            key={i}
+            testID="streak-flame-tick"
+            style={[
+              styles.flameTick,
+              {
+                transform: [
+                  { translateX: Math.cos(angle) * RING_RADIUS },
+                  { translateY: Math.sin(angle) * RING_RADIUS },
+                ],
+              },
+            ]}
+          >
+            <Icon name="flame" size={FLAME_SIZE} color={color} />
+          </View>
+        );
+      })}
+    </Animated.View>
   );
 }
 
@@ -209,7 +139,10 @@ export function StreakCommitStep({
           style={styles.dayWrap}
         >
           <View style={styles.dayHero}>
-            <NumeralBurn />
+            <FlameRing color={colors.accent} />
+            <AppText variant="display" center>
+              1
+            </AppText>
           </View>
           <View
             style={[
@@ -314,80 +247,21 @@ const styles = StyleSheet.create({
   },
   dayWrap: { alignItems: "center", marginBottom: spacing.xl },
   dayHero: {
-    width: HERO_WIDTH,
-    height: HERO_HEIGHT,
+    width: RING_SIZE,
+    height: RING_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },
-  flameWrap: {
-    ...StyleSheet.absoluteFill,
+  flameRing: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: "center",
     justifyContent: "center",
   },
-  halo: {
-    position: "absolute",
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(180, 85, 60, 0.28)",
-  },
-  ghostFlame: {
-    position: "absolute",
-    width: 120,
-    height: 150,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    transformOrigin: "bottom",
-  },
-  ghostTongue: {
-    position: "absolute",
-    top: 8,
-    width: 56,
-    height: 118,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
-    backgroundColor: "rgba(180, 85, 60, 0.22)",
-  },
-  ghostBase: {
-    width: 86,
-    height: 44,
-    borderRadius: 18,
-    backgroundColor: "rgba(180, 85, 60, 0.2)",
-    marginBottom: 0,
-  },
-  numeralGlow: {
-    zIndex: 3,
-    shadowColor: "#B4553C",
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  numeralMask: {
-    width: 88,
-    height: NUMERAL_SIZE,
-    overflow: "hidden",
-  },
-  numeralMaskFill: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-  },
-  numeral: {
-    fontFamily: type.serif,
-    fontSize: NUMERAL_SIZE,
-    lineHeight: NUMERAL_SIZE,
-    letterSpacing: NUMERAL_SIZE * -0.03,
-    color: "#000000",
-    fontWeight: "400",
-    textAlign: "center",
-  },
-  burnStrip: {
-    width: 88,
-    height: GRADIENT_HEIGHT,
-  },
+  flameTick: { position: "absolute" },
   groundLine: { width: 72, height: 2, borderRadius: 1, marginTop: spacing.xs },
   sub: { marginTop: spacing.md },
   weekCard: {

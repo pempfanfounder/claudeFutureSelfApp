@@ -40,7 +40,8 @@ export const iamClaude: VariantConfig = {
       headline: (ctx) =>
         ctx.name ? `How old are you, ${ctx.name}?` : "How old are you?",
       sub: "Your age helps us personalize your quotes and affirmations",
-      // Terms of Service: 16+. "Under 16" stops the flow (soft gate, no
+      // Terms of Service: 16+. Required — Skip is off so the under-16
+      // gate always runs. "Under 16" stops the flow (soft gate, no
       // answer stored); the 16 to 17 band replaces the old "Under 18".
       options: [
         { slug: "u16", label: "Under 16", underAge: true },
@@ -51,7 +52,6 @@ export const iamClaude: VariantConfig = {
         { slug: "45-54", label: "45 to 54" },
         { slug: "55+", label: "55+" },
       ],
-      skippable: true,
       minAge: 16,
       modelKey: "raw.age_band",
     },

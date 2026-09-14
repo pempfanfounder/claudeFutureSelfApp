@@ -6,6 +6,7 @@ import { AppText, Button } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, spacing, type } from "@/design-system/tokens";
 
+import { isTypedAge } from "../ageGate";
 import { KeyboardAvoider } from "../KeyboardAvoider";
 import { resolveLines, resolveText } from "../resolve";
 import { StreamedLines } from "../StreamedLines";
@@ -53,10 +54,13 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
   const canContinue = isChips
     ? selected.length >= (step.minSelect ?? 1)
     : isText
-      ? text.trim().length > 0
+      ? step.minAge !== undefined
+        ? isTypedAge(text)
+        : text.trim().length > 0
       : true;
 
   const submit = () => {
+    if (!canContinue && !isInfo) return;
     if (isText) {
       onAnswer(text.trim());
     } else if (isChips) {
@@ -151,7 +155,8 @@ export function StellaStep({ step, ctx, onAnswer, onSkip }: StellaStepProps) {
               disabled={!canContinue && !isInfo}
               testID="continue"
             />
-            {step.skippable || step.secondaryCta ? (
+            {step.minAge === undefined &&
+            (step.skippable || step.secondaryCta) ? (
               <Pressable onPress={onSkip} style={styles.secondary} hitSlop={8}>
                 <AppText variant="body" tone="ink3" center>
                   {step.secondaryCta ?? "Skip"}
