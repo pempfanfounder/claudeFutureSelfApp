@@ -572,4 +572,17 @@ describe("iam-claude conversion refinements", () => {
     expect(strings).not.toContain("Put your future on your Lock Screen.");
     expect(strings).not.toContain("One more: your Home Screen.");
   });
+
+  it("shows Future Self on the drift-page notification mock", () => {
+    const notifications = stepById("notifications");
+    expect(resolveText(notifications.headline, dummyCtx)).toBe(
+      "This is how you won't drift.",
+    );
+    expect(notifications.mockLine).toBe(
+      "Your Future Self is counting on you to stay disciplined.",
+    );
+    expect(userFacingStrings(config)).not.toContain(
+      "Discipline is remembering what you want.",
+    );
+  });
 });
