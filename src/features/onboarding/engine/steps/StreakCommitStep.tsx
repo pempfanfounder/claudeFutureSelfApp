@@ -10,6 +10,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { AppText, Button, Icon } from "@/design-system/components";
@@ -27,6 +28,8 @@ const FLAME_COUNT = 8;
 const RING_RADIUS = 46;
 const FLAME_SIZE = 14;
 const RING_SIZE = RING_RADIUS * 2 + FLAME_SIZE + 8;
+/** One full wheel-turn; Reduce Motion skips this. */
+const ORBIT_MS = 14000;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -46,19 +49,62 @@ function chosenGoalDays(ctx: OnboardingContext): string {
 }
 
 /**
- * Theme-colored flame ticks around the day "1". They stay upright —
- * no ring rotate / twist. Opacity pulse only; Reduce Motion freezes
- * them so the numeral stays readable.
+ * Theme-colored flame ticks in a circle around the day "1". The ring
+ * orbits like a spinning wheel; each glyph stays upright (positions
+ * move, the flame itself never rotates). Reduce Motion freezes the
+ * orbit so the numeral stays readable.
  */
+function FlameTick({
+  index,
+  color,
+  orbit,
+}: {
+  index: number;
+  color: string;
+  orbit: SharedValue<number>;
+}) {
+  const base = (index / FLAME_COUNT) * 2 * Math.PI - Math.PI / 2;
+  const tickStyle = useAnimatedStyle(() => {
+    const angle = base + orbit.get();
+    return {
+      transform: [
+        { translateX: Math.cos(angle) * RING_RADIUS },
+        { translateY: Math.sin(angle) * RING_RADIUS },
+      ],
+    };
+  });
+  return (
+    <Animated.View
+      testID="streak-flame-tick"
+      style={[styles.flameTick, tickStyle]}
+    >
+      <Icon name="flame" size={FLAME_SIZE} color={color} />
+    </Animated.View>
+  );
+}
+
 function FlameRing({ color }: { color: string }) {
   const reduced = useMotionPreference();
+  const orbit = useSharedValue(0);
   const pulse = useSharedValue(0.85);
   useEffect(() => {
+    cancelAnimation(orbit);
     cancelAnimation(pulse);
     if (reduced) {
+      orbit.set(0);
       pulse.set(0.85);
       return;
     }
+    orbit.set(0);
+    orbit.set(
+      withRepeat(
+        withTiming(Math.PI * 2, {
+          duration: ORBIT_MS,
+          easing: Easing.linear,
+        }),
+        -1,
+      ),
+    );
     pulse.set(0.7);
     pulse.set(
       withRepeat(
@@ -73,9 +119,10 @@ function FlameRing({ color }: { color: string }) {
       ),
     );
     return () => {
+      cancelAnimation(orbit);
       cancelAnimation(pulse);
     };
-  }, [reduced, pulse]);
+  }, [reduced, orbit, pulse]);
   const ringStyle = useAnimatedStyle(() => ({
     opacity: pulse.get(),
   }));
@@ -85,26 +132,9 @@ function FlameRing({ color }: { color: string }) {
       testID="streak-flame-ring"
       style={[styles.flameRing, ringStyle]}
     >
-      {Array.from({ length: FLAME_COUNT }, (_, i) => {
-        const angle = (i / FLAME_COUNT) * 2 * Math.PI - Math.PI / 2;
-        return (
-          <View
-            key={i}
-            testID="streak-flame-tick"
-            style={[
-              styles.flameTick,
-              {
-                transform: [
-                  { translateX: Math.cos(angle) * RING_RADIUS },
-                  { translateY: Math.sin(angle) * RING_RADIUS },
-                ],
-              },
-            ]}
-          >
-            <Icon name="flame" size={FLAME_SIZE} color={color} />
-          </View>
-        );
-      })}
+      {Array.from({ length: FLAME_COUNT }, (_, i) => (
+        <FlameTick key={i} index={i} color={color} orbit={orbit} />
+      ))}
     </Animated.View>
   );
 }

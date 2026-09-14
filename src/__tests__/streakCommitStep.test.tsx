@@ -26,7 +26,7 @@ const STEP: OnboardingStep = {
   cta: (c) => `I'm in for ${c.answers["raw.streak_goal"] ?? "21"} days`,
 };
 
-test("rings the day 1 with upright theme flame icons", () => {
+test("rings the day 1 with an orbiting wheel of upright theme flames", () => {
   const screen = render(
     <SafeAreaProvider
       initialMetrics={{
@@ -56,6 +56,8 @@ test("rings the day 1 with upright theme flame icons", () => {
     const style = StyleSheet.flatten(tick.props.style) as {
       transform?: Array<Record<string, unknown>>;
     };
+    // Orbit is translate around the numeral; the glyph itself never
+    // gets a rotate/twist.
     expect((style.transform ?? []).some((t) => "rotate" in t)).toBe(false);
   }
   screen.unmount();
