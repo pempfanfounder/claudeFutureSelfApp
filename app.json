@@ -54,58 +54,122 @@
         [
           {
             "name": "MinimalSand",
-            "ios": "./assets/icons/icon-minimal_sand.png",
+            "ios": {
+              "light": "./assets/icons/icon-minimal_sand.png",
+              "dark": "./assets/icons/icon-minimal_sand-dark.png",
+              "tinted": "./assets/icons/icon-minimal_sand-tinted.png"
+            },
             "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "foregroundImage": "./assets/icons/icon-minimal_sand.png",
               "backgroundColor": "#EDE0D6"
             }
           },
           {
             "name": "OceanClarity",
-            "ios": "./assets/icons/icon-ocean_clarity.png",
+            "ios": {
+              "light": "./assets/icons/icon-ocean_clarity.png",
+              "dark": "./assets/icons/icon-ocean_clarity-dark.png",
+              "tinted": "./assets/icons/icon-ocean_clarity-tinted.png"
+            },
             "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "foregroundImage": "./assets/icons/icon-ocean_clarity.png",
               "backgroundColor": "#DFE8EC"
             }
           },
           {
-            "name": "MidnightFocus",
-            "ios": "./assets/icons/icon-midnight_focus.png",
+            "name": "Terracotta",
+            "ios": {
+              "light": "./assets/icons/icon-terracotta.png",
+              "dark": "./assets/icons/icon-terracotta-dark.png",
+              "tinted": "./assets/icons/icon-terracotta-tinted.png"
+            },
             "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "foregroundImage": "./assets/icons/icon-terracotta.png",
+              "backgroundColor": "#E8C6B2"
+            }
+          },
+          {
+            "name": "MidnightFocus",
+            "ios": {
+              "light": "./assets/icons/icon-midnight_focus.png",
+              "dark": "./assets/icons/icon-midnight_focus-dark.png",
+              "tinted": "./assets/icons/icon-midnight_focus-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/icons/icon-midnight_focus.png",
               "backgroundColor": "#12161A"
             }
           },
           {
-            "name": "SunriseMomentum",
-            "ios": "./assets/icons/icon-sunrise_momentum.png",
+            "name": "InkWell",
+            "ios": {
+              "light": "./assets/icons/icon-ink_well.png",
+              "dark": "./assets/icons/icon-ink_well-dark.png",
+              "tinted": "./assets/icons/icon-ink_well-tinted.png"
+            },
             "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "foregroundImage": "./assets/icons/icon-ink_well.png",
+              "backgroundColor": "#1C140D"
+            }
+          },
+          {
+            "name": "Arctic",
+            "ios": {
+              "light": "./assets/icons/icon-arctic.png",
+              "dark": "./assets/icons/icon-arctic-dark.png",
+              "tinted": "./assets/icons/icon-arctic-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/icons/icon-arctic.png",
+              "backgroundColor": "#0F1920"
+            }
+          },
+          {
+            "name": "Sun",
+            "ios": {
+              "light": "./assets/icons/icon-sun.png",
+              "dark": "./assets/icons/icon-sun-dark.png",
+              "tinted": "./assets/icons/icon-sun-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/icons/icon-sun.png",
+              "backgroundColor": "#F5C542"
+            }
+          },
+          {
+            "name": "SunriseMomentum",
+            "ios": {
+              "light": "./assets/icons/icon-sunrise_momentum.png",
+              "dark": "./assets/icons/icon-sunrise_momentum-dark.png",
+              "tinted": "./assets/icons/icon-sunrise_momentum-tinted.png"
+            },
+            "android": {
+              "foregroundImage": "./assets/icons/icon-sunrise_momentum.png",
               "backgroundColor": "#F6D9B8"
             }
           },
           {
             "name": "GoldenSuccess",
-            "ios": "./assets/icons/icon-golden_success.png",
+            "ios": {
+              "light": "./assets/icons/icon-golden_success.png",
+              "dark": "./assets/icons/icon-golden_success-dark.png",
+              "tinted": "./assets/icons/icon-golden_success-tinted.png"
+            },
             "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "foregroundImage": "./assets/icons/icon-golden_success.png",
               "backgroundColor": "#F0DFB3"
             }
           },
           {
             "name": "Evergreen",
-            "ios": "./assets/icons/icon-evergreen.png",
+            "ios": {
+              "light": "./assets/icons/icon-evergreen.png",
+              "dark": "./assets/icons/icon-evergreen-dark.png",
+              "tinted": "./assets/icons/icon-evergreen-tinted.png"
+            },
             "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "foregroundImage": "./assets/icons/icon-evergreen.png",
               "backgroundColor": "#D7E3D2"
-            }
-          },
-          {
-            "name": "Terracotta",
-            "ios": "./assets/icons/icon-terracotta.png",
-            "android": {
-              "foregroundImage": "./assets/images/android-icon-foreground.png",
-              "backgroundColor": "#E8C6B2"
             }
           }
         ]

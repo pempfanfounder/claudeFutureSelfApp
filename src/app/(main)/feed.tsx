@@ -61,10 +61,7 @@ export type FeedRow = { kind: "item"; item: ContentItem } | { kind: "end" };
  * pager crashes iOS 26 (`UIAnimator` / `CFRunLoopWakeUp`). Swipe still
  * uses native paging.
  */
-export function programmaticPagerScroll(
-  pageWidth: number,
-  tab: ContentType,
-) {
+export function programmaticPagerScroll(pageWidth: number, tab: ContentType) {
   return {
     x: tab === "quote" ? 0 : pageWidth,
     y: 0,
@@ -98,6 +95,12 @@ export function pageLayout(pageHeight: number, index: number) {
 }
 
 const UNMEASURED_ROWS: FeedRow[] = [];
+
+/** Top-right streak chip; the top-left Future Self control is a square of the chip's min width. */
+const STREAK_CHIP_HEIGHT = 40;
+const STREAK_CHIP_MIN_WIDTH = 48;
+const HOME_MARK_SIZE = STREAK_CHIP_MIN_WIDTH;
+const HOME_MARK_RADIUS = 14;
 
 /**
  * Home route. Hosts the container-morph overlay so the three floating
@@ -135,8 +138,7 @@ function FeedContent() {
       width: quoteW.get() + (affirmationW.get() - quoteW.get()) * t,
       transform: [
         {
-          translateX:
-            quoteX.get() + (affirmationX.get() - quoteX.get()) * t,
+          translateX: quoteX.get() + (affirmationX.get() - quoteX.get()) * t,
         },
       ],
     };
@@ -411,9 +413,7 @@ function FeedContent() {
       <View style={[styles.top, { top: insets.top + spacing.sm }]}>
         <Pressable
           ref={avatarRef}
-          onPress={() =>
-            launch(avatarRef, "profile", styles.avatar.borderRadius)
-          }
+          onPress={() => launch(avatarRef, "profile", HOME_MARK_RADIUS)}
           style={[styles.avatar, { backgroundColor: colors.card }, shadows.sm]}
           testID="open-settings"
           accessibilityRole="button"
@@ -659,14 +659,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: HOME_MARK_SIZE,
+    height: HOME_MARK_SIZE,
+    borderRadius: HOME_MARK_RADIUS,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  avatarLogo: { width: 40, height: 40, borderRadius: 12 },
+  avatarLogo: {
+    width: HOME_MARK_SIZE,
+    height: HOME_MARK_SIZE,
+    borderRadius: HOME_MARK_RADIUS,
+  },
   segment: {
     flexDirection: "row",
     alignItems: "center",
@@ -679,8 +683,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   streakChip: {
-    minWidth: 48,
-    height: 40,
+    minWidth: STREAK_CHIP_MIN_WIDTH,
+    height: STREAK_CHIP_HEIGHT,
     borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",

@@ -4,6 +4,7 @@ import { AppText, Button, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
+import { GoogleGlyph } from "./GoogleGlyph";
 import { ProviderButton } from "./ProviderButton";
 import { useAuthFlow } from "./useAuthFlow";
 
@@ -102,9 +103,11 @@ export function AuthSheet({
                 />
               ) : null}
               {auth.availableProviders.google ? (
-                <Button
+                <ProviderButton
                   label="Continue with Google"
-                  variant="secondary"
+                  icon={(_color, background) => (
+                    <GoogleGlyph size={ICON_SIZE} background={background} />
+                  )}
                   onPress={flow.runGoogle}
                   loading={busy === "google"}
                   disabled={Boolean(busy)}
@@ -112,10 +115,11 @@ export function AuthSheet({
                 />
               ) : null}
               {auth.availableProviders.email ? (
-                <Button
+                <ProviderButton
                   label="Continue with email"
-                  variant="ghost"
-                  size="md"
+                  icon={(color) => (
+                    <Icon name="envelope" size={ICON_SIZE} color={color} />
+                  )}
                   onPress={flow.openEmail}
                   disabled={Boolean(busy)}
                   testID="auth-email"

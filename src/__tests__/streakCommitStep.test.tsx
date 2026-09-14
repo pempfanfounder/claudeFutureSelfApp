@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -26,7 +25,7 @@ const STEP: OnboardingStep = {
   cta: (c) => `I'm in for ${c.answers["raw.streak_goal"] ?? "21"} days`,
 };
 
-test("rings the day 1 with theme flame icons", () => {
+test("sits the day 1 in one large theme flame", () => {
   const screen = render(
     <SafeAreaProvider
       initialMetrics={{
@@ -44,16 +43,11 @@ test("rings the day 1 with theme flame icons", () => {
       </ThemeProvider>
     </SafeAreaProvider>,
   );
-  expect(screen.getByTestId("streak-flame-ring")).toBeTruthy();
+  expect(screen.getByTestId("streak-flame")).toBeTruthy();
+  expect(screen.queryByTestId("streak-flame-tick")).toBeNull();
   expect(screen.getByText("1")).toBeTruthy();
-  expect(screen.getByText("3 readings a day. That's the whole ask.")).toBeTruthy();
-  const ticks = screen.getAllByTestId("streak-flame-tick");
-  expect(ticks).toHaveLength(8);
-  for (const tick of ticks) {
-    const style = StyleSheet.flatten(tick.props.style) as {
-      transform?: Array<Record<string, unknown>>;
-    };
-    expect((style.transform ?? []).some((t) => "rotate" in t)).toBe(false);
-  }
+  expect(
+    screen.getByText("3 readings a day. That's the whole ask."),
+  ).toBeTruthy();
   screen.unmount();
 });

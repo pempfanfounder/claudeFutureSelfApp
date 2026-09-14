@@ -95,8 +95,13 @@ test("first-screen login shows email next to Apple and Google", () => {
   expect(screen.getByTestId("auth-google")).toBeTruthy();
   expect(screen.getByTestId("auth-email")).toBeTruthy();
   expect(screen.getByText("Continue with email")).toBeTruthy();
+  expect(
+    screen.getByTestId("google-glyph", { includeHiddenElements: true }),
+  ).toBeTruthy();
   const apple = screen.getByTestId("auth-apple");
-  const style = require("react-native").StyleSheet.flatten(apple.props.style) as {
+  const style = require("react-native").StyleSheet.flatten(
+    apple.props.style,
+  ) as {
     backgroundColor?: string;
   };
   expect(style.backgroundColor).toBe("#000000");

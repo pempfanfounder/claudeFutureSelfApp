@@ -23,10 +23,10 @@ import { weekStrip } from "./weekStrip";
 
 const DEFAULT_GOAL_DAYS = "21";
 const DAY_CHECK_SIZE = 14;
-const FLAME_COUNT = 8;
-const RING_RADIUS = 46;
-const FLAME_SIZE = 14;
-const RING_SIZE = RING_RADIUS * 2 + FLAME_SIZE + 8;
+/** Large enough that the day "1" sits inside the body of the flame. */
+const FLAME_SIZE = 200;
+const INNER_FLAME_SIZE = 156;
+const HERO_SIZE = 220;
 
 interface StreakCommitStepProps {
   step: OnboardingStep;
@@ -46,66 +46,108 @@ function chosenGoalDays(ctx: OnboardingContext): string {
 }
 
 /**
- * Theme-colored flame ticks around the day "1". They stay upright —
- * no ring rotate / twist. Opacity pulse only; Reduce Motion freezes
- * them so the numeral stays readable.
+ * One very large theme-colored flame with the day "1" sitting in it.
+ * Scale + opacity flicker reads as burning; Reduce Motion freezes it.
  */
-function FlameRing({ color }: { color: string }) {
+function BurningFlame({ color }: { color: string }) {
   const reduced = useMotionPreference();
-  const pulse = useSharedValue(0.85);
+  const burn = useSharedValue(1);
+  const flicker = useSharedValue(0.92);
+  const inner = useSharedValue(0.88);
   useEffect(() => {
-    cancelAnimation(pulse);
+    cancelAnimation(burn);
+    cancelAnimation(flicker);
+    cancelAnimation(inner);
     if (reduced) {
-      pulse.set(0.85);
+      burn.set(1);
+      flicker.set(1);
+      inner.set(0.92);
       return;
     }
-    pulse.set(0.7);
-    pulse.set(
+    burn.set(
       withRepeat(
         withSequence(
-          withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0.55, {
-            duration: 900,
+          withTiming(1.06, {
+            duration: 420,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(0.96, {
+            duration: 280,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(1.04, {
+            duration: 360,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(0.98, {
+            duration: 240,
             easing: Easing.inOut(Easing.quad),
           }),
         ),
         -1,
       ),
     );
+    flicker.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.78, {
+            duration: 140,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(0.95, {
+            duration: 220,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(0.82, {
+            duration: 160,
+            easing: Easing.inOut(Easing.quad),
+          }),
+        ),
+        -1,
+      ),
+    );
+    inner.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 260, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.72, {
+            duration: 200,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(0.9, { duration: 180, easing: Easing.inOut(Easing.quad) }),
+        ),
+        -1,
+      ),
+    );
     return () => {
-      cancelAnimation(pulse);
+      cancelAnimation(burn);
+      cancelAnimation(flicker);
+      cancelAnimation(inner);
     };
-  }, [reduced, pulse]);
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: pulse.get(),
+  }, [reduced, burn, flicker, inner]);
+  const outerStyle = useAnimatedStyle(() => ({
+    opacity: flicker.get(),
+    transform: [{ scale: burn.get() }],
+  }));
+  const innerStyle = useAnimatedStyle(() => ({
+    opacity: inner.get(),
+    transform: [{ scale: 0.92 + (1 - inner.get()) * 0.12 }],
   }));
   return (
-    <Animated.View
-      pointerEvents="none"
-      testID="streak-flame-ring"
-      style={[styles.flameRing, ringStyle]}
-    >
-      {Array.from({ length: FLAME_COUNT }, (_, i) => {
-        const angle = (i / FLAME_COUNT) * 2 * Math.PI - Math.PI / 2;
-        return (
-          <View
-            key={i}
-            testID="streak-flame-tick"
-            style={[
-              styles.flameTick,
-              {
-                transform: [
-                  { translateX: Math.cos(angle) * RING_RADIUS },
-                  { translateY: Math.sin(angle) * RING_RADIUS },
-                ],
-              },
-            ]}
-          >
-            <Icon name="flame" size={FLAME_SIZE} color={color} />
-          </View>
-        );
-      })}
-    </Animated.View>
+    <View pointerEvents="none" testID="streak-flame" style={styles.flameWrap}>
+      <Animated.View style={[styles.flameLayer, outerStyle]}>
+        <Icon name="flame" size={FLAME_SIZE} color={color} weight="bold" />
+      </Animated.View>
+      <Animated.View style={[styles.flameLayer, innerStyle]}>
+        <Icon
+          name="flame"
+          size={INNER_FLAME_SIZE}
+          color={color}
+          weight="bold"
+        />
+      </Animated.View>
+    </View>
   );
 }
 
@@ -139,8 +181,8 @@ export function StreakCommitStep({
           style={styles.dayWrap}
         >
           <View style={styles.dayHero}>
-            <FlameRing color={colors.accent} />
-            <AppText variant="display" center>
+            <BurningFlame color={colors.accent} />
+            <AppText variant="display" center style={styles.dayNumeral}>
               1
             </AppText>
           </View>
@@ -247,21 +289,27 @@ const styles = StyleSheet.create({
   },
   dayWrap: { alignItems: "center", marginBottom: spacing.xl },
   dayHero: {
-    width: RING_SIZE,
-    height: RING_SIZE,
+    width: HERO_SIZE,
+    height: HERO_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },
-  flameRing: {
+  flameWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flameLayer: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     alignItems: "center",
     justifyContent: "center",
   },
-  flameTick: { position: "absolute" },
+  dayNumeral: {
+    fontSize: 56,
+    lineHeight: 62,
+    // Flame.fill is pointed at the top; sit the 1 in the body.
+    transform: [{ translateY: 18 }],
+  },
   groundLine: { width: 72, height: 2, borderRadius: 1, marginTop: spacing.xs },
   sub: { marginTop: spacing.md },
   weekCard: {

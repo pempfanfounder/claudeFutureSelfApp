@@ -159,8 +159,9 @@ describe("AppIconStep", () => {
       expect(screen.getByTestId(`app-icon-${id}`)).toBeTruthy();
     }
     expect(screen.queryByTestId("app-icon-soft_bloom")).toBeNull();
-    expect(screen.queryByTestId("app-icon-ink_well")).toBeNull();
-    expect(screen.queryByTestId("app-icon-arctic")).toBeNull();
+    expect(screen.getByTestId("app-icon-ink_well")).toBeTruthy();
+    expect(screen.getByTestId("app-icon-arctic")).toBeTruthy();
+    expect(screen.getByTestId("app-icon-sun")).toBeTruthy();
     expect(screen.queryByText("Skip")).toBeNull();
     screen.unmount();
   });

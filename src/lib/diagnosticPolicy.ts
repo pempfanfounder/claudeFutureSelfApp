@@ -50,6 +50,7 @@ const ENUMS: Record<string, readonly string[]> = {
     "evergreen",
     "terracotta",
     "arctic",
+    "sun",
   ],
   icon: [
     "MinimalSand",
@@ -62,6 +63,7 @@ const ENUMS: Record<string, readonly string[]> = {
     "Evergreen",
     "Terracotta",
     "Arctic",
+    "Sun",
   ],
 };
 const COUNTS = new Set([
