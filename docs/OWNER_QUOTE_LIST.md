@@ -1,7 +1,7 @@
 # Owner's official quote list (app content)
 
 This is the app's quote set. Received from the owner 2026-09-12 as a numbered
-list of 66; 64 ship. Source of truth in code is
+list of 66; 62 ship. Source of truth in code is
 `src/features/content/ownerQuotes.ts`, seeded into `content_items` by
 `supabase/migrations/20260912090000_owner_quotes.sql` and served to
 mock/staging builds via `LOCAL_CATALOG`. `src/__tests__/ownerQuotes.test.ts`
@@ -10,7 +10,8 @@ keeps this document, the module, the migration and the local catalog in sync.
 Owner instructions: fix typos, add a trailing "." where a sentence lacks one,
 do not change the words of any quote. Only these fixes were applied:
 dont→don't, doesnt→doesn't, cant→can't, Everyday→Every day, and
-straight-apostrophe normalization. Everything else is as written.
+straight-apostrophe normalization. Exception 2026-09-15: #13, #20 and #31
+were rewritten to unisex at the owner's request. Everything else is as written.
 
 ## Flags
 
@@ -20,6 +21,10 @@ straight-apostrophe normalization. Everything else is as written.
   #65, which is kept.
 - **#30 excluded** — deactivated 2026-09-15 (gendered dating line; row kept
   in `content_items` with `active=false`).
+- **#14 and #49 excluded** — deactivated 2026-09-15 (gendered dating lines;
+  rows kept with `active=false`).
+- **#13, #20, #31 rewritten to unisex** — 2026-09-15, owner override of the
+  wording lock. Same `content_items` rows; new bodies only.
 - **#11 ends with an ellipsis (" …")** — kept as written per the owner; no
   "." appended.
 - **#31 uses a spaced hyphen (" - ")** as a dash — kept as written.
@@ -52,7 +57,7 @@ How the daily pick works when OFF (`selectSharedDailySet` in
   seeded "deck" and 20 cards are dealt per day; a new seeded deck starts
   when one runs out. A card shown yesterday is passed over, so consecutive
   days never overlap and every quote gets near-equal exposure (~1 showing
-  per 3.2 days for 64 quotes at 20/day).
+  per 3.1 days for 62 quotes at 20/day).
 - Same local date, same set: users in different timezones move to the next
   day's set at their own midnight, so at a given instant two users can be
   on adjacent days' sets. Once a user's day is confirmed via
@@ -83,14 +88,14 @@ To re-enable: set both flags above to `"true"` and ship an app build.
 10. The graveyard is full of people who thought they had more time.
 11. Every day your window of opportunity gets smaller and smaller …
 12. People who bring you down are by definition below you.
-13. A man that doesn't keep his word is no man at all.
-14. No revenge because I'll be the most successful guy she's ever talked to.
+13. A person that doesn't keep their word is no person at all.
+14. _(excluded — deactivated 2026-09-15; gendered dating line)_
 15. Never let less successful people tell you what your limit is.
 16. We can stay here, or we can go up.
 17. In another life? No bro, this one. Get after it.
 18. If you don't master your time, someone else will.
 19. Time doesn't care who wastes it, it just moves on.
-20. Don't be the 35 year old man wondering what he even did with his 20s.
+20. Don't be the 35 year old wondering what they even did with their 20s.
 21. Give something your all.
 22. The world is yours.
 23. You can't have a top tier life without a top tier mindset.
@@ -101,7 +106,7 @@ To re-enable: set both flags above to `"true"` and ship an app build.
 28. It's not over until I win.
 29. You are gonna win in the end.
 30. _(excluded — deactivated 2026-09-15; gendered dating line)_
-31. There are men who had nothing last year - they took action, and now they are running empires.
+31. There are people who had nothing last year - they took action, and now they are running empires.
 32. There will come a day when your body can't keep up with your ambition, and on that day, you'll pray for just one more chance to go all in.
 33. One moment of savage clarity can change your entire life onward.
 34. You don't have time.
@@ -119,7 +124,7 @@ To re-enable: set both flags above to `"true"` and ship an app build.
 46. Success is the ultimate revenge.
 47. Some wake up at 25, some at 16. Most? They never wake up.
 48. "Maybe in another life." No, you only have this one. Make it happen.
-49. She better cook like her mom, cuz I definitely make more money than her dad.
+49. _(excluded — deactivated 2026-09-15; gendered dating line)_
 50. I just want to make my people proud.
 51. If no one believes in you, believe in yourself.
 52. Don't wish for it, work for it.

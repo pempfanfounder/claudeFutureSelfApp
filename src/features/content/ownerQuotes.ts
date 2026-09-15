@@ -8,12 +8,14 @@
  * Editing rules (owner instruction): fix typos and add a trailing "." where
  * a sentence lacks one, but never change the words of a quote. Applied fixes
  * are limited to dont→don't, doesnt→doesn't, cant→can't, Everyday→Every day,
- * and straight-apostrophe normalization.
+ * and straight-apostrophe normalization. Exception 2026-09-15: #13, #20
+ * and #31 were rewritten to unisex at the owner's request.
  *
  * `n` is the owner's numbering (1–66). #54 is missing: the owner removed it
- * as a near-duplicate of #65 (2026-09-12). #30 is missing: deactivated
- * 2026-09-15 (gendered dating line). #10 was truncated in the original
- * source; the owner supplied the full line.
+ * as a near-duplicate of #65 (2026-09-12). #30, #14 and #49 are missing:
+ * deactivated 2026-09-15 (gendered dating lines). #13, #20 and #31 were
+ * rewritten to unisex on 2026-09-15 (owner override of the wording lock).
+ * #10 was truncated in the original source; the owner supplied the full line.
  *
  * `categories` use the app's eight quote slugs and are editorial
  * assignments made for personalization weighting, not owner-supplied data.
@@ -25,8 +27,8 @@ export interface OwnerQuote {
   categories: readonly string[];
 }
 
-/** Owner's #54 was removed as a near-duplicate of #65; #30 was deactivated. */
-export const EXCLUDED_OWNER_QUOTE_NUMBERS: readonly number[] = [54, 30];
+/** #54 near-duplicate of #65; #30/#14/#49 deactivated as gendered dating lines. */
+export const EXCLUDED_OWNER_QUOTE_NUMBERS: readonly number[] = [54, 30, 14, 49];
 
 export const OWNER_QUOTES: readonly OwnerQuote[] = [
   {
@@ -91,13 +93,8 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
   },
   {
     n: 13,
-    body: "A man that doesn't keep his word is no man at all.",
+    body: "A person that doesn't keep their word is no person at all.",
     categories: ["discipline"],
-  },
-  {
-    n: 14,
-    body: "No revenge because I'll be the most successful guy she's ever talked to.",
-    categories: ["ambition"],
   },
   {
     n: 15,
@@ -126,7 +123,7 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
   },
   {
     n: 20,
-    body: "Don't be the 35 year old man wondering what he even did with his 20s.",
+    body: "Don't be the 35 year old wondering what they even did with their 20s.",
     categories: ["ambition", "discipline"],
   },
   {
@@ -176,7 +173,7 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
   },
   {
     n: 31,
-    body: "There are men who had nothing last year - they took action, and now they are running empires.",
+    body: "There are people who had nothing last year - they took action, and now they are running empires.",
     categories: ["ambition", "courage"],
   },
   {
@@ -263,11 +260,6 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
     n: 48,
     body: '"Maybe in another life." No, you only have this one. Make it happen.',
     categories: ["courage", "ambition"],
-  },
-  {
-    n: 49,
-    body: "She better cook like her mom, cuz I definitely make more money than her dad.",
-    categories: ["ambition"],
   },
   {
     n: 50,
