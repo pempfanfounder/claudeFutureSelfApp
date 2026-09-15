@@ -45,14 +45,14 @@ function quoteRowsFromSql(sql: string) {
 }
 
 describe("owner quote list", () => {
-  it("ships 65 of the owner's 66 quotes, numbered like the owner's list", () => {
-    expect(OWNER_QUOTES).toHaveLength(65);
+  it("ships 62 of the owner's 66 quotes, numbered like the owner's list", () => {
+    expect(OWNER_QUOTES).toHaveLength(62);
     const numbers = OWNER_QUOTES.map((quote) => quote.n);
     const expected = Array.from({ length: 66 }, (_, i) => i + 1).filter(
       (n) => !EXCLUDED_OWNER_QUOTE_NUMBERS.includes(n),
     );
     expect(numbers).toEqual(expected);
-    expect(EXCLUDED_OWNER_QUOTE_NUMBERS).toEqual([54]);
+    expect(EXCLUDED_OWNER_QUOTE_NUMBERS).toEqual([54, 30, 14, 49]);
   });
 
   it("ships the owner's completed #10 and drops the removed near-duplicate #54", () => {
@@ -66,6 +66,27 @@ describe("owner quote list", () => {
     );
     expect(bodies).toContain(
       "While you are overthinking, someone less intelligent than you is becoming successful just by trying.",
+    );
+    expect(bodies).not.toContain(
+      "Why be worried about a girl when there's kids your age doing 100k months?",
+    );
+    expect(bodies).not.toContain(
+      "No revenge because I'll be the most successful guy she's ever talked to.",
+    );
+    expect(bodies).not.toContain(
+      "She better cook like her mom, cuz I definitely make more money than her dad.",
+    );
+    expect(bodies).not.toContain(
+      "A man that doesn't keep his word is no man at all.",
+    );
+    expect(bodies).toContain(
+      "A person that doesn't keep their word is no person at all.",
+    );
+    expect(bodies).toContain(
+      "Don't be the 35 year old wondering what they even did with their 20s.",
+    );
+    expect(bodies).toContain(
+      "There are people who had nothing last year - they took action, and now they are running empires.",
     );
     expect(OWNER_QUOTES.find((quote) => quote.n === 11)?.body).toBe(
       "Every day your window of opportunity gets smaller and smaller …",
@@ -95,14 +116,53 @@ describe("owner quote list", () => {
     expect(sql).toMatch(
       /update public\.content_items\s+set active = false\s+where type = 'quote' and active;/,
     );
+    const DEACTIVATED_BODIES = [
+      "Why be worried about a girl when there's kids your age doing 100k months?",
+      "No revenge because I'll be the most successful guy she's ever talked to.",
+      "She better cook like her mom, cuz I definitely make more money than her dad.",
+    ];
+    const REWRITES: Record<string, string> = {
+      "A man that doesn't keep his word is no man at all.":
+        "A person that doesn't keep their word is no person at all.",
+      "Don't be the 35 year old man wondering what he even did with his 20s.":
+        "Don't be the 35 year old wondering what they even did with their 20s.",
+      "There are men who had nothing last year - they took action, and now they are running empires.":
+        "There are people who had nothing last year - they took action, and now they are running empires.",
+    };
     const rows = quoteRowsFromSql(sql);
-    expect(rows).toHaveLength(OWNER_QUOTES.length);
-    rows.forEach((row, index) => {
+    expect(rows.map((row) => row.body)).toEqual(
+      expect.arrayContaining(DEACTIVATED_BODIES),
+    );
+    const shipped = rows
+      .filter((row) => !DEACTIVATED_BODIES.includes(row.body))
+      .map((row) => ({ ...row, body: REWRITES[row.body] ?? row.body }));
+    expect(shipped).toHaveLength(OWNER_QUOTES.length);
+    shipped.forEach((row, index) => {
       const quote = OWNER_QUOTES[index];
       expect(row.body).toBe(quote.body);
       expect(row.categories).toEqual([...quote.categories]);
       expect(row.notificationEligible).toBe(isNotificationEligible(quote.body));
     });
+    const girlSql = readFileSync(
+      path.join(root, "supabase/migrations/20260915120000_deactivate_girl_quote.sql"),
+      "utf8",
+    );
+    expect(girlSql).toMatch(/set active = false/i);
+    expect(girlSql).toContain(DEACTIVATED_BODIES[0]!.replace(/'/g, "''"));
+    const datingSql = readFileSync(
+      path.join(
+        root,
+        "supabase/migrations/20260915180000_unisex_and_dating_quotes.sql",
+      ),
+      "utf8",
+    );
+    expect(datingSql).toMatch(/set active = false/i);
+    expect(datingSql).toContain(DEACTIVATED_BODIES[1]!.replace(/'/g, "''"));
+    expect(datingSql).toContain(DEACTIVATED_BODIES[2]!.replace(/'/g, "''"));
+    for (const [from, to] of Object.entries(REWRITES)) {
+      expect(datingSql).toContain(from.replace(/'/g, "''"));
+      expect(datingSql).toContain(to.replace(/'/g, "''"));
+    }
     // The notification picker hard-caps pushable bodies at 178 chars.
     for (const row of rows)
       if (row.notificationEligible)
