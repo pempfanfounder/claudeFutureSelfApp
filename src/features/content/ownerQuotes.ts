@@ -11,7 +11,8 @@
  * and straight-apostrophe normalization.
  *
  * `n` is the owner's numbering (1–66). #54 is missing: the owner removed it
- * as a near-duplicate of #65 (2026-09-12). #10 was truncated in the original
+ * as a near-duplicate of #65 (2026-09-12). #30 is missing: deactivated
+ * 2026-09-15 (gendered dating line). #10 was truncated in the original
  * source; the owner supplied the full line.
  *
  * `categories` use the app's eight quote slugs and are editorial
@@ -24,8 +25,8 @@ export interface OwnerQuote {
   categories: readonly string[];
 }
 
-/** Owner's #54 was removed by the owner as a near-duplicate of #65. */
-export const EXCLUDED_OWNER_QUOTE_NUMBERS: readonly number[] = [54];
+/** Owner's #54 was removed as a near-duplicate of #65; #30 was deactivated. */
+export const EXCLUDED_OWNER_QUOTE_NUMBERS: readonly number[] = [54, 30];
 
 export const OWNER_QUOTES: readonly OwnerQuote[] = [
   {
@@ -172,11 +173,6 @@ export const OWNER_QUOTES: readonly OwnerQuote[] = [
     n: 29,
     body: "You are gonna win in the end.",
     categories: ["resilience", "courage"],
-  },
-  {
-    n: 30,
-    body: "Why be worried about a girl when there's kids your age doing 100k months?",
-    categories: ["focus", "ambition"],
   },
   {
     n: 31,

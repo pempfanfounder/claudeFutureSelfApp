@@ -1,7 +1,7 @@
 # Owner's official quote list (app content)
 
 This is the app's quote set. Received from the owner 2026-09-12 as a numbered
-list of 66; 65 ship. Source of truth in code is
+list of 66; 64 ship. Source of truth in code is
 `src/features/content/ownerQuotes.ts`, seeded into `content_items` by
 `supabase/migrations/20260912090000_owner_quotes.sql` and served to
 mock/staging builds via `LOCAL_CATALOG`. `src/__tests__/ownerQuotes.test.ts`
@@ -18,6 +18,8 @@ straight-apostrophe normalization. Everything else is as written.
   line ("The graveyard is full of people who thought they had more time.").
 - **#54 excluded** — owner removed it (2026-09-12) as a near-duplicate of
   #65, which is kept.
+- **#30 excluded** — deactivated 2026-09-15 (gendered dating line; row kept
+  in `content_items` with `active=false`).
 - **#11 ends with an ellipsis (" …")** — kept as written per the owner; no
   "." appended.
 - **#31 uses a spaced hyphen (" - ")** as a dash — kept as written.
@@ -50,7 +52,7 @@ How the daily pick works when OFF (`selectSharedDailySet` in
   seeded "deck" and 20 cards are dealt per day; a new seeded deck starts
   when one runs out. A card shown yesterday is passed over, so consecutive
   days never overlap and every quote gets near-equal exposure (~1 showing
-  per 3.25 days for 65 quotes at 20/day).
+  per 3.2 days for 64 quotes at 20/day).
 - Same local date, same set: users in different timezones move to the next
   day's set at their own midnight, so at a given instant two users can be
   on adjacent days' sets. Once a user's day is confirmed via
@@ -98,7 +100,7 @@ To re-enable: set both flags above to `"true"` and ship an app build.
 27. Do it for the kid who needed someone to believe in him.
 28. It's not over until I win.
 29. You are gonna win in the end.
-30. Why be worried about a girl when there's kids your age doing 100k months?
+30. _(excluded — deactivated 2026-09-15; gendered dating line)_
 31. There are men who had nothing last year - they took action, and now they are running empires.
 32. There will come a day when your body can't keep up with your ambition, and on that day, you'll pray for just one more chance to go all in.
 33. One moment of savage clarity can change your entire life onward.
