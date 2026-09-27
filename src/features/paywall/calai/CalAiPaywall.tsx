@@ -18,13 +18,13 @@ import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
 import type { CalAiVersion } from "../paywallVariant";
-import { ctaLabel, type PaywallData } from "../useOffering";
+import { trialInfo, type PaywallData } from "../useOffering";
 import { CompactFooter } from "./CompactFooter";
 import { NotificationStack } from "./NotificationStack";
 import { PlanCards } from "./PlanCards";
 import { PlanToggle } from "./PlanToggle";
 import { paywallPreviewNotifications } from "./previewQuotes";
-import { compactDisclosure } from "./pricing";
+import { compactDisclosure, primaryPriceLabel } from "./pricing";
 
 interface CalAiPaywallProps {
   data: PaywallData;
@@ -114,6 +114,9 @@ export function CalAiPaywall({
     data.pkg,
     data.pkg ? data.eligibility?.[data.pkg.product.identifier] : "unknown",
   );
+  const selectedTrial = data.pkg
+    ? trialInfo(data.pkg, data.eligibility?.[data.pkg.product.identifier])
+    : null;
   const heroTop = insets.top + spacing.xxxl + spacing.lg;
 
   // v2 fades from the near-black CTA brown; v4 from the warm ink brown
@@ -259,8 +262,26 @@ export function CalAiPaywall({
         <View style={styles.spacer} />
 
         <View style={styles.ctaWrap}>
+          {data.pkg ? (
+            <View style={styles.selectedTerms}>
+              <AppText variant="h3" center testID="paywall-selected-price">
+                {primaryPriceLabel(data.pkg)}
+              </AppText>
+              {selectedTrial ? (
+                <AppText
+                  variant="label"
+                  tone="ink2"
+                  center
+                  style={styles.selectedTrial}
+                  testID="paywall-selected-trial"
+                >
+                  {`${selectedTrial.label} free`}
+                </AppText>
+              ) : null}
+            </View>
+          ) : null}
           <Button
-            label={data.trialLength ? ctaLabel(data.trialLength) : "Continue"}
+            label="Continue"
             onPress={buy}
             loading={purchasing}
             disabled={data.loading || data.unavailable || !data.pkg}
@@ -341,6 +362,8 @@ const styles = StyleSheet.create({
   reminderLabel: { flex: 1 },
   spacer: { flex: 1, minHeight: spacing.xxl },
   ctaWrap: { paddingHorizontal: spacing.xl },
+  selectedTerms: { alignItems: "center", marginBottom: spacing.md },
+  selectedTrial: { marginTop: spacing.xs },
   ctaTall: { minHeight: V3_CTA_HEIGHT },
   disclosure: { marginTop: spacing.md, paddingHorizontal: spacing.md },
   close: { position: "absolute", left: spacing.xl, zIndex: 10 },

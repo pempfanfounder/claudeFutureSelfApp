@@ -226,16 +226,39 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("CTA names the store trial and purchases the selected package", async () => {
-      const { screen, onPurchased } = renderPaywall(version);
-      expect(screen.getByTestId("paywall-cta")).toHaveTextContent(
-        "Start your 3-day free trial",
+    it("shows the selected store terms beside a neutral CTA", async () => {
+      const data = makeData();
+      const { screen, onPurchased } = renderPaywall(version, data);
+      expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
+      expect(screen.getByTestId("paywall-selected-price")).toHaveTextContent(
+        "$35.99/year",
       );
+      expect(screen.getByTestId("paywall-selected-trial")).toHaveTextContent(
+        "3 days free",
+      );
+
+      fireEvent.press(screen.getByTestId("plan-$rc_weekly"));
+      expect(data.selectPackage).toHaveBeenCalledWith(weekly);
+      screen.rerender(
+        wrap(
+          <CalAiPaywall
+            data={{ ...data, pkg: weekly }}
+            version={version}
+            placement="test"
+            onPurchased={onPurchased}
+          />,
+        ),
+      );
+      expect(screen.getByTestId("paywall-selected-price")).toHaveTextContent(
+        "$6.99/week",
+      );
+      expect(screen.queryByTestId("paywall-selected-trial")).toBeNull();
+
       await act(async () => {
         fireEvent.press(screen.getByTestId("paywall-cta"));
       });
       expect(screen.queryByTestId("auth-sheet")).toBeNull();
-      expect(purchasePackage).toHaveBeenCalledWith(annual);
+      expect(purchasePackage).toHaveBeenCalledWith(weekly);
       expect(onPurchased).toHaveBeenCalledTimes(1);
       screen.unmount();
     });
@@ -250,6 +273,10 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
         }),
       );
       expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
+      expect(screen.getByTestId("paywall-selected-price")).toHaveTextContent(
+        "$35.99/year",
+      );
+      expect(screen.queryByTestId("paywall-selected-trial")).toBeNull();
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
         "$35.99 per year. Renews automatically unless cancelled in the App Store.",
       );
@@ -295,7 +322,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
 describe("CalAiPaywall layout differences", () => {
   it("v1 and v2 stack plan cards with a popular marker; v3 uses a toggle", () => {
     const one = renderPaywall(1);
-    expect(one.screen.getByText("3 days free")).toBeTruthy();
+    expect(one.screen.getAllByText("3 days free")).toHaveLength(2);
     expect(one.screen.getByText("Most popular")).toBeTruthy();
     expect(one.screen.getByTestId("plan-yearly-save")).toHaveTextContent(
       "Save 90% vs weekly",
@@ -307,7 +334,7 @@ describe("CalAiPaywall layout differences", () => {
 
     const two = renderPaywall(2);
     expect(two.screen.getByTestId("hero-2")).toBeTruthy();
-    expect(two.screen.getByText("3 days free")).toBeTruthy();
+    expect(two.screen.getAllByText("3 days free")).toHaveLength(2);
     two.screen.unmount();
 
     const three = renderPaywall(3);
@@ -333,6 +360,7 @@ describe("CalAiPaywall layout differences", () => {
       );
       expect(screen.queryByText(/3 days free/i)).toBeNull();
       expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
+      expect(screen.queryByTestId("paywall-selected-trial")).toBeNull();
       if (version !== 3) {
         expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
           /Most popular/,
@@ -369,7 +397,7 @@ describe("CalAiPaywall layout differences", () => {
     expect(screen.getByTestId("paywall-headline")).toHaveTextContent(
       CALAI_HEADLINES[1],
     );
-    expect(screen.getByText("3 days free")).toBeTruthy();
+    expect(screen.getAllByText("3 days free")).toHaveLength(2);
     expect(screen.getByText("Most popular")).toBeTruthy();
     expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
       "Save 90% vs weekly",
