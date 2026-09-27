@@ -98,6 +98,11 @@ export function billingLabel(pkg: PurchasesPackage): string {
     : `${pkg.product.priceString} billed weekly`;
 }
 
+/** Store price with its billing period for the primary plan price line. */
+export function primaryPriceLabel(pkg: PurchasesPackage): string {
+  return `${pkg.product.priceString}/${periodLabel(pkg)}`;
+}
+
 /** Plan card / toggle title for an allowed package. */
 export function planTitle(pkg: PurchasesPackage): string {
   return pkg.packageType === PACKAGE_TYPE.ANNUAL ? "Yearly" : "Weekly";

@@ -5,6 +5,7 @@ import {
   formatLikePriceString,
   perWeekLabel,
   planTitle,
+  primaryPriceLabel,
   savingsPercent,
   splitPlans,
 } from "@/features/paywall/calai/pricing";
@@ -66,6 +67,16 @@ describe("formatLikePriceString", () => {
 
   it("returns null when the string has no number", () => {
     expect(formatLikePriceString("Free", 1)).toBeNull();
+  });
+});
+
+describe("primary price labels", () => {
+  it("shows the full store price with its billing period", () => {
+    expect(primaryPriceLabel(annual)).toBe("$35.99/year");
+    expect(primaryPriceLabel(weekly)).toBe("$6.99/week");
+    expect(primaryPriceLabel(pkg("ANNUAL", 34.99, "€ 34,99"))).toBe(
+      "€ 34,99/year",
+    );
   });
 });
 
