@@ -5,11 +5,10 @@ import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
-import type { PaywallData } from "../useOffering";
+import { trialInfo, type PaywallData } from "../useOffering";
 import {
-  billingLabel,
-  perWeekLabel,
   planTitle,
+  primaryPriceLabel,
   savingsPercent,
   splitPlans,
 } from "./pricing";
@@ -18,12 +17,7 @@ interface PlanCardsProps {
   data: PaywallData;
 }
 
-/**
- * Cal AI's two stacked plan cards: yearly title stays "Yearly". The tab
- * shows both "3 days free" and "Most popular". Save X% vs weekly sits
- * under the title at body size so the cheaper yearly plan is obvious —
- * not a tiny eyebrow pill, and not a substitute for the plan name.
- */
+/** Two stacked plan cards with the billed amount as the primary price. */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
@@ -38,7 +32,10 @@ export function PlanCards({ data }: PlanCardsProps) {
       {ordered.map((pkg) => {
         const isAnnual = pkg.packageType === "ANNUAL";
         const selected = data.pkg?.identifier === pkg.identifier;
-        const perWeek = perWeekLabel(pkg);
+        const trial = trialInfo(
+          pkg,
+          data.eligibility?.[pkg.product.identifier],
+        );
         return (
           <Pressable
             key={pkg.identifier}
@@ -62,9 +59,6 @@ export function PlanCards({ data }: PlanCardsProps) {
                 style={[styles.tab, { backgroundColor: colors.ctaBg }]}
                 testID="plan-yearly-tag"
               >
-                <AppText variant="eyebrow" tone="ctaInk">
-                  3 days free
-                </AppText>
                 <AppText variant="eyebrow" tone="ctaInk">
                   Most popular
                 </AppText>
@@ -93,34 +87,29 @@ export function PlanCards({ data }: PlanCardsProps) {
                 <AppText variant="lead" style={styles.title}>
                   {planTitle(pkg)}
                 </AppText>
+                <AppText
+                  variant="h3"
+                  testID={`plan-${pkg.identifier}-price`}
+                  style={styles.price}
+                >
+                  {primaryPriceLabel(pkg)}
+                </AppText>
+                {trial ? (
+                  <AppText variant="label" tone="ink2" style={styles.detail}>
+                    {`${trial.label} free`}
+                  </AppText>
+                ) : null}
                 {isAnnual && savings !== null ? (
                   <AppText
-                    variant="body"
-                    style={[styles.save, { color: colors.ink }]}
+                    variant="label"
+                    tone="ink2"
+                    style={styles.detail}
                     testID="plan-yearly-save"
                   >
                     {`Save ${savings}% vs weekly`}
                   </AppText>
                 ) : null}
-                {isAnnual ? (
-                  <AppText variant="body" tone="ink2" style={styles.billing}>
-                    {billingLabel(pkg)}
-                  </AppText>
-                ) : null}
               </View>
-              {perWeek ? (
-                <AppText
-                  variant="lead"
-                  tone={selected ? "ink" : "ink3"}
-                  style={styles.price}
-                >
-                  {perWeek}
-                </AppText>
-              ) : (
-                <AppText variant="lead" tone={selected ? "ink" : "ink3"}>
-                  {pkg.product.priceString}
-                </AppText>
-              )}
             </View>
           </Pressable>
         );
@@ -160,7 +149,6 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1 },
   title: { fontFamily: type.sansSemi },
-  save: { marginTop: 2, fontFamily: type.sansSemi },
-  billing: { marginTop: 2, fontFamily: type.sansMed },
-  price: { fontFamily: type.sansMed },
+  price: { marginTop: spacing.xs, fontFamily: type.sansSemi },
+  detail: { marginTop: 2 },
 });
