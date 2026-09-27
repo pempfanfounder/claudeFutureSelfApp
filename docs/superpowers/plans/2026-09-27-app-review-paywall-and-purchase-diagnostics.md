@@ -21,7 +21,7 @@
 - `src/lib/purchases.ts`: supply sanitized purchase failure context to monitoring.
 - `src/__tests__/calAiPricing.test.ts`, `src/__tests__/calAiPaywall.test.tsx`, `src/__tests__/diagnosticPrivacy.test.ts`, and `src/__tests__/purchaseIdentity.test.ts`: regression and privacy tests.
 
-Work only on `codex/app-review-paywall-diagnostics` in `/Users/z/Downloads/claudeFutureSelfApp-review`. Do not touch the original checkout or submit a build from this plan.
+Work only on `codex/app-review-paywall-diagnostics` in `/Users/z/.config/superpowers/worktrees/claudeFutureSelfApp/app-review-paywall`. Do not touch the original checkout or submit a build from this plan.
 
 ### Task 1: Store-derived billed price helper
 

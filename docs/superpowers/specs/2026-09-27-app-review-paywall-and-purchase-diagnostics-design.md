@@ -1,7 +1,7 @@
 # App Review paywall and purchase diagnostics design
 
 Date: 2026-09-27
-Status: design approved; written spec awaiting review
+Status: approved
 
 ## Context and evidence
 
