@@ -14,6 +14,7 @@ import {
   type Identity,
 } from "./appState";
 import { config } from "./config";
+import { purchaseDiagnosticCode } from "./diagnosticPolicy";
 import { monitoring } from "./monitoring";
 import { getIdentitySupabase } from "./supabase";
 
@@ -264,7 +265,11 @@ async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
   } catch (error) {
     if ((error as { userCancelled?: boolean }).userCancelled)
       return { status: "cancelled" };
-    monitoring.captureError(error, { area: "purchases.transaction" });
+    monitoring.captureError(error, {
+      area: "purchases.transaction",
+      purchase_code: purchaseDiagnosticCode(error),
+      purchase_operation: pkg ? "purchase" : "restore",
+    });
     return {
       status: "error",
       message: sdkStalled
