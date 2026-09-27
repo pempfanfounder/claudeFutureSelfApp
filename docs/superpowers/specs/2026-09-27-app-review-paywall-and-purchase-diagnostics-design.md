@@ -37,3 +37,7 @@ This diagnostic change does not guess at or alter the unconfirmed cause of Apple
 - Tests verify the diagnostic allowlist preserves known codes and operations while canary text in raw errors never reaches Sentry.
 - Run targeted tests, typecheck, and formatting checks; inspect the paywall on an iPhone-sized and iPad compatibility-sized viewport if the available simulator can run the build.
 - Create a draft PR from the isolated branch with the test evidence and the remaining iPadOS 27 review limitation. Do not claim the reviewer-specific purchase failure is fixed without reproducing it.
+
+## Resubmission gate
+
+The PR and automated tests do not by themselves resolve Guideline 2.1(b). Before resubmitting, install the new TestFlight build and verify both yearly and weekly purchases with separate eligible sandbox purchase histories, entitlement unlock, and Restore Purchases. Capture the sanitized code and investigate any failure. Repeat on an iPad running iPadOS 27 if one is available; otherwise disclose that this exact review environment was unavailable. Review the final paywall on the actual build to confirm the billed amount remains the dominant price at the sizes Apple may use. Submit only after the purchase paths work or a specific cause has been found and corrected.
