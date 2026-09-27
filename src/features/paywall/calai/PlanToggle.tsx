@@ -5,11 +5,10 @@ import { AppText } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
-import type { PaywallData } from "../useOffering";
+import { trialInfo, type PaywallData } from "../useOffering";
 import {
-  billingLabel,
-  perWeekLabel,
   planTitle,
+  primaryPriceLabel,
   savingsPercent,
   splitPlans,
 } from "./pricing";
@@ -31,7 +30,9 @@ export function PlanToggle({ data }: PlanToggleProps) {
   );
   if (ordered.length === 0) return null;
   const selected = data.pkg;
-  const perWeek = selected ? perWeekLabel(selected) : null;
+  const trial = selected
+    ? trialInfo(selected, data.eligibility?.[selected.product.identifier])
+    : null;
 
   return (
     <View>
@@ -85,12 +86,14 @@ export function PlanToggle({ data }: PlanToggleProps) {
       </View>
       {selected ? (
         <View style={styles.priceRow} testID="plan-price-line">
-          <AppText variant="h3" style={styles.perMonth}>
-            {perWeek ?? selected.product.priceString}
+          <AppText variant="h3" style={styles.price}>
+            {primaryPriceLabel(selected)}
           </AppText>
-          <AppText variant="label" tone="ink2">
-            {billingLabel(selected)}
-          </AppText>
+          {trial ? (
+            <AppText variant="label" tone="ink2" style={styles.trial}>
+              {`${trial.label} free`}
+            </AppText>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -121,11 +124,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   priceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-    gap: spacing.sm,
+    alignItems: "center",
     marginTop: spacing.lg,
   },
-  perMonth: { fontFamily: type.sansSemi },
+  price: { fontFamily: type.sansSemi },
+  trial: { marginTop: spacing.xs },
 });

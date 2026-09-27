@@ -1,6 +1,11 @@
 import * as Sentry from "@sentry/react-native";
 import { config } from "./config";
-import { diagnosticArea, scrubCrashEvent } from "./diagnosticPolicy";
+import {
+  diagnosticArea,
+  purchaseDiagnosticCode,
+  purchaseDiagnosticOperation,
+  scrubCrashEvent,
+} from "./diagnosticPolicy";
 let initialized = false;
 export function initMonitoring() {
   if (initialized || !config.hasSentry) return;
@@ -43,7 +48,26 @@ export const monitoring = {
       return;
     }
     Sentry.captureException(new Error("Application operation failed"), {
-      tags: { area },
+      tags: {
+        area,
+        ...(area === "purchases.transaction" &&
+        context &&
+        "purchase_code" in context
+          ? {
+              purchase_code: purchaseDiagnosticCode({
+                code: context.purchase_code,
+              }),
+            }
+          : {}),
+        ...(area === "purchases.transaction" &&
+        purchaseDiagnosticOperation(context?.purchase_operation)
+          ? {
+              purchase_operation: purchaseDiagnosticOperation(
+                context?.purchase_operation,
+              ),
+            }
+          : {}),
+      },
     });
   },
   addBreadcrumb(_message: string, _category?: string) {},

@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initAnalytics, analytics } from "@/lib/analytics";
-import { diagnosticProperties } from "@/lib/diagnosticPolicy";
+import {
+  diagnosticProperties,
+  purchaseDiagnosticCode,
+  scrubCrashEvent,
+} from "@/lib/diagnosticPolicy";
 import { initMonitoring, monitoring } from "@/lib/monitoring";
 import * as Sentry from "@sentry/react-native";
 import PostHog from "posthog-react-native";
@@ -29,6 +33,75 @@ jest.mock("@sentry/react-native", () => ({
   wrap: (x: unknown) => x,
 }));
 const canary = "CANARY_EMAIL_PERSONAL_WORDS_TOKEN";
+
+test("purchase code accepts only installed RevenueCat codes", () => {
+  expect(purchaseDiagnosticCode({ code: "2", message: canary })).toBe("2");
+  expect(purchaseDiagnosticCode({ code: "11" })).toBe("11");
+  expect(purchaseDiagnosticCode({ code: "42" })).toBe("42");
+  for (const error of [
+    { code: "27" },
+    { code: "36" },
+    { code: canary },
+    canary,
+    null,
+  ]) {
+    expect(purchaseDiagnosticCode(error)).toBe("unknown");
+  }
+});
+
+test("crash scrubber retains finite transaction tags only in the transaction area", () => {
+  const tags = {
+    area: "purchases.transaction",
+    purchase_code: "2",
+    purchase_operation: "purchase",
+    message: canary,
+    account_id: canary,
+  };
+  expect(scrubCrashEvent({ tags }).tags).toEqual({
+    area: "purchases.transaction",
+    purchase_code: "2",
+    purchase_operation: "purchase",
+  });
+  expect(JSON.stringify(scrubCrashEvent({ tags }))).not.toContain(canary);
+  expect(
+    scrubCrashEvent({ tags: { ...tags, area: "feed.load" } }).tags,
+  ).toEqual({ area: "feed.load" });
+  expect(
+    scrubCrashEvent({
+      tags: { ...tags, purchase_code: canary, purchase_operation: canary },
+    }).tags,
+  ).toEqual({
+    area: "purchases.transaction",
+    purchase_code: "unknown",
+  });
+});
+
+test("monitoring sends finite purchase tags only for transactions", () => {
+  initMonitoring();
+  const capture = Sentry.captureException as jest.Mock;
+  capture.mockClear();
+  monitoring.captureError(
+    { code: "2", message: canary },
+    {
+      area: "purchases.transaction",
+      purchase_code: "2",
+      purchase_operation: "restore",
+      message: canary,
+    },
+  );
+  expect(capture.mock.calls[0][1].tags).toEqual({
+    area: "purchases.transaction",
+    purchase_code: "2",
+    purchase_operation: "restore",
+  });
+  monitoring.captureError(new Error(canary), {
+    area: "feed.load",
+    purchase_code: "2",
+    purchase_operation: "purchase",
+  });
+  expect(capture.mock.calls[1][1].tags).toEqual({ area: "feed.load" });
+  expect(JSON.stringify(capture.mock.calls)).not.toContain(canary);
+});
 describe.each(["constructor", "__proto__", "toString", "hasOwnProperty"])(
   "own prototype-named property %s",
   (key) => {
@@ -54,7 +127,9 @@ describe.each(["constructor", "__proto__", "toString", "hasOwnProperty"])(
       const instance = initAnalytics()!;
       const capture = instance.capture as jest.Mock;
       capture.mockClear();
-      expect(() => analytics.capture("favorite_added", properties)).not.toThrow();
+      expect(() =>
+        analytics.capture("favorite_added", properties),
+      ).not.toThrow();
       expect(capture).toHaveBeenCalledTimes(1);
       expect(capture).toHaveBeenCalledWith("favorite_added", valid);
       const result = capture.mock.calls[0][1];

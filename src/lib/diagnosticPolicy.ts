@@ -103,6 +103,26 @@ const AREAS = new Set([
   "settings.notificationPrefs",
   "settings.customerCenter",
 ]);
+// Values from the installed RevenueCat SDK's PURCHASES_ERROR_CODE enum.
+const PURCHASE_CODES = new Set([
+  ...Array.from({ length: 27 }, (_, code) => String(code)),
+  ...Array.from({ length: 8 }, (_, code) => String(code + 28)),
+  "42",
+]);
+const PURCHASE_OPERATIONS = new Set(["purchase", "restore"]);
+export function purchaseDiagnosticCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" && PURCHASE_CODES.has(code)
+    ? code
+    : "unknown";
+}
+export function purchaseDiagnosticOperation(
+  value: unknown,
+): string | undefined {
+  return typeof value === "string" && PURCHASE_OPERATIONS.has(value)
+    ? value
+    : undefined;
+}
 export const isDiagnosticEvent = (value: string) => EVENTS.has(value);
 export function diagnosticProperties(
   properties?: Record<string, unknown>,
@@ -133,6 +153,7 @@ export function diagnosticArea(value: unknown): string {
 /** Reconstruct, never spread raw SDK errors, requests, contexts or stack vars. */
 export function scrubCrashEvent(event: Record<string, unknown>) {
   const tags = event.tags as Record<string, unknown> | undefined;
+  const area = diagnosticArea(tags?.area);
   return {
     type: undefined,
     environment: ["development", "staging", "production"].includes(
@@ -154,7 +175,22 @@ export function scrubCrashEvent(event: Record<string, unknown>) {
         : undefined,
     level: "error" as const,
     platform: "javascript",
-    tags: { area: diagnosticArea(tags?.area) },
+    tags: {
+      area,
+      ...(area === "purchases.transaction" && tags && "purchase_code" in tags
+        ? {
+            purchase_code: purchaseDiagnosticCode({ code: tags.purchase_code }),
+          }
+        : {}),
+      ...(area === "purchases.transaction" &&
+      purchaseDiagnosticOperation(tags?.purchase_operation)
+        ? {
+            purchase_operation: purchaseDiagnosticOperation(
+              tags?.purchase_operation,
+            ),
+          }
+        : {}),
+    },
     exception: {
       values: [
         { type: "ApplicationError", value: "Application operation failed" },

@@ -1,5 +1,6 @@
 import Purchases from "react-native-purchases";
 import { useAppState } from "@/lib/appState";
+import { monitoring } from "@/lib/monitoring";
 import {
   initPurchases,
   logInPurchases,
@@ -111,4 +112,23 @@ test("a linked identity can still invoke the store purchase", async () => {
   const result = await purchasePackage(weekly);
   expect(result.status).toBe("purchased");
   expect(Purchases.purchasePackage).toHaveBeenCalled();
+});
+
+test("a rejected purchase reports a finite code and keeps the generic user message", async () => {
+  useAppState.getState().setUserId("fs-local-linked");
+  useAppState.getState().setAnonymous(false);
+  (Purchases.logIn as jest.Mock).mockResolvedValue({ customerInfo: inactive });
+  await logInPurchases("fs-local-linked");
+  (monitoring.captureError as jest.Mock).mockClear();
+  const error = { code: "2", message: "CANARY_EMAIL_PERSONAL_WORDS_TOKEN" };
+  (Purchases.purchasePackage as jest.Mock).mockRejectedValueOnce(error);
+  expect(await purchasePackage(weekly)).toEqual({
+    status: "error",
+    message: "Could not complete this purchase or restore. Please try again.",
+  });
+  expect(monitoring.captureError).toHaveBeenCalledWith(error, {
+    area: "purchases.transaction",
+    purchase_code: "2",
+    purchase_operation: "purchase",
+  });
 });
