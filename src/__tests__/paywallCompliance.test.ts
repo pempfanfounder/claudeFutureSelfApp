@@ -102,7 +102,7 @@ describe("store wording follows the platform", () => {
     );
     expect(long).not.toContain("App Store");
     expect(compactDisclosure(annual, "eligible", "android")).toBe(
-      "3 days free, then $59.99 per year. Renews automatically unless cancelled in Google Play.",
+      "$59.99 per year after 3 days free. Renews automatically unless cancelled in Google Play.",
     );
     const lifetime = fakePackage({
       packageType: "LIFETIME",
@@ -146,7 +146,7 @@ describe("compactDisclosure (Cal AI paywalls)", () => {
       introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 },
     });
     expect(compactDisclosure(pkg, "eligible")).toBe(
-      "3 days free, then $59.99 per year. Renews automatically unless cancelled in the App Store.",
+      "$59.99 per year after 3 days free. Renews automatically unless cancelled in the App Store.",
     );
   });
 

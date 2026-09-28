@@ -18,7 +18,7 @@ import { analytics } from "@/lib/analytics";
 import { purchasePackage } from "@/lib/purchases";
 
 import type { CalAiVersion } from "../paywallVariant";
-import { ctaLabel, type PaywallData } from "../useOffering";
+import type { PaywallData } from "../useOffering";
 import { CompactFooter } from "./CompactFooter";
 import { NotificationStack } from "./NotificationStack";
 import { PlanCards } from "./PlanCards";
@@ -105,6 +105,8 @@ export function CalAiPaywall({
     setPurchasing(false);
     if (result.status === "purchased") {
       onPurchased();
+    } else if (result.status === "pending") {
+      Alert.alert("Purchase pending", result.message);
     } else if (result.status === "error") {
       Alert.alert("Purchase failed", result.message);
     }
@@ -260,7 +262,9 @@ export function CalAiPaywall({
 
         <View style={styles.ctaWrap}>
           <Button
-            label={data.trialLength ? ctaLabel(data.trialLength) : "Continue"}
+            // Guideline 3.1.2(c): the trial may not outshine the billed
+            // amount, and this button is the largest text on screen.
+            label="Continue"
             onPress={buy}
             loading={purchasing}
             disabled={data.loading || data.unavailable || !data.pkg}
