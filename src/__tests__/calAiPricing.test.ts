@@ -1,9 +1,10 @@
 import type { PurchasesPackage } from "react-native-purchases";
 
 import {
-  billingLabel,
+  billedPriceLabel,
   formatLikePriceString,
   perWeekLabel,
+  planDetailLabel,
   planTitle,
   savingsPercent,
   splitPlans,
@@ -106,9 +107,12 @@ describe("plan maths from real prices", () => {
     expect(perWeekLabel(pkg("LIFETIME", 99, "$99.00"))).toBeNull();
   });
 
-  it("labels the billing cadence and the plan", () => {
-    expect(billingLabel(annual)).toBe("$35.99 billed yearly");
-    expect(billingLabel(weekly)).toBe("$6.99 billed weekly");
+  it("labels the billed amount, the secondary detail and the plan", () => {
+    expect(billedPriceLabel(annual)).toBe("$35.99/year");
+    expect(billedPriceLabel(weekly)).toBe("$6.99/week");
+    expect(planDetailLabel(annual, 90)).toBe("$0.69/wk · Save 90%");
+    expect(planDetailLabel(annual, null)).toBe("$0.69/wk");
+    expect(planDetailLabel(weekly, 90)).toBeNull();
     expect(planTitle(annual)).toBe("Yearly");
     expect(planTitle(weekly)).toBe("Weekly");
   });

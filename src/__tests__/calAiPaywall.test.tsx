@@ -1,5 +1,6 @@
 import React from "react";
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { Alert, StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProvider } from "@/design-system/ThemeProvider";
@@ -170,7 +171,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       );
       expect(preview[1]!.body).toBe("I start now, not later.");
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        "3 days free, then $35.99 per year. Renews automatically unless cancelled in the App Store.",
+        "$35.99 per year after 3 days free. Renews automatically unless cancelled in the App Store.",
       );
       // Compact footer: Terms · Privacy · Restore · Privacy choices. The
       // last one is the non-payer's route to support and account deletion
@@ -193,25 +194,37 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("shows per-week prices, yearly billing, and selects plans", () => {
+    it("leads with the billed amount and keeps per-week pricing subordinate", () => {
       const data = makeData();
       const { screen } = renderPaywall(version, data);
       if (version === 3) {
         expect(screen.getByText("Save 90%")).toBeTruthy();
+        expect(screen.getByTestId("plan-price-line")).toHaveTextContent(
+          "$35.99/year$0.69/wk",
+        );
       } else {
-        expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-          "Save 90% vs weekly",
+        expect(screen.getByTestId("plan-$rc_annual-billed")).toHaveTextContent(
+          "$35.99/year",
         );
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /3 days free/,
+        expect(screen.getByTestId("plan-$rc_weekly-billed")).toHaveTextContent(
+          "$6.99/week",
         );
+        expect(screen.getByTestId("plan-$rc_annual-detail")).toHaveTextContent(
+          "$0.69/wk · Save 90%",
+        );
+        expect(screen.getByTestId("plan-$rc_annual-trial")).toHaveTextContent(
+          "3 days free, then $35.99/year",
+        );
+        expect(screen.queryByTestId("plan-$rc_weekly-detail")).toBeNull();
+        expect(screen.queryByTestId("plan-$rc_weekly-trial")).toBeNull();
         expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /Most popular/,
+          "Most popular",
+        );
+        expect(screen.getByTestId("plan-yearly-tag")).not.toHaveTextContent(
+          /free/,
         );
         expect(screen.getByText("Yearly")).toBeTruthy();
       }
-      expect(screen.getByText("$0.69/wk")).toBeTruthy();
-      expect(screen.getByText("$35.99 billed yearly")).toBeTruthy();
       expect(screen.queryByText(/monthly/i)).toBeNull();
       expect(screen.queryByText(/\/mo\b/)).toBeNull();
       fireEvent.press(screen.getByTestId("plan-$rc_weekly"));
@@ -219,11 +232,30 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("CTA names the store trial and purchases the selected package", async () => {
+    it("renders the billed amount larger than any trial or per-week text", () => {
+      const { screen } = renderPaywall(version);
+      const size = (node: { props: { style?: unknown } }) =>
+        (StyleSheet.flatten(node.props.style as never) as { fontSize: number })
+          .fontSize;
+      const billed =
+        version === 3
+          ? screen.getByText("$35.99/year")
+          : screen.getByTestId("plan-$rc_annual-billed");
+      const subordinate = [
+        screen.getByText(/\$0\.69\/wk/),
+        screen.getByTestId("paywall-disclosure"),
+        ...(version === 3 ? [] : [screen.getByTestId("plan-$rc_annual-trial")]),
+      ];
+      for (const node of subordinate) {
+        expect(size(node)).toBeLessThan(size(billed));
+      }
+      screen.unmount();
+    });
+
+    it("keeps the CTA neutral and purchases the selected package", async () => {
       const { screen, onPurchased } = renderPaywall(version);
-      expect(screen.getByTestId("paywall-cta")).toHaveTextContent(
-        "Start your 3-day free trial",
-      );
+      expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
+      expect(screen.getByTestId("paywall-cta")).not.toHaveTextContent(/free/i);
       await act(async () => {
         fireEvent.press(screen.getByTestId("paywall-cta"));
       });
@@ -233,7 +265,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       screen.unmount();
     });
 
-    it("falls back to Continue and plain price terms without a trial", () => {
+    it("drops every trial mention when the store grants none", () => {
       const { screen } = renderPaywall(
         version,
         makeData({
@@ -246,18 +278,26 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
       expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
         "$35.99 per year. Renews automatically unless cancelled in the App Store.",
       );
-      expect(screen.getByTestId("paywall-disclosure")).not.toHaveTextContent(
-        /free/,
+      expect(screen.queryByText(/free/)).toBeNull();
+      screen.unmount();
+    });
+
+    it("explains a pending (Ask to Buy) purchase instead of calling it a failure", async () => {
+      jest.mocked(purchasePackage).mockResolvedValueOnce({
+        status: "pending",
+        message: "Waiting for approval.",
+      });
+      const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+      const { screen, onPurchased } = renderPaywall(version);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId("paywall-cta"));
+      });
+      expect(alert).toHaveBeenCalledWith(
+        "Purchase pending",
+        "Waiting for approval.",
       );
-      if (version !== 3) {
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /3 days free/,
-        );
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /Most popular/,
-        );
-        expect(screen.getByText("Yearly")).toBeTruthy();
-      }
+      expect(onPurchased).not.toHaveBeenCalled();
+      alert.mockRestore();
       screen.unmount();
     });
 
@@ -288,13 +328,9 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])(
 );
 
 describe("CalAiPaywall layout differences", () => {
-  it("v1 and v2 stack plan cards with a 3 days free tab; v3 uses a toggle", () => {
+  it("v1 and v2 stack plan cards with a Most popular tab; v3 uses a toggle", () => {
     const one = renderPaywall(1);
-    expect(one.screen.getByText("3 days free")).toBeTruthy();
     expect(one.screen.getByText("Most popular")).toBeTruthy();
-    expect(one.screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-      "Save 90% vs weekly",
-    );
     expect(one.screen.getByText("Yearly")).toBeTruthy();
     expect(one.screen.getByText("Weekly")).toBeTruthy();
     expect(one.screen.queryByTestId("plan-price-line")).toBeNull();
@@ -302,21 +338,19 @@ describe("CalAiPaywall layout differences", () => {
 
     const two = renderPaywall(2);
     expect(two.screen.getByTestId("hero-2")).toBeTruthy();
-    expect(two.screen.getByText("3 days free")).toBeTruthy();
+    expect(two.screen.getByText("Most popular")).toBeTruthy();
     two.screen.unmount();
 
     const three = renderPaywall(3);
     expect(three.screen.queryByText("Most popular")).toBeNull();
-    expect(three.screen.getByTestId("plan-price-line")).toHaveTextContent(
-      "$0.69/wk$35.99 billed yearly",
-    );
+    expect(three.screen.getByTestId("plan-price-line")).toBeTruthy();
     expect(three.screen.getByTestId("paywall-cta")).toHaveStyle({
       minHeight: 65,
     });
     three.screen.unmount();
   });
 
-  it("tags the yearly card 3 days free even when trial eligibility is unknown", () => {
+  it("never advertises a trial when eligibility is unknown", () => {
     const { screen } = renderPaywall(
       1,
       makeData({
@@ -326,16 +360,13 @@ describe("CalAiPaywall layout differences", () => {
       }),
     );
     expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-      /3 days free/,
+      "Most popular",
     );
-    expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-      /Most popular/,
+    expect(screen.queryByTestId("plan-$rc_annual-trial")).toBeNull();
+    expect(screen.queryByText(/free/)).toBeNull();
+    expect(screen.getByTestId("plan-$rc_annual-detail")).toHaveTextContent(
+      "$0.69/wk · Save 90%",
     );
-    expect(screen.getByText("Yearly")).toBeTruthy();
-    expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-      "Save 90% vs weekly",
-    );
-    expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
     screen.unmount();
   });
 
@@ -363,10 +394,9 @@ describe("CalAiPaywall layout differences", () => {
     expect(screen.getByTestId("paywall-headline")).toHaveTextContent(
       CALAI_HEADLINES[1],
     );
-    expect(screen.getByText("3 days free")).toBeTruthy();
     expect(screen.getByText("Most popular")).toBeTruthy();
-    expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-      "Save 90% vs weekly",
+    expect(screen.getByTestId("plan-$rc_annual-billed")).toHaveTextContent(
+      "$35.99/year",
     );
     expect(screen.getByText("Weekly")).toBeTruthy();
     expect(screen.queryByTestId("plan-price-line")).toBeNull();
@@ -379,7 +409,7 @@ describe("CalAiPaywall layout differences", () => {
   it("v3 price line follows the selected plan", () => {
     const { screen } = renderPaywall(3, makeData({ pkg: weekly }));
     expect(screen.getByTestId("plan-price-line")).toHaveTextContent(
-      "$6.99/wk$6.99 billed weekly",
+      /^\$6\.99\/week$/,
     );
     screen.unmount();
   });

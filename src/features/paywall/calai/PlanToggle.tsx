@@ -7,8 +7,8 @@ import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
 import type { PaywallData } from "../useOffering";
 import {
-  billingLabel,
-  perWeekLabel,
+  billedPriceLabel,
+  planDetailLabel,
   planTitle,
   savingsPercent,
   splitPlans,
@@ -20,7 +20,8 @@ interface PlanToggleProps {
 
 /**
  * Yearly / Weekly as a segmented control with a single price line
- * underneath — the whole plan choice in two taps' worth of UI.
+ * underneath — the whole plan choice in two taps' worth of UI. The billed
+ * amount leads the price line; the per-week figure trails it, smaller.
  */
 export function PlanToggle({ data }: PlanToggleProps) {
   const colors = useColors();
@@ -31,7 +32,7 @@ export function PlanToggle({ data }: PlanToggleProps) {
   );
   if (ordered.length === 0) return null;
   const selected = data.pkg;
-  const perWeek = selected ? perWeekLabel(selected) : null;
+  const detail = selected ? planDetailLabel(selected, null) : null;
 
   return (
     <View>
@@ -85,12 +86,14 @@ export function PlanToggle({ data }: PlanToggleProps) {
       </View>
       {selected ? (
         <View style={styles.priceRow} testID="plan-price-line">
-          <AppText variant="h3" style={styles.perMonth}>
-            {perWeek ?? selected.product.priceString}
+          <AppText variant="h3" style={styles.billed}>
+            {billedPriceLabel(selected)}
           </AppText>
-          <AppText variant="label" tone="ink2">
-            {billingLabel(selected)}
-          </AppText>
+          {detail ? (
+            <AppText variant="label" tone="ink2">
+              {detail}
+            </AppText>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -127,5 +130,5 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.lg,
   },
-  perMonth: { fontFamily: type.sansSemi },
+  billed: { fontFamily: type.sansSemi },
 });

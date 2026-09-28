@@ -3,7 +3,12 @@ import { PACKAGE_TYPE, type PurchasesPackage } from "react-native-purchases";
 
 import { storeName } from "@/lib/storeName";
 
-import { periodLabel, trialInfo, type TrialEligibility } from "../useOffering";
+import {
+  formatPriceLine,
+  periodLabel,
+  trialInfo,
+  type TrialEligibility,
+} from "../useOffering";
 
 /** Annual and weekly packages picked out of the approved offering. */
 export interface PlanPair {
@@ -91,11 +96,30 @@ export function savingsPercent(plans: PlanPair): number | null {
   return percent > 0 ? percent : null;
 }
 
-/** "billed yearly" / "billed weekly" tail for a plan card. */
-export function billingLabel(pkg: PurchasesPackage): string {
-  return pkg.packageType === PACKAGE_TYPE.ANNUAL
-    ? `${pkg.product.priceString} billed yearly`
-    : `${pkg.product.priceString} billed weekly`;
+/**
+ * The amount the store actually charges, per billing period: "$35.99/year",
+ * "$6.99/week". Guideline 3.1.2(c) requires this to be the most prominent
+ * price on the paywall.
+ */
+export function billedPriceLabel(pkg: PurchasesPackage): string {
+  return formatPriceLine(pkg);
+}
+
+/**
+ * Secondary line under a plan's billed price, always rendered smaller:
+ * "$0.69/wk · Save 90%" for yearly. Null for weekly, whose per-week price
+ * is the billed price.
+ */
+export function planDetailLabel(
+  pkg: PurchasesPackage,
+  savings: number | null,
+): string | null {
+  if (pkg.packageType !== PACKAGE_TYPE.ANNUAL) return null;
+  const parts = [
+    perWeekLabel(pkg),
+    savings !== null ? `Save ${savings}%` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length ? parts.join(" · ") : null;
 }
 
 /** Plan card / toggle title for an allowed package. */
@@ -118,9 +142,8 @@ export function compactDisclosure(
     return `One-time purchase of ${pkg.product.priceString}.`;
   }
   const trial = trialInfo(pkg, eligibility);
-  const lead = trial
-    ? `${trial.label} free, then ${pkg.product.priceString} per ${periodLabel(pkg)}.`
-    : `${pkg.product.priceString} per ${periodLabel(pkg)}.`;
+  const billed = `${pkg.product.priceString} per ${periodLabel(pkg)}`;
+  const lead = trial ? `${billed} after ${trial.label} free.` : `${billed}.`;
   const store = storeName(platform);
   return `${lead} Renews automatically unless cancelled in ${store === "App Store" ? "the App Store" : store}.`;
 }

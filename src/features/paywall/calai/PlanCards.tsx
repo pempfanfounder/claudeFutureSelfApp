@@ -5,10 +5,10 @@ import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
 import { radii, shadows, spacing, type } from "@/design-system/tokens";
 
-import type { PaywallData } from "../useOffering";
+import { trialInfo, type PaywallData } from "../useOffering";
 import {
-  billingLabel,
-  perWeekLabel,
+  billedPriceLabel,
+  planDetailLabel,
   planTitle,
   savingsPercent,
   splitPlans,
@@ -19,10 +19,10 @@ interface PlanCardsProps {
 }
 
 /**
- * Cal AI's two stacked plan cards: yearly title stays "Yearly". The tab
- * shows both "3 days free" and "Most popular". Save X% vs weekly sits
- * under the title at body size so the cheaper yearly plan is obvious —
- * not a tiny eyebrow pill, and not a substitute for the plan name.
+ * Cal AI's two stacked plan cards. Guideline 3.1.2(c): the billed amount
+ * ("$35.99/year") is the largest, darkest price on each card; the
+ * per-week figure, the saving and the free trial sit underneath in
+ * smaller secondary text and never outrank it.
  */
 export function PlanCards({ data }: PlanCardsProps) {
   const colors = useColors();
@@ -38,7 +38,11 @@ export function PlanCards({ data }: PlanCardsProps) {
       {ordered.map((pkg) => {
         const isAnnual = pkg.packageType === "ANNUAL";
         const selected = data.pkg?.identifier === pkg.identifier;
-        const perWeek = perWeekLabel(pkg);
+        const detail = planDetailLabel(pkg, savings);
+        const trial = trialInfo(
+          pkg,
+          data.eligibility?.[pkg.product.identifier],
+        );
         return (
           <Pressable
             key={pkg.identifier}
@@ -62,9 +66,6 @@ export function PlanCards({ data }: PlanCardsProps) {
                 style={[styles.tab, { backgroundColor: colors.ctaBg }]}
                 testID="plan-yearly-tag"
               >
-                <AppText variant="eyebrow" tone="ctaInk">
-                  3 days free
-                </AppText>
                 <AppText variant="eyebrow" tone="ctaInk">
                   Most popular
                 </AppText>
@@ -90,37 +91,39 @@ export function PlanCards({ data }: PlanCardsProps) {
                 ) : null}
               </View>
               <View style={styles.copy}>
-                <AppText variant="lead" style={styles.title}>
-                  {planTitle(pkg)}
-                </AppText>
-                {isAnnual && savings !== null ? (
+                <View style={styles.headline}>
+                  <AppText variant="lead" style={styles.title}>
+                    {planTitle(pkg)}
+                  </AppText>
                   <AppText
-                    variant="body"
-                    style={[styles.save, { color: colors.ink }]}
-                    testID="plan-yearly-save"
+                    variant="lead"
+                    style={styles.price}
+                    testID={`plan-${pkg.identifier}-billed`}
                   >
-                    {`Save ${savings}% vs weekly`}
+                    {billedPriceLabel(pkg)}
+                  </AppText>
+                </View>
+                {detail ? (
+                  <AppText
+                    variant="label"
+                    tone="ink2"
+                    style={styles.detail}
+                    testID={`plan-${pkg.identifier}-detail`}
+                  >
+                    {detail}
                   </AppText>
                 ) : null}
-                {isAnnual ? (
-                  <AppText variant="body" tone="ink2" style={styles.billing}>
-                    {billingLabel(pkg)}
+                {trial ? (
+                  <AppText
+                    variant="label"
+                    tone="ink2"
+                    style={styles.detail}
+                    testID={`plan-${pkg.identifier}-trial`}
+                  >
+                    {`${trial.label} free, then ${billedPriceLabel(pkg)}`}
                   </AppText>
                 ) : null}
               </View>
-              {perWeek ? (
-                <AppText
-                  variant="lead"
-                  tone={selected ? "ink" : "ink3"}
-                  style={styles.price}
-                >
-                  {perWeek}
-                </AppText>
-              ) : (
-                <AppText variant="lead" tone={selected ? "ink" : "ink3"}>
-                  {pkg.product.priceString}
-                </AppText>
-              )}
             </View>
           </Pressable>
         );
@@ -147,7 +150,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.md,
   },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   radio: {
@@ -159,8 +161,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   copy: { flex: 1 },
+  headline: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   title: { fontFamily: type.sansSemi },
-  save: { marginTop: 2, fontFamily: type.sansSemi },
-  billing: { marginTop: 2, fontFamily: type.sansMed },
-  price: { fontFamily: type.sansMed },
+  price: { fontFamily: type.sansSemi },
+  detail: { marginTop: 2 },
 });
