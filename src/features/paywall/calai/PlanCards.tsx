@@ -3,124 +3,49 @@ import type { PurchasesPackage } from "react-native-purchases";
 
 import { AppText, Icon } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, shadows, spacing, type } from "@/design-system/tokens";
-
+import { radii, shadows, spacing } from "@/design-system/tokens";
 import type { PaywallData } from "../useOffering";
-import {
-  billingLabel,
-  perWeekLabel,
-  planTitle,
-  savingsPercent,
-  splitPlans,
-} from "./pricing";
+import { BillingSummary } from "./BillingSummary";
+import { planTitle, splitPlans } from "./pricing";
 
-interface PlanCardsProps {
-  data: PaywallData;
-}
+interface PlanCardsProps { data: PaywallData; disabled?: boolean }
 
-/**
- * Cal AI's two stacked plan cards: yearly title stays "Yearly". The tab
- * shows both "3 days free" and "Most popular". Save X% vs weekly sits
- * under the title at body size so the cheaper yearly plan is obvious —
- * not a tiny eyebrow pill, and not a substitute for the plan name.
- */
-export function PlanCards({ data }: PlanCardsProps) {
+/** Full bills, not calculated weekly equivalents or unconditional trial banners. */
+export function PlanCards({ data, disabled = false }: PlanCardsProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
-  const savings = savingsPercent(plans);
   const ordered = [plans.annual, plans.weekly].filter(
     (p): p is PurchasesPackage => p !== null,
   );
-  if (ordered.length === 0) return null;
-
+  if (data.loading || data.unavailable || ordered.length === 0) return null;
   return (
-    <View style={styles.list}>
+    <View style={styles.list} accessibilityRole="radiogroup">
       {ordered.map((pkg) => {
-        const isAnnual = pkg.packageType === "ANNUAL";
         const selected = data.pkg?.identifier === pkg.identifier;
-        const perWeek = perWeekLabel(pkg);
         return (
           <Pressable
             key={pkg.identifier}
             onPress={() => data.selectPackage(pkg)}
+            disabled={disabled}
             accessibilityRole="radio"
-            accessibilityState={{ selected }}
+            accessibilityState={{ selected, disabled }}
             testID={`plan-${pkg.identifier}`}
             style={[
               styles.card,
-              {
-                backgroundColor: colors.card,
-                borderColor: selected ? colors.ctaBg : colors.borderStrong,
-                borderWidth: selected ? 2 : 1,
-              },
+              { backgroundColor: colors.card, borderColor: selected ? colors.ctaBg : colors.borderStrong },
               selected && shadows.sm,
-              isAnnual && styles.cardWithTab,
             ]}
           >
-            {isAnnual ? (
-              <View
-                style={[styles.tab, { backgroundColor: colors.ctaBg }]}
-                testID="plan-yearly-tag"
-              >
-                <AppText variant="eyebrow" tone="ctaInk">
-                  3 days free
-                </AppText>
-                <AppText variant="eyebrow" tone="ctaInk">
-                  Most popular
-                </AppText>
-              </View>
-            ) : null}
-            <View style={styles.row}>
-              <View
-                style={[
-                  styles.radio,
-                  {
-                    borderColor: selected ? colors.ctaBg : colors.borderStrong,
-                  },
-                  selected && { backgroundColor: colors.ctaBg },
-                ]}
-              >
-                {selected ? (
-                  <Icon
-                    name="check"
-                    size={13}
-                    color={colors.ctaInk}
-                    weight="bold"
-                  />
-                ) : null}
-              </View>
-              <View style={styles.copy}>
-                <AppText variant="lead" style={styles.title}>
-                  {planTitle(pkg)}
-                </AppText>
-                {isAnnual && savings !== null ? (
-                  <AppText
-                    variant="body"
-                    style={[styles.save, { color: colors.ink }]}
-                    testID="plan-yearly-save"
-                  >
-                    {`Save ${savings}% vs weekly`}
-                  </AppText>
-                ) : null}
-                {isAnnual ? (
-                  <AppText variant="body" tone="ink2" style={styles.billing}>
-                    {billingLabel(pkg)}
-                  </AppText>
-                ) : null}
-              </View>
-              {perWeek ? (
-                <AppText
-                  variant="lead"
-                  tone={selected ? "ink" : "ink3"}
-                  style={styles.price}
-                >
-                  {perWeek}
-                </AppText>
-              ) : (
-                <AppText variant="lead" tone={selected ? "ink" : "ink3"}>
-                  {pkg.product.priceString}
-                </AppText>
-              )}
+            <View style={[styles.radio, { borderColor: colors.ctaBg }, selected && { backgroundColor: colors.ctaBg }]}>
+              {selected ? <Icon name="check" size={13} color={colors.ctaInk} weight="bold" /> : null}
+            </View>
+            <View style={styles.copy}>
+              <AppText variant="body" style={styles.title}>{planTitle(pkg)}</AppText>
+              <BillingSummary
+                pkg={pkg}
+                eligibility={data.eligibility?.[pkg.product.identifier]}
+                testID={`billing-${pkg.identifier}`}
+              />
             </View>
           </Pressable>
         );
@@ -131,36 +56,8 @@ export function PlanCards({ data }: PlanCardsProps) {
 
 const styles = StyleSheet.create({
   list: { gap: spacing.md },
-  card: {
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    overflow: "hidden",
-  },
-  cardWithTab: { paddingTop: spacing.lg + 26 },
-  tab: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 28,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.md,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  radio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  copy: { flex: 1 },
-  title: { fontFamily: type.sansSemi },
-  save: { marginTop: 2, fontFamily: type.sansSemi },
-  billing: { marginTop: 2, fontFamily: type.sansMed },
-  price: { fontFamily: type.sansMed },
+  card: { flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radii.lg, borderWidth: 2, padding: spacing.lg },
+  radio: { width: 24, height: 24, flexShrink: 0, borderRadius: 12, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  copy: { flex: 1, minWidth: 0 },
+  title: { marginBottom: 4 },
 });

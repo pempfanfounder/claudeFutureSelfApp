@@ -3,94 +3,48 @@ import type { PurchasesPackage } from "react-native-purchases";
 
 import { AppText } from "@/design-system/components";
 import { useColors } from "@/design-system/ThemeProvider";
-import { radii, shadows, spacing, type } from "@/design-system/tokens";
-
+import { radii, shadows, spacing } from "@/design-system/tokens";
 import type { PaywallData } from "../useOffering";
-import {
-  billingLabel,
-  perWeekLabel,
-  planTitle,
-  savingsPercent,
-  splitPlans,
-} from "./pricing";
+import { BillingSummary } from "./BillingSummary";
+import { planTitle, splitPlans } from "./pricing";
 
-interface PlanToggleProps {
-  data: PaywallData;
-}
+interface PlanToggleProps { data: PaywallData; disabled?: boolean }
 
-/**
- * Yearly / Weekly as a segmented control with a single price line
- * underneath — the whole plan choice in two taps' worth of UI.
- */
-export function PlanToggle({ data }: PlanToggleProps) {
+export function PlanToggle({ data, disabled = false }: PlanToggleProps) {
   const colors = useColors();
   const plans = splitPlans(data.allPackages);
-  const savings = savingsPercent(plans);
   const ordered = [plans.annual, plans.weekly].filter(
     (p): p is PurchasesPackage => p !== null,
   );
-  if (ordered.length === 0) return null;
-  const selected = data.pkg;
-  const perWeek = selected ? perWeekLabel(selected) : null;
-
+  if (data.loading || data.unavailable || ordered.length === 0) return null;
   return (
     <View>
-      <View
-        style={[
-          styles.track,
-          { backgroundColor: colors.bgAlt, borderColor: colors.border },
-        ]}
-        accessibilityRole="radiogroup"
-      >
+      <View style={[styles.track, { backgroundColor: colors.bgAlt, borderColor: colors.border }]} accessibilityRole="radiogroup">
         {ordered.map((pkg) => {
-          const isAnnual = pkg.packageType === "ANNUAL";
-          const on = selected?.identifier === pkg.identifier;
+          const selected = data.pkg?.identifier === pkg.identifier;
           return (
             <Pressable
               key={pkg.identifier}
               onPress={() => data.selectPackage(pkg)}
+              disabled={disabled}
               accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
+              accessibilityState={{ selected, disabled }}
               testID={`plan-${pkg.identifier}`}
-              style={[
-                styles.segment,
-                on && { backgroundColor: colors.card },
-                on && shadows.sm,
-              ]}
+              style={[styles.segment, selected && { backgroundColor: colors.card }, selected && shadows.sm]}
             >
-              <AppText
-                variant="body"
-                tone={on ? "ink" : "ink3"}
-                style={styles.segmentLabel}
-              >
-                {planTitle(pkg)}
-              </AppText>
-              {isAnnual && savings !== null ? (
-                <View
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor: on ? colors.ctaBg : colors.borderStrong,
-                    },
-                  ]}
-                >
-                  <AppText variant="eyebrow" tone={on ? "ctaInk" : "ink2"}>
-                    {`Save ${savings}%`}
-                  </AppText>
-                </View>
-              ) : null}
+              <AppText variant="body">{planTitle(pkg)}</AppText>
             </Pressable>
           );
         })}
       </View>
-      {selected ? (
-        <View style={styles.priceRow} testID="plan-price-line">
-          <AppText variant="h3" style={styles.perMonth}>
-            {perWeek ?? selected.product.priceString}
-          </AppText>
-          <AppText variant="label" tone="ink2">
-            {billingLabel(selected)}
-          </AppText>
+      {data.pkg ? (
+        <View style={styles.summary} testID="plan-price-line">
+          <BillingSummary
+            pkg={data.pkg}
+            eligibility={data.eligibility?.[data.pkg.product.identifier]}
+            center
+            testID="toggle-billing"
+          />
         </View>
       ) : null}
     </View>
@@ -98,34 +52,7 @@ export function PlanToggle({ data }: PlanToggleProps) {
 }
 
 const styles = StyleSheet.create({
-  track: {
-    flexDirection: "row",
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    padding: 4,
-  },
-  segment: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    minHeight: 48,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-  },
-  segmentLabel: { fontFamily: type.sansSemi },
-  badge: {
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  perMonth: { fontFamily: type.sansSemi },
+  track: { flexDirection: "row", borderRadius: radii.pill, borderWidth: 1, padding: 4 },
+  segment: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: radii.pill, padding: spacing.md },
+  summary: { marginTop: spacing.lg },
 });
