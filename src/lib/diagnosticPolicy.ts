@@ -130,6 +130,19 @@ export function diagnosticProperties(
 export function diagnosticArea(value: unknown): string {
   return typeof value === "string" && AREAS.has(value) ? value : "app.unknown";
 }
+/** RevenueCat `PURCHASES_ERROR_CODE` values are short digit strings. */
+export function diagnosticStoreCode(value: unknown): string | undefined {
+  return typeof value === "string" && /^\d{1,3}$/.test(value)
+    ? value
+    : undefined;
+}
+function diagnosticTags(tags: Record<string, unknown> | undefined) {
+  const storeCode = diagnosticStoreCode(tags?.store_code);
+  return {
+    area: diagnosticArea(tags?.area),
+    ...(storeCode ? { store_code: storeCode } : {}),
+  };
+}
 /** Reconstruct, never spread raw SDK errors, requests, contexts or stack vars. */
 export function scrubCrashEvent(event: Record<string, unknown>) {
   const tags = event.tags as Record<string, unknown> | undefined;
@@ -154,7 +167,7 @@ export function scrubCrashEvent(event: Record<string, unknown>) {
         : undefined,
     level: "error" as const,
     platform: "javascript",
-    tags: { area: diagnosticArea(tags?.area) },
+    tags: diagnosticTags(tags),
     exception: {
       values: [
         { type: "ApplicationError", value: "Application operation failed" },

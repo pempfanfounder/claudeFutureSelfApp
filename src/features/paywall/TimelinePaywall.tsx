@@ -82,6 +82,8 @@ export function TimelinePaywall({
     setPurchasing(false);
     if (result.status === "purchased") {
       onPurchased();
+    } else if (result.status === "pending") {
+      Alert.alert("Purchase pending", result.message);
     } else if (result.status === "error") {
       Alert.alert("Purchase failed", result.message);
     }

@@ -143,6 +143,22 @@ test("finite environment and SDK event identity survive scrubbing for verified r
   ).not.toContain(canary);
 });
 
+test("only a short numeric store error code survives next to the area tag", () => {
+  const { scrubCrashEvent } = require("@/lib/diagnosticPolicy");
+  expect(
+    scrubCrashEvent({
+      tags: { area: "purchases.transaction", store_code: "2" },
+    }).tags,
+  ).toEqual({ area: "purchases.transaction", store_code: "2" });
+  for (const store_code of [canary, "12345", 2, "2a"]) {
+    expect(
+      scrubCrashEvent({
+        tags: { area: "purchases.transaction", store_code },
+      }).tags,
+    ).toEqual({ area: "purchases.transaction" });
+  }
+});
+
 test.each([
   undefined,
   { $geoip_disable: false, $process_person_profile: true },

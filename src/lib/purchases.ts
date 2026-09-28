@@ -172,7 +172,64 @@ export async function getCurrentOffering(): Promise<PurchasesOffering | null> {
 export type PurchaseOutcome =
   | { status: "purchased" }
   | { status: "cancelled" }
+  | { status: "pending"; message: string }
   | { status: "error"; message: string };
+
+/** String values of RevenueCat's `PURCHASES_ERROR_CODE` that we branch on. */
+const RC_ERROR = {
+  cancelled: "1",
+  storeProblem: "2",
+  notAllowed: "3",
+  invalid: "4",
+  productUnavailable: "5",
+  alreadyPurchased: "6",
+  receiptInUse: "7",
+  network: "10",
+  receiptInUseByOther: "13",
+  inProgress: "15",
+  pending: "20",
+  offline: "35",
+} as const;
+
+interface SdkError {
+  code?: string;
+  userCancelled?: boolean | null;
+}
+
+function sdkError(error: unknown): SdkError {
+  return typeof error === "object" && error !== null ? (error as SdkError) : {};
+}
+
+export const PURCHASE_PENDING_MESSAGE =
+  "Your purchase is waiting for approval (for example Ask to Buy). Premium unlocks as soon as it's approved.";
+
+/** User-facing text for a store error; the code lets support match logs. */
+export function purchaseErrorMessage(
+  error: unknown,
+  restoring = false,
+): string {
+  const { code } = sdkError(error);
+  const suffix = code ? ` (code ${code})` : "";
+  switch (code) {
+    case RC_ERROR.network:
+    case RC_ERROR.offline:
+      return `The App Store couldn't be reached. Check your connection and try again.${suffix}`;
+    case RC_ERROR.notAllowed:
+      return `Purchases aren't allowed on this device or account. Check Screen Time restrictions and your Apple Account payment settings.${suffix}`;
+    case RC_ERROR.productUnavailable:
+      return `This plan isn't available in your App Store region right now. Please try the other plan or try again later.${suffix}`;
+    case RC_ERROR.inProgress:
+      return `A purchase is already being processed. Wait a moment, then use Restore Purchases.${suffix}`;
+    case RC_ERROR.receiptInUse:
+    case RC_ERROR.receiptInUseByOther:
+      return `This Apple Account's subscription belongs to a different Future Self account. Sign in to that account, or contact support.${suffix}`;
+    case RC_ERROR.storeProblem:
+    case RC_ERROR.invalid:
+      return `The App Store couldn't finish this ${restoring ? "restore" : "purchase"}. Please try again${restoring ? "" : ", or use Restore Purchases if you were charged"}.${suffix}`;
+    default:
+      return `Could not complete this purchase or restore. Please try again.${suffix}`;
+  }
+}
 export const PURCHASE_ACCOUNT_REQUIRED =
   "Save this account with Apple, Google, or email before starting a subscription.";
 export function purchaseRequiresAccount(isAnonymous: boolean): boolean {
@@ -213,6 +270,30 @@ export async function syncEntitlementToServer(
     syncPending.delete(identity.userId);
   }
 }
+/**
+ * A store error does not always mean nothing was bought: StoreKit can
+ * finish the transaction while RevenueCat's post-purchase step fails, and
+ * an Apple Account that already owns the plan reports "already purchased".
+ * Re-read (or restore) once and accept the result only if it unlocks
+ * premium; otherwise the original error stands.
+ */
+async function recoverEntitlement(
+  error: unknown,
+  purchasing: boolean,
+): Promise<CustomerInfo | null> {
+  const { code, userCancelled } = sdkError(error);
+  if (userCancelled || code === RC_ERROR.cancelled || code === RC_ERROR.pending)
+    return null;
+  try {
+    const info =
+      purchasing && code === RC_ERROR.alreadyPurchased
+        ? await Purchases.restorePurchases()
+        : await Purchases.getCustomerInfo();
+    return hasPremium(info) ? info : null;
+  } catch {
+    return null;
+  }
+}
 let transactionRunning = false;
 async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
   const identity = captureIdentity();
@@ -239,9 +320,16 @@ async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
           status: "error",
           message: "Purchases are not available right now. Please retry.",
         };
-      const info = pkg
-        ? (await Purchases.purchasePackage(pkg)).customerInfo
-        : await Purchases.restorePurchases();
+      let info: CustomerInfo;
+      try {
+        info = pkg
+          ? (await Purchases.purchasePackage(pkg)).customerInfo
+          : await Purchases.restorePurchases();
+      } catch (error) {
+        const recovered = await recoverEntitlement(error, Boolean(pkg));
+        if (!recovered) throw error;
+        info = recovered;
+      }
       assertCurrentIdentity(identity);
       const premium = hasPremium(info);
       notify(premium, identity);
@@ -262,15 +350,21 @@ async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
       };
     }, 180_000);
   } catch (error) {
-    if ((error as { userCancelled?: boolean }).userCancelled)
+    const { code, userCancelled } = sdkError(error);
+    if (userCancelled || code === RC_ERROR.cancelled)
       return { status: "cancelled" };
-    monitoring.captureError(error, { area: "purchases.transaction" });
+    if (code === RC_ERROR.pending)
+      return { status: "pending", message: PURCHASE_PENDING_MESSAGE };
+    monitoring.captureError(error, {
+      area: "purchases.transaction",
+      ...(code ? { store_code: code } : {}),
+    });
     return {
       status: "error",
       message: sdkStalled
         ? "The purchase service has not finished. Restart the app, then use Restore Purchases to check the outcome."
         : isCurrentIdentity(identity)
-          ? "Could not complete this purchase or restore. Please try again."
+          ? purchaseErrorMessage(error, !pkg)
           : "Account changed. Return to your account to check the purchase.",
     };
   } finally {
