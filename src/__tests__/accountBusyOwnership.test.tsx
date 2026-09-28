@@ -280,11 +280,13 @@ test.each(["purchased", "error", "cancelled", "reject"] as const)(
     const restore = jest.mocked(restorePurchases);
     if (outcome === "reject")
       restore.mockRejectedValueOnce(new Error("Synthetic restore failed"));
-    else
+    else if (outcome === "error")
       restore.mockResolvedValueOnce({
-        status: outcome,
+        status: "error",
         message: "Synthetic restore failed",
       });
+    else
+      restore.mockResolvedValueOnce({ status: outcome });
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     const screen = await mount();
     await act(async () => {
