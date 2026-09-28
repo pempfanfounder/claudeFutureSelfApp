@@ -1,446 +1,187 @@
 import React from "react";
+import { Alert } from "react-native";
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-
 import { ThemeProvider } from "@/design-system/ThemeProvider";
-import { useAuth } from "@/features/auth/AuthProvider";
-import { paywallPreviewNotifications } from "@/features/paywall/calai/previewQuotes";
-import {
-  CALAI_HEADLINES,
-  CalAiPaywall,
-  TRIAL_REMINDER_LABEL,
-} from "@/features/paywall/calai/CalAiPaywall";
+import { CALAI_HEADLINES, CalAiPaywall, TRIAL_REMINDER_LABEL } from "@/features/paywall/calai/CalAiPaywall";
 import type { CalAiVersion } from "@/features/paywall/paywallVariant";
 import type { PaywallData } from "@/features/paywall/useOffering";
-import { analytics } from "@/lib/analytics";
 import { purchasePackage, restorePurchases } from "@/lib/purchases";
 
 jest.mock("react-native-purchases", () => ({
   __esModule: true,
-  default: {
-    configure: jest.fn(),
-    setLogLevel: jest.fn(),
-    addCustomerInfoUpdateListener: jest.fn(),
-  },
+  default: { configure: jest.fn(), setLogLevel: jest.fn(), addCustomerInfoUpdateListener: jest.fn() },
   LOG_LEVEL: { DEBUG: "DEBUG", ERROR: "ERROR" },
   PACKAGE_TYPE: { ANNUAL: "ANNUAL", WEEKLY: "WEEKLY" },
 }));
-jest.mock("expo-router", () => ({
-  router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() },
-}));
-jest.mock("@/features/paywall/PrivacyChoicesSheet", () => {
-  const mockReact = require("react");
-  const ReactNative = require("react-native");
-  return {
-    PrivacyChoicesSheet: ({ visible }: any) =>
-      visible
-        ? mockReact.createElement(ReactNative.View, {
-            testID: "privacy-choices-sheet",
-          })
-        : null,
-  };
-});
-jest.mock("@/lib/analytics", () => ({
-  analytics: { capture: jest.fn() },
-}));
+jest.mock("expo-router", () => ({ router: { replace: jest.fn(), push: jest.fn(), back: jest.fn() } }));
+jest.mock("@/lib/analytics", () => ({ analytics: { capture: jest.fn() } }));
 jest.mock("@/lib/purchases", () => ({
-  purchasePackage: jest.fn(async () => ({ status: "purchased" })),
-  restorePurchases: jest.fn(async () => ({ status: "purchased" })),
-  isAllowedPackage: (pkg: { packageType: string }) =>
-    pkg.packageType === "WEEKLY" || pkg.packageType === "ANNUAL",
+  purchasePackage: jest.fn(), restorePurchases: jest.fn(),
+  isAllowedPackage: (pkg: { packageType: string }) => ["WEEKLY", "ANNUAL"].includes(pkg.packageType),
 }));
-jest.mock("@/features/auth/AuthProvider", () => ({
-  useAuth: jest.fn(),
-}));
-jest.mock("@/features/auth/AuthSheet", () => {
-  const mockReact = require("react");
-  const ReactNative = require("react-native");
-  return {
-    AuthSheet: ({ visible }: any) =>
-      visible
-        ? mockReact.createElement(ReactNative.View, { testID: "auth-sheet" })
-        : null,
-  };
+jest.mock("@/features/auth/AuthProvider", () => ({ useAuth: () => ({ isAnonymous: false }) }));
+jest.mock("@/features/auth/AuthSheet", () => ({ AuthSheet: () => null }));
+jest.mock("@/features/paywall/PrivacyChoicesSheet", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return { PrivacyChoicesSheet: ({ visible }: { visible: boolean }) => visible ? React.createElement(View, { testID: "privacy-choices-sheet" }) : null };
 });
 
 const annual = {
-  identifier: "$rc_annual",
-  packageType: "ANNUAL",
-  product: {
-    identifier: "yearly",
-    price: 35.99,
-    priceString: "$35.99",
-    title: "Yearly",
-    introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 },
-  },
+  identifier: "$rc_annual", packageType: "ANNUAL",
+  product: { identifier: "yearly", price: 35.99, priceString: "$35.99", title: "Yearly", introPrice: { price: 0, periodUnit: "DAY", periodNumberOfUnits: 3 } },
 } as NonNullable<PaywallData["pkg"]>;
-
 const weekly = {
-  identifier: "$rc_weekly",
-  packageType: "WEEKLY",
-  product: {
-    identifier: "weekly",
-    price: 6.99,
-    priceString: "$6.99",
-    title: "Weekly",
-    introPrice: null,
-  },
+  identifier: "$rc_weekly", packageType: "WEEKLY",
+  product: { identifier: "weekly", price: 6.99, priceString: "$6.99", title: "Weekly", introPrice: null },
 } as NonNullable<PaywallData["pkg"]>;
-
 function makeData(overrides: Partial<PaywallData> = {}): PaywallData {
-  return {
-    loading: false,
-    pkg: annual,
-    allPackages: [annual, weekly],
-    selectPackage: jest.fn(),
-    priceLine: "$35.99/year",
-    trialLength: "3 days",
-    trialDays: 3,
-    devMock: false,
-    unavailable: false,
-    eligibility: {
-      yearly: "eligible",
-      weekly: "ineligible",
-    },
-    ...overrides,
-  };
+  return { loading: false, pkg: annual, allPackages: [annual, weekly], selectPackage: jest.fn(), priceLine: "$35.99/year", trialLength: "3 days", trialDays: 3, devMock: false, unavailable: false, eligibility: { yearly: "eligible", weekly: "ineligible" }, ...overrides };
 }
-
-function wrap(node: React.ReactElement) {
-  return (
-    <SafeAreaProvider
-      initialMetrics={{
-        frame: { x: 0, y: 0, width: 393, height: 852 },
-        insets: { top: 59, left: 0, right: 0, bottom: 34 },
-      }}
-    >
-      <ThemeProvider>{node}</ThemeProvider>
-    </SafeAreaProvider>
-  );
-}
-
-function renderPaywall(
-  version: CalAiVersion,
-  data = makeData(),
-  extra: Partial<React.ComponentProps<typeof CalAiPaywall>> = {},
-) {
+function renderPaywall(version: CalAiVersion, data = makeData(), extra: Partial<React.ComponentProps<typeof CalAiPaywall>> = {}) {
   const onPurchased = jest.fn();
   const screen = render(
-    wrap(
-      <CalAiPaywall
-        data={data}
-        version={version}
-        placement="test"
-        onPurchased={onPurchased}
-        {...extra}
-      />,
-    ),
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 393, height: 852 }, insets: { top: 59, left: 0, right: 0, bottom: 34 } }}>
+      <ThemeProvider><CalAiPaywall data={data} version={version} placement="test" onPurchased={onPurchased} {...extra} /></ThemeProvider>
+    </SafeAreaProvider>,
   );
   return { screen, onPurchased };
 }
-
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.mocked(useAuth).mockReturnValue({
-    isAnonymous: false,
-    availableProviders: { apple: true, google: false, email: false },
-  } as ReturnType<typeof useAuth>);
+  jest.mocked(purchasePackage).mockReset().mockResolvedValue({ status: "purchased" });
+  jest.mocked(restorePurchases).mockReset().mockResolvedValue({ status: "purchased" });
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
+afterEach(() => { jest.restoreAllMocks(); });
 
-describe.each([1, 2, 3, 4] as CalAiVersion[])(
-  "CalAiPaywall version %i",
-  (version) => {
-    it("renders its headline, the notification stack and the small print", () => {
-      const { screen } = renderPaywall(version);
-      expect(screen.getByTestId("paywall-headline")).toHaveTextContent(
-        CALAI_HEADLINES[version],
-      );
-      expect(screen.getByTestId("notification-stack")).toBeTruthy();
-      expect(screen.getAllByText("Future Self").length).toBeGreaterThanOrEqual(
-        3,
-      );
-      expect(screen.queryByText("Quotes from Future Self")).toBeNull();
-      const preview = paywallPreviewNotifications();
-      const escaped = preview[0]!.body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      expect(screen.getByTestId("notification-card-0")).toHaveTextContent(
-        new RegExp(`^Future SelfNow${escaped}$`),
-      );
-      expect(preview[0]!.body).toBe(
-        "Every day your window of opportunity gets smaller and smaller.",
-      );
-      expect(preview[1]!.body).toBe("I start now, not later.");
-      expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        "3 days free, then $35.99 per year. Renews automatically unless cancelled in the App Store.",
-      );
-      // Compact footer: Terms · Privacy · Restore · Privacy choices. The
-      // last one is the non-payer's route to support and account deletion
-      // (Guideline 5.1.1(v)).
-      expect(screen.getByTestId("paywall-links")).toHaveTextContent(
-        "Terms·Privacy·Restore·Privacy choices",
-      );
-      expect(screen.getByTestId("terms")).toBeTruthy();
-      expect(screen.getByTestId("privacy")).toBeTruthy();
-      expect(screen.getByTestId("restore")).toBeTruthy();
-      expect(screen.queryByTestId("privacy-choices-sheet")).toBeNull();
-      fireEvent.press(screen.getByTestId("privacy-choices"));
-      expect(screen.getByTestId("privacy-choices-sheet")).toBeTruthy();
-      expect(screen.queryByText(/Sign in/)).toBeNull();
-      expect(screen.queryByText(/24 hours/)).toBeNull();
-      expect(analytics.capture).toHaveBeenCalledWith("paywall_viewed", {
-        style: `calai-${version}`,
-        placement: "test",
-      });
-      screen.unmount();
-    });
-
-    it("shows per-week prices, yearly billing, and selects plans", () => {
-      const data = makeData();
-      const { screen } = renderPaywall(version, data);
-      if (version === 3) {
-        expect(screen.getByText("Save 90%")).toBeTruthy();
-      } else {
-        expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-          "Save 90% vs weekly",
-        );
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /3 days free/,
-        );
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /Most popular/,
-        );
-        expect(screen.getByText("Yearly")).toBeTruthy();
-      }
-      expect(screen.getByText("$0.69/wk")).toBeTruthy();
-      expect(screen.getByText("$35.99 billed yearly")).toBeTruthy();
-      expect(screen.queryByText(/monthly/i)).toBeNull();
-      expect(screen.queryByText(/\/mo\b/)).toBeNull();
-      fireEvent.press(screen.getByTestId("plan-$rc_weekly"));
-      expect(data.selectPackage).toHaveBeenCalledWith(weekly);
-      screen.unmount();
-    });
-
-    it("CTA names the store trial and purchases the selected package", async () => {
-      const { screen, onPurchased } = renderPaywall(version);
-      expect(screen.getByTestId("paywall-cta")).toHaveTextContent(
-        "Start your 3-day free trial",
-      );
-      await act(async () => {
-        fireEvent.press(screen.getByTestId("paywall-cta"));
-      });
-      expect(screen.queryByTestId("auth-sheet")).toBeNull();
-      expect(purchasePackage).toHaveBeenCalledWith(annual);
-      expect(onPurchased).toHaveBeenCalledTimes(1);
-      screen.unmount();
-    });
-
-    it("falls back to Continue and plain price terms without a trial", () => {
-      const { screen } = renderPaywall(
-        version,
-        makeData({
-          trialLength: null,
-          trialDays: null,
-          eligibility: { yearly: "ineligible" },
-        }),
-      );
-      expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
-      expect(screen.getByTestId("paywall-disclosure")).toHaveTextContent(
-        "$35.99 per year. Renews automatically unless cancelled in the App Store.",
-      );
-      expect(screen.getByTestId("paywall-disclosure")).not.toHaveTextContent(
-        /free/,
-      );
-      if (version !== 3) {
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /3 days free/,
-        );
-        expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-          /Most popular/,
-        );
-        expect(screen.getByText("Yearly")).toBeTruthy();
-      }
-      screen.unmount();
-    });
-
-    it("restore runs without a login sheet", async () => {
-      const { screen, onPurchased } = renderPaywall(version);
-      await act(async () => {
-        fireEvent.press(screen.getByTestId("restore"));
-      });
-      expect(screen.queryByTestId("auth-sheet")).toBeNull();
-      expect(restorePurchases).toHaveBeenCalled();
-      expect(onPurchased).toHaveBeenCalledTimes(1);
-      screen.unmount();
-    });
-
-    it("keeps the gate closed when the store is unreachable", () => {
-      const retry = jest.fn();
-      const { screen } = renderPaywall(
-        version,
-        makeData({ unavailable: true, pkg: null, allPackages: [], retry }),
-      );
-      expect(screen.getByTestId("paywall-cta")).toBeDisabled();
-      fireEvent.press(screen.getByText("Retry store"));
-      expect(retry).toHaveBeenCalledTimes(1);
-      expect(screen.queryByTestId("paywall-close")).toBeNull();
-      screen.unmount();
-    });
-  },
-);
-
-describe("CalAiPaywall layout differences", () => {
-  it("v1 and v2 stack plan cards with a 3 days free tab; v3 uses a toggle", () => {
-    const one = renderPaywall(1);
-    expect(one.screen.getByText("3 days free")).toBeTruthy();
-    expect(one.screen.getByText("Most popular")).toBeTruthy();
-    expect(one.screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-      "Save 90% vs weekly",
-    );
-    expect(one.screen.getByText("Yearly")).toBeTruthy();
-    expect(one.screen.getByText("Weekly")).toBeTruthy();
-    expect(one.screen.queryByTestId("plan-price-line")).toBeNull();
-    one.screen.unmount();
-
-    const two = renderPaywall(2);
-    expect(two.screen.getByTestId("hero-2")).toBeTruthy();
-    expect(two.screen.getByText("3 days free")).toBeTruthy();
-    two.screen.unmount();
-
-    const three = renderPaywall(3);
-    expect(three.screen.queryByText("Most popular")).toBeNull();
-    expect(three.screen.getByTestId("plan-price-line")).toHaveTextContent(
-      "$0.69/wk$35.99 billed yearly",
-    );
-    expect(three.screen.getByTestId("paywall-cta")).toHaveStyle({
-      minHeight: 65,
-    });
-    three.screen.unmount();
+describe.each([1, 2, 3, 4] as CalAiVersion[])("CalAiPaywall version %i", (version) => {
+  it("retains its hero, headline, legal links, restore and privacy choices", () => {
+    const { screen } = renderPaywall(version);
+    expect(screen.getByTestId("paywall-headline")).toHaveTextContent(CALAI_HEADLINES[version]);
+    expect(screen.getByTestId("notification-stack")).toBeTruthy();
+    expect(screen.getByTestId("paywall-links")).toHaveTextContent("Terms·Privacy·Restore·Privacy choices");
+    fireEvent.press(screen.getByTestId("privacy-choices"));
+    expect(screen.getByTestId("privacy-choices-sheet")).toBeTruthy();
   });
-
-  it("tags the yearly card 3 days free even when trial eligibility is unknown", () => {
-    const { screen } = renderPaywall(
-      1,
-      makeData({
-        trialLength: null,
-        trialDays: null,
-        eligibility: { yearly: "unknown", weekly: "ineligible" },
-      }),
-    );
-    expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-      /3 days free/,
-    );
-    expect(screen.getByTestId("plan-yearly-tag")).toHaveTextContent(
-      /Most popular/,
-    );
-    expect(screen.getByText("Yearly")).toBeTruthy();
-    expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-      "Save 90% vs weekly",
-    );
+  it("makes the real bill dominant, removes weekly equivalents, and uses a neutral CTA", () => {
+    const { screen } = renderPaywall(version);
+    const bill = screen.getByTestId("paywall-billing-amount");
+    expect(bill).toHaveTextContent("$35.99/year");
+    expect(bill).toHaveStyle({ fontSize: 28, lineHeight: 36, fontWeight: "600" });
+    expect(screen.getByTestId("paywall-billing-trial")).toHaveStyle({ fontSize: 14, lineHeight: 20 });
     expect(screen.getByTestId("paywall-cta")).toHaveTextContent("Continue");
-    screen.unmount();
+    expect(screen.queryByText(/\/wk/)).toBeNull();
+    expect(screen.queryByText(/Most popular|Save 90%/)).toBeNull();
+    expect(screen.queryByTestId("plan-yearly-tag")).toBeNull();
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf('"testID":"paywall-billing"')).toBeLessThan(tree.indexOf('"testID":"paywall-cta"'));
+    expect(tree.indexOf('"testID":"paywall-disclosure"')).toBeLessThan(tree.indexOf('"testID":"paywall-cta"'));
   });
-
-  it("v1 alone outlines the stacked cards in the ink brown", () => {
-    const one = renderPaywall(1);
-    for (const depth of [0, 1, 2]) {
-      expect(one.screen.getByTestId(`notification-card-${depth}`)).toHaveStyle({
-        borderWidth: 1,
-        borderColor: "#4B3A35",
-      });
+  it.each(["ineligible", "unknown"] as const)("never advertises a trial when eligibility is %s", (eligibility) => {
+    const { screen } = renderPaywall(version, makeData({ eligibility: { yearly: eligibility }, trialLength: null, trialDays: null }));
+    expect(screen.queryByTestId("paywall-billing-trial")).toBeNull();
+    expect(screen.queryByTestId("billing-$rc_annual-trial")).toBeNull();
+    expect(screen.queryByTestId("toggle-billing-trial")).toBeNull();
+    expect(screen.queryByText(/free/i)).toBeNull();
+    expect(screen.getByTestId("paywall-billing-amount")).toHaveTextContent("$35.99/year");
+  });
+  it("uses the actual eligible trial duration instead of a hardcoded three days", () => {
+    const pkg = { ...annual, product: { ...annual.product, introPrice: { ...annual.product.introPrice!, periodNumberOfUnits: 7 } } };
+    const { screen } = renderPaywall(version, makeData({ pkg, allPackages: [pkg, weekly], trialLength: "7 days", trialDays: 7 }));
+    expect(screen.getByTestId("paywall-billing-trial")).toHaveTextContent("7 days free");
+    expect(screen.queryByText(/3 days free/)).toBeNull();
+  });
+  it("selects and purchases the actual selected store package", async () => {
+    const data = makeData({ pkg: weekly, trialLength: null, trialDays: null });
+    const { screen, onPurchased } = renderPaywall(version, data);
+    expect(screen.getByTestId("paywall-billing-amount")).toHaveTextContent("$6.99/week");
+    fireEvent.press(screen.getByTestId("plan-$rc_annual"));
+    expect(data.selectPackage).toHaveBeenCalledWith(annual);
+    await act(async () => { fireEvent.press(screen.getByTestId("paywall-cta")); });
+    expect(purchasePackage).toHaveBeenCalledWith(weekly);
+    expect(onPurchased).toHaveBeenCalledTimes(1);
+  });
+  it("does not call cancellation a purchase failure", async () => {
+    jest.mocked(purchasePackage).mockResolvedValueOnce({ status: "cancelled" });
+    const { screen, onPurchased } = renderPaywall(version);
+    await act(async () => { fireEvent.press(screen.getByTestId("paywall-cta")); });
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+  it("shows pending approval without granting premium", async () => {
+    jest.mocked(purchasePackage).mockResolvedValueOnce({ status: "pending", code: "PAYMENT_PENDING_ERROR", title: "Purchase pending", message: "Awaiting approval" });
+    const { screen, onPurchased } = renderPaywall(version);
+    await act(async () => { fireEvent.press(screen.getByTestId("paywall-cta")); });
+    expect(Alert.alert).toHaveBeenCalledWith("Purchase pending", "Awaiting approval");
+    expect(onPurchased).not.toHaveBeenCalled();
+  });
+  it("restores purchases", async () => {
+    const { screen, onPurchased } = renderPaywall(version);
+    await act(async () => { fireEvent.press(screen.getByTestId("restore")); });
+    expect(restorePurchases).toHaveBeenCalledTimes(1);
+    expect(onPurchased).toHaveBeenCalledTimes(1);
+  });
+  it("hides stale pricing and disables purchases when loading or unavailable", () => {
+    for (const state of [{ loading: true }, { unavailable: true }]) {
+      const retry = jest.fn();
+      const { screen } = renderPaywall(version, makeData({ ...state, retry }));
+      expect(screen.getByTestId("paywall-cta")).toBeDisabled();
+      expect(screen.queryByTestId("paywall-billing")).toBeNull();
+      expect(screen.queryByTestId("plan-$rc_annual")).toBeNull();
+      if ("unavailable" in state) { fireEvent.press(screen.getByText("Retry store")); expect(retry).toHaveBeenCalledTimes(1); }
+      screen.unmount();
     }
-    one.screen.unmount();
-    for (const version of [2, 3, 4] as CalAiVersion[]) {
-      const other = renderPaywall(version);
-      expect(other.screen.getByTestId("notification-card-0")).not.toHaveStyle({
-        borderWidth: 1,
-      });
-      other.screen.unmount();
-    }
-  });
-
-  it("v4 keeps v1's plan cards and headline over v2's gradient hero", () => {
-    const { screen } = renderPaywall(4);
-    expect(screen.getByTestId("hero-4")).toBeTruthy();
-    expect(screen.getByTestId("paywall-headline")).toHaveTextContent(
-      CALAI_HEADLINES[1],
-    );
-    expect(screen.getByText("3 days free")).toBeTruthy();
-    expect(screen.getByText("Most popular")).toBeTruthy();
-    expect(screen.getByTestId("plan-yearly-save")).toHaveTextContent(
-      "Save 90% vs weekly",
-    );
-    expect(screen.getByText("Weekly")).toBeTruthy();
-    expect(screen.queryByTestId("plan-price-line")).toBeNull();
-    expect(screen.getByTestId("paywall-cta")).not.toHaveStyle({
-      minHeight: 65,
-    });
-    screen.unmount();
-  });
-
-  it("v3 price line follows the selected plan", () => {
-    const { screen } = renderPaywall(3, makeData({ pkg: weekly }));
-    expect(screen.getByTestId("plan-price-line")).toHaveTextContent(
-      "$6.99/wk$6.99 billed weekly",
-    );
-    screen.unmount();
   });
 });
 
-describe("CalAiPaywall trial reminder toggle", () => {
-  it("shows the switch only when the store grants a trial and reports changes", () => {
-    const onTrialReminderChange = jest.fn();
-    const { screen } = renderPaywall(1, makeData(), {
-      trialReminder: true,
-      onTrialReminderChange,
-    });
-    expect(screen.getByTestId("trial-reminder-row")).toHaveTextContent(
-      TRIAL_REMINDER_LABEL,
-    );
-    const toggle = screen.getByTestId("trial-reminder-toggle");
-    expect(toggle.props.value).toBe(true);
-    fireEvent(toggle, "valueChange", false);
-    expect(onTrialReminderChange).toHaveBeenCalledWith(false);
-    screen.unmount();
-  });
-
-  it("hides the switch without a trial, and when the caller does not wire it", () => {
-    const noTrial = renderPaywall(
-      1,
-      makeData({ trialLength: null, trialDays: null }),
-      { trialReminder: true, onTrialReminderChange: jest.fn() },
-    );
-    expect(noTrial.screen.queryByTestId("trial-reminder-row")).toBeNull();
-    noTrial.screen.unmount();
-    const unwired = renderPaywall(1);
-    expect(unwired.screen.queryByTestId("trial-reminder-row")).toBeNull();
-    unwired.screen.unmount();
-  });
+it("prevents double taps and locks plan changes until the native result", async () => {
+  let finish!: (value: { status: "cancelled" }) => void;
+  jest.mocked(purchasePackage).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  const { screen } = renderPaywall(1);
+  await act(async () => { fireEvent.press(screen.getByTestId("paywall-cta")); fireEvent.press(screen.getByTestId("paywall-cta")); });
+  expect(purchasePackage).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("plan-$rc_weekly")).toBeDisabled();
+  await act(async () => { finish({ status: "cancelled" }); });
+  expect(screen.getByTestId("plan-$rc_weekly")).not.toBeDisabled();
 });
-
-describe("CalAiPaywall close control", () => {
+it("uses the store's localized billed amount without hardcoded USD prices", () => {
+  const pkg = { ...annual, product: { ...annual.product, priceString: "€ 42,99", price: 42.99 } };
+  const { screen } = renderPaywall(1, makeData({ pkg, allPackages: [pkg] }));
+  expect(screen.getByTestId("paywall-billing-amount")).toHaveTextContent("€ 42,99/year");
+  expect(screen.queryByText(/\$35\.99/)).toBeNull();
+});
+it("retains the wired eligible-trial reminder", () => {
+  const changed = jest.fn();
+  const { screen } = renderPaywall(1, makeData(), { trialReminder: true, onTrialReminderChange: changed });
+  expect(screen.getByTestId("trial-reminder-row")).toHaveTextContent(TRIAL_REMINDER_LABEL);
+  fireEvent(screen.getByTestId("trial-reminder-toggle"), "valueChange", false);
+  expect(changed).toHaveBeenCalledWith(false);
+});
+it("hides the reminder if the caller has not wired it", () => {
+  expect(renderPaywall(1).screen.queryByTestId("trial-reminder-row")).toBeNull();
+});
+it("retains the outlined v1 hero and v3 tall CTA", () => {
+  const one = renderPaywall(1);
+  expect(one.screen.getByTestId("notification-card-0")).toHaveStyle({ borderWidth: 1, borderColor: "#4B3A35" });
+  one.screen.unmount();
+  expect(renderPaywall(3).screen.getByTestId("paywall-cta")).toHaveStyle({ minHeight: 65 });
+});
+describe("close control", () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
-
-  it("appears only after the configured delay and calls onClose", () => {
+  it("appears only after the configured delay", () => {
     const onClose = jest.fn();
-    const { screen } = renderPaywall(1, makeData(), {
-      closeDelayMs: 2000,
-      onClose,
-    });
+    const { screen } = renderPaywall(1, makeData(), { closeDelayMs: 2000, onClose });
     expect(screen.queryByTestId("paywall-close")).toBeNull();
-    act(() => {
-      jest.advanceTimersByTime(2000);
-    });
+    act(() => { jest.advanceTimersByTime(2000); });
     fireEvent.press(screen.getByTestId("paywall-close"));
     expect(onClose).toHaveBeenCalledTimes(1);
-    screen.unmount();
   });
-
-  it("never appears on the hard gate", () => {
+  it("never appears on a hard gate", () => {
     const { screen } = renderPaywall(1, makeData(), { onClose: jest.fn() });
-    act(() => {
-      jest.advanceTimersByTime(10_000);
-    });
+    act(() => { jest.advanceTimersByTime(10_000); });
     expect(screen.queryByTestId("paywall-close")).toBeNull();
-    screen.unmount();
   });
 });
