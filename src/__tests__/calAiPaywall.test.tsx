@@ -90,7 +90,7 @@ describe.each([1, 2, 3, 4] as CalAiVersion[])("CalAiPaywall version %i", (versio
   it("uses the actual eligible trial duration instead of a hardcoded three days", () => {
     const pkg = { ...annual, product: { ...annual.product, introPrice: { ...annual.product.introPrice!, periodNumberOfUnits: 7 } } };
     const { screen } = renderPaywall(version, makeData({ pkg, allPackages: [pkg, weekly], trialLength: "7 days", trialDays: 7 }));
-    expect(screen.getByTestId("paywall-billing-trial")).toHaveTextContent("7 days free");
+    expect(screen.getByTestId("paywall-billing-trial")).toHaveTextContent("7 days free before the first payment");
     expect(screen.queryByText(/3 days free/)).toBeNull();
   });
   it("selects and purchases the actual selected store package", async () => {
