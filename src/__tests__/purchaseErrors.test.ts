@@ -3,10 +3,12 @@ import { useAppState } from "@/lib/appState";
 import { monitoring } from "@/lib/monitoring";
 import {
   PURCHASE_PENDING_MESSAGE,
+  getIsPremium,
   initPurchases,
   logInPurchases,
   purchaseErrorMessage,
   purchasePackage,
+  purchasesNeedRestart,
   restorePurchases,
 } from "@/lib/purchases";
 
@@ -125,6 +127,27 @@ test("restore failures use restore wording", async () => {
     "message",
     "The App Store couldn't be reached. Check your connection and try again. (code 10)",
   );
+});
+
+test("a slow StoreKit sheet is not failed while a refresh waits behind it", async () => {
+  jest.useFakeTimers();
+  try {
+    let finish!: (value: unknown) => void;
+    jest
+      .mocked(Purchases.purchasePackage)
+      .mockReturnValue(new Promise((resolve) => (finish = resolve)) as never);
+    const purchase = purchasePackage(annual);
+    const refresh = getIsPremium();
+    await jest.advanceTimersByTimeAsync(300_000);
+    expect(purchasesNeedRestart()).toBe(false);
+    jest.mocked(Purchases.getCustomerInfo).mockResolvedValue(active as never);
+    finish({ customerInfo: active });
+    expect(await purchase).toEqual({ status: "purchased" });
+    await expect(refresh).resolves.toBe(true);
+    expect(Purchases.purchasePackage).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test("error messages cover the common store codes and unknown errors", () => {

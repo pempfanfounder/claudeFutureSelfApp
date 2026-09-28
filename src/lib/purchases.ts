@@ -15,47 +15,20 @@ import {
 } from "./appState";
 import { config } from "./config";
 import { monitoring } from "./monitoring";
+import { createPurchaseQueue } from "./purchaseQueue";
 import { getIdentitySupabase } from "./supabase";
 
 export const PREMIUM_ENTITLEMENT_ID = config.rcEntitlementId;
 let configured = false;
 let sdkUserId: string | null = null;
-let sdkQueue: Promise<unknown> = Promise.resolve();
-let sdkStalled = false;
+const sdkQueue = createPurchaseQueue();
 export function purchasesNeedRestart() {
-  return sdkStalled;
+  return sdkQueue.isStalled();
 }
 const mockPremium = new Map<string, boolean>();
 type PremiumListener = (premium: boolean, identity?: Identity) => void;
 const listeners = new Set<PremiumListener>();
-function serial<T>(work: () => Promise<T>, timeoutMs = 10_000): Promise<T> {
-  if (sdkStalled)
-    return Promise.reject(
-      new Error(
-        "The purchase service has not finished. Restart the app to reconnect safely.",
-      ),
-    );
-  const result = sdkQueue.then(work, work);
-  sdkQueue = result.catch(() => {});
-  let timer: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      sdkStalled = true;
-      reject(
-        new Error(
-          "The purchase service has not finished. Restart the app to reconnect safely.",
-        ),
-      );
-    }, timeoutMs);
-  });
-  void result
-    .finally(() => {
-      clearTimeout(timer);
-      sdkStalled = false;
-    })
-    .catch(() => {});
-  return Promise.race([result, timeout]);
-}
+const serial = sdkQueue.run;
 
 export function isConfigured() {
   return configured || config.devMockPurchases;
@@ -348,7 +321,9 @@ async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
           ? "Purchase did not unlock premium. Try Restore Purchases."
           : "No previous purchase was found for this account.",
       };
-    }, 180_000);
+      // A JavaScript deadline cannot cancel the native sheet; waiting for the
+      // real result is what keeps a retry from starting a second charge.
+    }, null);
   } catch (error) {
     const { code, userCancelled } = sdkError(error);
     if (userCancelled || code === RC_ERROR.cancelled)
@@ -361,7 +336,7 @@ async function transaction(pkg?: PurchasesPackage): Promise<PurchaseOutcome> {
     });
     return {
       status: "error",
-      message: sdkStalled
+      message: sdkQueue.isStalled()
         ? "The purchase service has not finished. Restart the app, then use Restore Purchases to check the outcome."
         : isCurrentIdentity(identity)
           ? purchaseErrorMessage(error, !pkg)
